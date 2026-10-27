@@ -90,7 +90,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
             <p className="text-sm font-semibold text-white truncate">Nguyễn Tiến Thành</p>
             <p className="text-xs text-slate-400 truncate">Family Admin</p>
           </div>
-          <button className="text-slate-400 hover:text-white p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab('auth')}
+            title="Đăng xuất / Màn hình Đăng nhập & Đăng ký"
+            className="text-slate-400 hover:text-rose-400 p-2 rounded-xl hover:bg-slate-700/50 transition-colors"
+          >
             <Settings className="w-5 h-5" />
           </button>
         </div>

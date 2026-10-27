@@ -34,6 +34,15 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Tháng 10, 2026</span>
         </div>
 
+        {/* View Auth Page Button */}
+        <button
+          onClick={() => (window as any).toggleAuthPage && (window as any).toggleAuthPage()}
+          title="Xem trang Đăng ký / Đăng nhập"
+          className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-600 transition-colors"
+        >
+          🔐 Đăng nhập / Đăng ký
+        </button>
+
         {/* Notification Bell */}
         <button
           title="Thông báo ngân sách"

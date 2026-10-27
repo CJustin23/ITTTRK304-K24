@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { StatCard } from './components/StatCard';
@@ -8,8 +8,9 @@ import { CategoryList } from './components/CategoryList';
 import { ActivityList } from './components/ActivityList';
 import { BotInsightModal } from './components/BotInsightModal';
 import { NewTransactionModal } from './components/NewTransactionModal';
+import { AuthPage } from './pages/AuthPage';
 import { useStore } from './store/useStore';
-import { Wallet, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
 import { Transaction } from './types';
 
 export const App: React.FC = () => {
@@ -17,6 +18,7 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
+    currentUser,
     wallets,
     recentTransactions,
     dashboardSummary,
@@ -29,6 +31,12 @@ export const App: React.FC = () => {
     setWallets,
   } = useStore();
 
+  useEffect(() => {
+    (window as any).toggleAuthPage = () => {
+      setActiveTab((prev) => (prev === 'auth' ? 'overview' : 'auth'));
+    };
+  }, []);
+
   const handleCreateTransaction = (data: {
     walletId: number;
     actionTitle: string;
@@ -37,7 +45,6 @@ export const App: React.FC = () => {
     categoryName: string;
     note?: string;
   }) => {
-    // 1. Calculate updated balance
     const wallet = wallets.find((w) => w.id === data.walletId);
     const currentBalance = wallet ? wallet.balance : 0;
     const newBalance =
@@ -45,7 +52,6 @@ export const App: React.FC = () => {
         ? currentBalance + data.amount
         : currentBalance - data.amount;
 
-    // 2. Add transaction record
     const newTx: Transaction = {
       id: Date.now(),
       walletId: data.walletId,
@@ -61,12 +67,29 @@ export const App: React.FC = () => {
 
     setTransactions([newTx, ...recentTransactions]);
 
-    // 3. Update wallet balance
     const updatedWallets = wallets.map((w) =>
       w.id === data.walletId ? { ...w, balance: newBalance } : w
     );
     setWallets(updatedWallets);
   };
+
+  // Nếu người dùng chọn tab auth hoặc chưa đăng nhập thì hiển thị AuthPage
+  if (activeTab === 'auth' || !currentUser) {
+    return (
+      <div className="relative">
+        {currentUser && (
+          <button
+            onClick={() => setActiveTab('overview')}
+            className="fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 backdrop-blur-md shadow-xl transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay lại Dashboard</span>
+          </button>
+        )}
+        <AuthPage onSuccess={() => setActiveTab('overview')} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
@@ -90,7 +113,7 @@ export const App: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-                Xin chào, Nguyễn Tiến Thành 👋
+                Xin chào, {currentUser?.fullName || 'Nguyễn Tiến Thành'} 👋
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 Đây là bức tranh tài chính tổng quan của cá nhân và quỹ gia đình tháng 10/2026.
