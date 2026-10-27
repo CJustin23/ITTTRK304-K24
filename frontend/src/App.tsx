@@ -29,13 +29,18 @@ export const App: React.FC = () => {
     setTransactionModalOpen,
     setTransactions,
     setWallets,
+    logout,
   } = useStore();
 
   useEffect(() => {
     (window as any).toggleAuthPage = () => {
       setActiveTab((prev) => (prev === 'auth' ? 'overview' : 'auth'));
     };
-  }, []);
+    (window as any).handleLogout = () => {
+      logout();
+      setActiveTab('overview');
+    };
+  }, [logout]);
 
   const handleCreateTransaction = (data: {
     walletId: number;

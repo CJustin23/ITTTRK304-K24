@@ -34,13 +34,17 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Tháng 10, 2026</span>
         </div>
 
-        {/* View Auth Page Button */}
+        {/* Logout Button */}
         <button
-          onClick={() => (window as any).toggleAuthPage && (window as any).toggleAuthPage()}
-          title="Xem trang Đăng ký / Đăng nhập"
-          className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-600 transition-colors"
+          onClick={() => {
+            if ((window as any).handleLogout) {
+              (window as any).handleLogout();
+            }
+          }}
+          title="Đăng xuất khỏi hệ thống"
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 text-slate-600 transition-colors"
         >
-          🔐 Đăng nhập / Đăng ký
+          <span>Đăng xuất</span>
         </button>
 
         {/* Notification Bell */}

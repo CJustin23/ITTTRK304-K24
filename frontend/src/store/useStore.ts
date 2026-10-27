@@ -23,15 +23,8 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  currentUser: {
-    id: 1,
-    fullName: 'Nguyễn Tiến Thành',
-    email: 'thanh.nt@budglee.com',
-    role: 'FAMILY_ADMIN',
-    familyGroupId: 'FAM-001',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-  },
-  token: localStorage.getItem('budglee_token') || 'mock-dev-jwt-token',
+  currentUser: null,
+  token: null,
   wallets: [
     { id: 1, walletName: 'Techcombank Primary', cardNumberMasked: '**** 4892', balance: 45200000, currency: 'VND', type: 'BANK' },
     { id: 2, walletName: 'Visa Signature Card', cardNumberMasked: '**** 9012', balance: 18500000, currency: 'VND', type: 'CREDIT_CARD' },
