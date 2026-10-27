@@ -72,8 +72,8 @@ Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại th
 ### 3.1 Xác thực và tài khoản
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-01 | Đăng ký tài khoản | Khách | 🟡 `POST /api/v1/auth/register` — thân `AuthService.register` là stub `[TODO - AN]` |
-| UC-02 | Đăng nhập, nhận JWT | Khách | 🟡 `POST /api/v1/auth/login` — thân `AuthService.login` là stub `[TODO - AN]`; hạ tầng JWT (`JwtTokenProvider`, filter) đã ✅ |
+| UC-01 | Đăng ký tài khoản | Khách | ✅ `POST /api/v1/auth/register` — BCrypt + chặn email trùng (409), nhánh `an` |
+| UC-02 | Đăng nhập, nhận JWT | Khách | ✅ `POST /api/v1/auth/login` — `AuthenticationManager` + cấp token HS256, nhánh `an` |
 | UC-03 | Đăng xuất / huỷ phiên | User | ⚠️ FE xoá token cục bộ; **chưa có** blacklist Redis phía server |
 | UC-04 | Xem và cập nhật hồ sơ | User | ⬜ Chưa có endpoint |
 | UC-05 | Lấy lại mật khẩu | Khách | ⬜ Chưa có (cần SMTP) |
@@ -89,8 +89,8 @@ Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại th
 ### 3.3 Giao dịch
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-10 | Thêm giao dịch THU / CHI | User | 🟡 `POST /api/v1/transactions` — stub `[TODO - AN]` |
-| UC-11 | Danh sách hoạt động theo thời gian | User | 🟡 `GET /api/v1/transactions` (phân trang) — stub `[TODO - AN]` |
+| UC-10 | Thêm giao dịch THU / CHI | User | ✅ `POST /api/v1/transactions` — cộng/trừ số dư, chặn âm, ghi `balance_after`, nhánh `an` |
+| UC-11 | Danh sách hoạt động theo thời gian | User | ✅ `GET /api/v1/transactions` — phân trang theo chủ sở hữu, nhánh `an` |
 | UC-12 | Sửa / xoá mềm giao dịch | User | ⬜ Chưa có `PUT` / `DELETE` |
 | UC-13 | Lọc theo tháng, danh mục, loại, từ khoá | User | ⬜ API mới nhận tham số cơ bản |
 | UC-14 | Chuyển khoản giữa hai ví | User | ⬜ `TransactionType` đã có nhưng luồng cập nhật hai chiều chưa hoàn chỉnh |
@@ -98,8 +98,8 @@ Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại th
 ### 3.4 Ngân sách và mục tiêu
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-15 | Đặt hạn mức chi theo danh mục / kỳ | User | 🟡 `POST /api/v1/budgets` — stub `[TODO - AN]` |
-| UC-16 | Xem tiến độ và cảnh báo 80% / 100% | User | 🟡 `GET /api/v1/budgets` — stub `[TODO - AN]`; cột `alert_threshold` đã có |
+| UC-15 | Đặt hạn mức chi theo danh mục / kỳ | User | ✅ `POST /api/v1/budgets` — gộp theo (user, danh mục, kỳ), nhánh `an` |
+| UC-16 | Xem tiến độ và cảnh báo 80% / 100% | User | ✅ `GET /api/v1/budgets` — `spent_amount` tính từ giao dịch, trả `alertLevel` OK/WARNING/EXCEEDED, nhánh `an` |
 | UC-17 | Tạo mục tiêu tiết kiệm và theo dõi tiến độ | User | ⚠️ Bảng `saving_goals` + repository đã có, **chưa có controller** |
 
 ### 3.5 Thống kê và gợi ý
@@ -253,7 +253,8 @@ Một chức năng được coi là xong khi: (1) có API + UI tương tác đư
 5. Chưa có rate limiting / khoá tài khoản khi nhập sai mật khẩu nhiều lần.
 6. Từ commit `23ae13a`, nhóm chủ động **rút thân hàm nghiệp vụ thành stub `TODO` có ghi tên người phụ trách**
    (`AuthService`, `TransactionService`, `BudgetService` → An; `DashboardService`, `RecommendationService` → Thành & Tú)
-   để 4 thành viên làm song song không đụng file nhau. Hệ quả: UC-01/02/10/11/15/16/18/20 ở cột "Hiện trạng" chỉ là 🟡 khung sườn,
+   để 4 thành viên làm song song không đụng file nhau. Bốn stub của An (UC-01/02/10/11/15/16) đã được lấp và có test;
+   UC-18/20 vẫn là 🟡 khung sườn chờ Thành và Tú. Code nằm trên nhánh `an`, chưa hoà vào `develop`.
    chưa chạy được đầu-cuối cho tới khi từng stub được lấp trong Sprint 2.
 
 ## 12. Câu hỏi mở cần giảng viên chốt

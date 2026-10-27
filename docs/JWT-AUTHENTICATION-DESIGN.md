@@ -37,13 +37,12 @@ SecurityContext (UserPrincipal) ──► Controller / Service
 | `JwtTokenProvider` | Ký và xác minh token HS256; claim `sub` = email, `userId`, `fullName`; thời hạn `app.jwt.expiration-ms` |
 | `JwtAuthenticationFilter` | Đọc header, xác minh token, nạp `UserDetails`, đặt `Authentication` vào `SecurityContext`; lỗi thì bỏ qua để cấu hình an ninh trả 401/403 |
 | `CustomUserDetailsService` | Tra `users` theo email, trả `UserPrincipal` kèm role thành quyền `ROLE_*` |
-| `AuthService` | **Mục tiêu**: đăng ký (kiểm tra email trùng, băm BCrypt, lưu user) và đăng nhập qua `AuthenticationManager`. **Hiện tại (sau `23ae13a`): thân hai hàm `register`/`login` là stub trả `token = "mock-token"`, do An phụ trách (`[TODO - AN]`).** |
+| `AuthService` | **Mục tiêu**: đăng ký (kiểm tra email trùng, băm BCrypt, lưu user) và đăng nhập qua `AuthenticationManager`. **Trạng thái nhánh `an`: hai hàm đã cài xong — đăng ký băm BCrypt và chặn email trùng (409), đăng nhập đi qua `AuthenticationManager` rồi cấp token HS256 thật; `mock-token` đã bị xoá.**** |
 | `SecurityConfig` | `permitAll` cho `/api/v1/auth/**`, swagger và actuator; còn lại yêu cầu xác thực; CORS theo danh sách origin cấu hình |
 
 ### 2.2 Trình tự đăng nhập
 
-> Sơ đồ dưới đây là **thiết kế đích**. Bốn bước 2-5 chưa chạy được vì `AuthService.login` còn là stub;
-> phần hạ tầng (`JwtTokenProvider`, `CustomUserDetailsService`, `SecurityConfig`) đã có thật và không cần sửa khi lấp stub.
+> Trình tự dưới đây đã chạy đúng trên nhánh `an`, kiểm chứng bằng `AuthAndTransactionFlowTest` và `StatusCodeOverRealHttpTest`; chưa hoà vào `develop`.
 
 1. FE `POST /api/v1/auth/login` kèm email + mật khẩu.
 2. `AuthService` gọi `AuthenticationManager.authenticate(...)`.
