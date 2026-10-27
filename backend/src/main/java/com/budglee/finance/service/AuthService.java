@@ -3,21 +3,30 @@ package com.budglee.finance.service;
 import com.budglee.finance.dto.AuthRequest;
 import com.budglee.finance.dto.AuthResponse;
 import com.budglee.finance.dto.RegisterRequest;
-import com.budglee.finance.entity.Role;
-import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * =========================================================================
+ * KHUÔN MẪU SERVICE: XÁC THỰC & PHÂN QUYỀN (AUTH & SECURITY)
+ * Phụ trách: Nguyễn Trường An (Backend Lead)
+ * Nhánh làm việc: 'an'
+ *
+ * Yêu cầu nghiệp vụ cần làm:
+ * 1. Kiểm tra email đã tồn tại hay chưa khi đăng ký.
+ * 2. Mã hóa mật khẩu với PasswordEncoder (BCrypt).
+ * 3. Tạo tài khoản User và phân quyền theo Role.
+ * 4. Xác thực và sinh JWT Token qua JwtTokenProvider.
+ * =========================================================================
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -25,56 +34,23 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
 
-    @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email đã được sử dụng trên hệ thống");
-        }
-
-        User user = User.builder()
+        log.info("[TODO - AN] Cài đặt chức năng đăng ký tài khoản cho email: {}", request.getEmail());
+        // TODO: Nguyễn Trường An cài đặt logic đăng ký tại đây
+        return AuthResponse.builder()
+                .token("mock-token")
                 .fullName(request.getFullName())
                 .email(request.getEmail())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole() != null ? request.getRole() : Role.INDIVIDUAL_USER)
-                .familyGroupId(request.getFamilyGroupId())
-                .build();
-
-        user = userRepository.save(user);
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-
-        String token = tokenProvider.generateToken(authentication);
-
-        return AuthResponse.builder()
-                .token(token)
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .familyGroupId(user.getFamilyGroupId())
+                .role(request.getRole())
                 .build();
     }
 
     public AuthResponse login(AuthRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = tokenProvider.generateToken(authentication);
-
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin tài khoản"));
-
+        log.info("[TODO - AN] Cài đặt chức năng đăng nhập JWT cho email: {}", request.getEmail());
+        // TODO: Nguyễn Trường An cài đặt logic đăng nhập tại đây
         return AuthResponse.builder()
-                .token(token)
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .familyGroupId(user.getFamilyGroupId())
+                .token("mock-token")
+                .email(request.getEmail())
                 .build();
     }
 }

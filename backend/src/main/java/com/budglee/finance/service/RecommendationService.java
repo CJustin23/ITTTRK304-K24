@@ -5,32 +5,34 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.Collections;
 
+/**
+ * =========================================================================
+ * KHUÔN MẪU SERVICE: BOT GỢI Ý TỐI ƯU CHI TIÊU (SPENDING HABITS BOT)
+ * Phụ trách: Nguyễn Tiến Thành (Frontend & Backend Lead)
+ * Nhánh làm việc: 'thanh'
+ *
+ * Yêu cầu nghiệp vụ cần làm:
+ * 1. Phân tích lịch sử chi tiêu tháng này so với tháng trước.
+ * 2. Phát hiện các Category tăng bất thường (> 15-20%).
+ * 3. Đưa ra cảnh báo và khuyến nghị điều chỉnh thói quen chi tiêu.
+ * =========================================================================
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RecommendationService {
 
     public HabitRecommendationResponse generateSpendingAdvice(Long userId, int year, int month) {
-        log.info("Generating spending habit bot recommendations for userId: {}", userId);
-
+        log.info("[TODO - THÀNH] Cài đặt thuật toán Bot phân tích thói quen chi tiêu cho userId: {}", userId);
+        
+        // TODO: Nguyễn Tiến Thành cài đặt logic phân tích thói quen tại đây
         return HabitRecommendationResponse.builder()
-                .status("WARNING")
-                .primaryAdvice("Bạn đã chi tiêu 78% tổng ngân sách tháng này. Khoản chi 'Ăn uống ngoài' và 'Mua sắm' có xu hướng tăng 22% so với tháng trước.")
-                .actionItems(Arrays.asList(
-                        "Hạn chế các bữa ăn tối tại nhà hàng cao cấp trong tuần cuối tháng.",
-                        "Chuyển số dư thặng dư vào Mục tiêu Tiết kiệm (Saving Goal).",
-                        "Thiết lập cảnh báo ngân sách 80% cho danh mục Ăn uống."
-                ))
-                .categoryWarnings(Collections.singletonList(
-                        HabitRecommendationResponse.CategoryWarning.builder()
-                                .categoryName("Ăn uống & Cà phê")
-                                .increasePercentage(22.5)
-                                .recommendation("Đề xuất giới hạn mức chi tối đa 150.000đ/ngày cho 7 ngày còn lại.")
-                                .build()
-                ))
+                .status("ON_TRACK")
+                .primaryAdvice("Hệ thống đang sẵn sàng ghi nhận dữ liệu chi tiêu của bạn.")
+                .actionItems(Collections.emptyList())
+                .categoryWarnings(Collections.emptyList())
                 .build();
     }
 }

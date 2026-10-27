@@ -1,22 +1,33 @@
 package com.budglee.finance.service;
 
 import com.budglee.finance.dto.TransactionRequest;
-import com.budglee.finance.entity.*;
+import com.budglee.finance.entity.Transaction;
 import com.budglee.finance.repository.CategoryRepository;
 import com.budglee.finance.repository.TransactionRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
+/**
+ * =========================================================================
+ * KHUÔN MẪU SERVICE: QUẢN LÝ GIAO DỊCH THU CHI (TRANSACTIONS)
+ * Phụ trách: Nguyễn Trường An (Backend Lead)
+ * Nhánh làm việc: 'an'
+ *
+ * Yêu cầu nghiệp vụ cần làm:
+ * 1. Kiểm tra tính hợp lệ của Wallet, Category và User.
+ * 2. Sử dụng @Transactional để cập nhật số dư ví (INCOME: +, EXPENSE: -, TRANSFER: chuyển giữa 2 ví).
+ * 3. Chặn âm số dư nếu không phải thẻ CREDIT_CARD.
+ * 4. Lưu vết balance_after và lưu Transaction vào CSDL.
+ * =========================================================================
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
@@ -24,54 +35,15 @@ public class TransactionService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
 
-    @Transactional
     public Transaction createTransaction(Long userId, TransactionRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng ID: " + userId));
-
-        Wallet wallet = walletRepository.findById(request.getWalletId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ví ID: " + request.getWalletId()));
-
-        Category category = null;
-        if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId()).orElse(null);
-        }
-
-        BigDecimal currentBalance = wallet.getBalance();
-        BigDecimal newBalance;
-
-        if (request.getTransactionType() == TransactionType.INCOME) {
-            newBalance = currentBalance.add(request.getAmount());
-        } else if (request.getTransactionType() == TransactionType.EXPENSE) {
-            if (wallet.getType() != WalletType.CREDIT_CARD && currentBalance.compareTo(request.getAmount()) < 0) {
-                throw new IllegalStateException("Số dư ví không đủ để thực hiện giao dịch chi tiêu này");
-            }
-            newBalance = currentBalance.subtract(request.getAmount());
-        } else {
-            // TRANSFER
-            newBalance = currentBalance.subtract(request.getAmount());
-        }
-
-        wallet.setBalance(newBalance);
-        walletRepository.save(wallet);
-
-        Transaction transaction = Transaction.builder()
-                .user(user)
-                .wallet(wallet)
-                .category(category)
-                .actionTitle(request.getActionTitle())
-                .amount(request.getAmount())
-                .transactionType(request.getTransactionType())
-                .balanceAfter(newBalance)
-                .transactionDate(request.getTransactionDate() != null ? request.getTransactionDate() : LocalDateTime.now())
-                .note(request.getNote())
-                .build();
-
-        return transactionRepository.save(transaction);
+        log.info("[TODO - AN] Cài đặt chức năng ghi nhận giao dịch cho userId: {}", userId);
+        // TODO: Nguyễn Trường An cài đặt logic nghiệp vụ tại đây
+        return null;
     }
 
-    @Transactional(readOnly = true)
     public Page<Transaction> getUserTransactions(Long userId, Pageable pageable) {
-        return transactionRepository.findByUserIdOrderByTransactionDateDesc(userId, pageable);
+        log.info("[TODO - AN] Cài đặt chức năng lấy lịch sử giao dịch phân trang cho userId: {}", userId);
+        // TODO: Nguyễn Trường An cài đặt logic truy vấn tại đây
+        return Page.empty(pageable);
     }
 }

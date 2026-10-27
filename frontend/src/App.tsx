@@ -42,40 +42,10 @@ export const App: React.FC = () => {
     };
   }, [logout]);
 
-  const handleCreateTransaction = (data: {
-    walletId: number;
-    actionTitle: string;
-    amount: number;
-    transactionType: 'INCOME' | 'EXPENSE' | 'TRANSFER';
-    categoryName: string;
-    note?: string;
-  }) => {
-    const wallet = wallets.find((w) => w.id === data.walletId);
-    const currentBalance = wallet ? wallet.balance : 0;
-    const newBalance =
-      data.transactionType === 'INCOME'
-        ? currentBalance + data.amount
-        : currentBalance - data.amount;
-
-    const newTx: Transaction = {
-      id: Date.now(),
-      walletId: data.walletId,
-      walletName: wallet?.walletName || 'Techcombank Primary',
-      categoryName: data.categoryName,
-      actionTitle: data.actionTitle,
-      amount: data.amount,
-      transactionType: data.transactionType,
-      balanceAfter: newBalance,
-      transactionDate: 'Hôm nay ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      note: data.note,
-    };
-
-    setTransactions([newTx, ...recentTransactions]);
-
-    const updatedWallets = wallets.map((w) =>
-      w.id === data.walletId ? { ...w, balance: newBalance } : w
-    );
-    setWallets(updatedWallets);
+  const handleCreateTransaction = (data: any) => {
+    // TODO: Nguyễn Tiến Thành (Frontend Lead) - Cài đặt gọi API /api/v1/transactions và cập nhật Store
+    console.log('Dữ liệu form thêm giao dịch:', data);
+    setTransactionModalOpen(false);
   };
 
   // Nếu người dùng chọn tab auth hoặc chưa đăng nhập thì hiển thị AuthPage
