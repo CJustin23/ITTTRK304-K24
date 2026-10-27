@@ -60,13 +60,20 @@ Phần mềm cho phép một cá nhân hoặc một hộ gia đình ghi nhận t
 
 ## 3. Yêu cầu chức năng
 
-Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại thời điểm viết SRS.
+Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại thời điểm viết SRS
+(commit `23ae13a` refactor scaffold). Từ khoá:
+
+- ✅ = chạy được thật, có logic nghiệp vụ.
+- 🟡 = **khung sườn**: endpoint/class đã có nhưng phần thân là stub `TODO` do nhóm phân công lại
+  (controller rỗng gọi repo, hoặc service in log `[TODO - TÊN]`). Người sở hữu stub ghi trong mã nguồn.
+- ⚠️ = một phần.
+- ⬜ = chưa có.
 
 ### 3.1 Xác thực và tài khoản
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-01 | Đăng ký tài khoản | Khách | ✅ `POST /api/v1/auth/register` |
-| UC-02 | Đăng nhập, nhận JWT | Khách | ✅ `POST /api/v1/auth/login` |
+| UC-01 | Đăng ký tài khoản | Khách | 🟡 `POST /api/v1/auth/register` — thân `AuthService.register` là stub `[TODO - AN]` |
+| UC-02 | Đăng nhập, nhận JWT | Khách | 🟡 `POST /api/v1/auth/login` — thân `AuthService.login` là stub `[TODO - AN]`; hạ tầng JWT (`JwtTokenProvider`, filter) đã ✅ |
 | UC-03 | Đăng xuất / huỷ phiên | User | ⚠️ FE xoá token cục bộ; **chưa có** blacklist Redis phía server |
 | UC-04 | Xem và cập nhật hồ sơ | User | ⬜ Chưa có endpoint |
 | UC-05 | Lấy lại mật khẩu | Khách | ⬜ Chưa có (cần SMTP) |
@@ -82,8 +89,8 @@ Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại th
 ### 3.3 Giao dịch
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-10 | Thêm giao dịch THU / CHI | User | ✅ `POST /api/v1/transactions` |
-| UC-11 | Danh sách hoạt động theo thời gian | User | ✅ `GET /api/v1/transactions` |
+| UC-10 | Thêm giao dịch THU / CHI | User | 🟡 `POST /api/v1/transactions` — stub `[TODO - AN]` |
+| UC-11 | Danh sách hoạt động theo thời gian | User | 🟡 `GET /api/v1/transactions` (phân trang) — stub `[TODO - AN]` |
 | UC-12 | Sửa / xoá mềm giao dịch | User | ⬜ Chưa có `PUT` / `DELETE` |
 | UC-13 | Lọc theo tháng, danh mục, loại, từ khoá | User | ⬜ API mới nhận tham số cơ bản |
 | UC-14 | Chuyển khoản giữa hai ví | User | ⬜ `TransactionType` đã có nhưng luồng cập nhật hai chiều chưa hoàn chỉnh |
@@ -91,16 +98,16 @@ Ký hiệu UC. Cột **Hiện trạng** đánh giá theo mã trong repo tại th
 ### 3.4 Ngân sách và mục tiêu
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-15 | Đặt hạn mức chi theo danh mục / kỳ | User | ✅ `POST /api/v1/budgets` |
-| UC-16 | Xem tiến độ và cảnh báo 80% / 100% | User | ✅ `GET /api/v1/budgets` + `BudgetService` |
+| UC-15 | Đặt hạn mức chi theo danh mục / kỳ | User | 🟡 `POST /api/v1/budgets` — stub `[TODO - AN]` |
+| UC-16 | Xem tiến độ và cảnh báo 80% / 100% | User | 🟡 `GET /api/v1/budgets` — stub `[TODO - AN]`; cột `alert_threshold` đã có |
 | UC-17 | Tạo mục tiêu tiết kiệm và theo dõi tiến độ | User | ⚠️ Bảng `saving_goals` + repository đã có, **chưa có controller** |
 
 ### 3.5 Thống kê và gợi ý
 | UC | Tên | Actor | Hiện trạng |
 |---|---|---|---|
-| UC-18 | Dashboard: tổng thu, tổng chi, kết dư, số dư ví | User | ✅ `GET /api/v1/dashboard/summary` |
-| UC-19 | Biểu đồ cơ cấu chi và xu hướng theo thời gian | User | ✅ `ChartSection.tsx` (Recharts) |
-| UC-20 | Bot gợi ý điều chỉnh thói quen chi tiêu | User | ✅ `GET /api/v1/dashboard/recommendations` (theo quy tắc) |
+| UC-18 | Dashboard: tổng thu, tổng chi, kết dư, số dư ví | User | 🟡 `GET /api/v1/dashboard/summary` — stub `[TODO - THÀNH & TÚ]` (kèm Redis cache) |
+| UC-19 | Biểu đồ cơ cấu chi và xu hướng theo thời gian | User | ⚠️ `ChartSection.tsx` (Recharts) hiển thị được, nhưng dữ liệu đang lấy từ store mock, chưa gọi API |
+| UC-20 | Bot gợi ý điều chỉnh thói quen chi tiêu | User | 🟡 `GET /api/v1/dashboard/recommendations` — stub `[TODO - THÀNH]` |
 | UC-21 | Xuất báo cáo CSV / Excel / PDF | User | ⬜ Kế hoạch Sprint 4 (DUAN-61) |
 
 ### 3.6 Hộ gia đình và quản trị
@@ -244,8 +251,13 @@ Một chức năng được coi là xong khi: (1) có API + UI tương tác đư
 3. Chưa có `PUT`/`DELETE` cho giao dịch và controller cho `saving_goals`.
 4. Chưa có kiểm thử tự động ngoài `BudgleeApplicationTests` (context load).
 5. Chưa có rate limiting / khoá tài khoản khi nhập sai mật khẩu nhiều lần.
+6. Từ commit `23ae13a`, nhóm chủ động **rút thân hàm nghiệp vụ thành stub `TODO` có ghi tên người phụ trách**
+   (`AuthService`, `TransactionService`, `BudgetService` → An; `DashboardService`, `RecommendationService` → Thành & Tú)
+   để 4 thành viên làm song song không đụng file nhau. Hệ quả: UC-01/02/10/11/15/16/18/20 ở cột "Hiện trạng" chỉ là 🟡 khung sườn,
+   chưa chạy được đầu-cuối cho tới khi từng stub được lấp trong Sprint 2.
 
 ## 12. Câu hỏi mở cần giảng viên chốt
+
 | Mã | Câu hỏi |
 |---|---|
 | Q-01 | Một người dùng có được thuộc nhiều hộ gia đình không, hay chỉ một `family_group_id`? |
