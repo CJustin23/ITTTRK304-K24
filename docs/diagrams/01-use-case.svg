@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="800" viewBox="0 0 1500 800" font-family="Segoe UI, Arial, sans-serif">
+  <style>
+    .title { font-size: 26px; font-weight: 700; fill: #1A365D; }
+    .sub   { font-size: 14px; fill: #4A5568; }
+    .card  { fill: #EDF2F7; stroke: #4A5568; stroke-width: 1.4; rx: 8; }
+    .chead { font-size: 15px; font-weight: 700; fill: #1A365D; }
+    .uc    { font-size: 13.5px; fill: #2D3748; }
+    .todo  { fill: #C05621; }
+    .part  { fill: #B7791F; }
+    .bound { fill: none; stroke: #1A365D; stroke-width: 2; stroke-dasharray: 7 5; }
+    .blabel{ font-size: 17px; font-weight: 700; fill: #1A365D; }
+    .actor { fill: #1A365D; }
+    .aname { font-size: 14px; font-weight: 600; fill: #1A365D; }
+    .link  { stroke: #718096; stroke-width: 1.3; fill: none; }
+    .legend{ font-size: 13px; fill: #4A5568; }
+  </style>
+
+  <text class="title" x="40" y="44">Sơ đồ use case — Budglee Platform</text>
+  <text class="sub" x="40" y="68">Nguồn: docs/SRS.md mục 3 (23 use case, UC-01…UC-23) · đối chiếu controller/*.java · vẽ theo phân công Nhóm 03</text>
+
+  <rect class="bound" x="340" y="96" width="830" height="600" rx="10"/>
+  <text class="blabel" x="360" y="124">BUDGLEE PLATFORM</text>
+
+  <!-- Actors -->
+  <g>
+    <circle class="actor" cx="150" cy="200" r="13"/><line class="actor" x1="150" y1="213" x2="150" y2="252" stroke="#1A365D" stroke-width="3"/>
+    <line class="actor" x1="126" y1="226" x2="174" y2="226" stroke="#1A365D" stroke-width="3"/>
+    <text class="aname" x="150" y="278" text-anchor="middle">Khách</text>
+    <text class="sub" x="150" y="296" text-anchor="middle">(chưa đăng nhập)</text>
+
+    <circle class="actor" cx="150" cy="420" r="13"/><line class="actor" x1="150" y1="433" x2="150" y2="472" stroke="#1A365D" stroke-width="3"/>
+    <line class="actor" x1="126" y1="446" x2="174" y2="446" stroke="#1A365D" stroke-width="3"/>
+    <text class="aname" x="150" y="498" text-anchor="middle">Người dùng cá nhân</text>
+    <text class="sub" x="150" y="516" text-anchor="middle">INDIVIDUAL_USER</text>
+  </g>
+  <g>
+    <circle class="actor" cx="1360" cy="180" r="13"/><line class="actor" x1="1360" y1="193" x2="1360" y2="232" stroke="#1A365D" stroke-width="3"/>
+    <line class="actor" x1="1336" y1="206" x2="1384" y2="206" stroke="#1A365D" stroke-width="3"/>
+    <text class="aname" x="1360" y="258" text-anchor="middle">Chủ hộ gia đình</text>
+    <text class="sub" x="1360" y="276" text-anchor="middle">HEAD_OF_FAMILY</text>
+
+    <circle class="actor" cx="1360" cy="380" r="13"/><line class="actor" x1="1360" y1="393" x2="1360" y2="432" stroke="#1A365D" stroke-width="3"/>
+    <line class="actor" x1="1336" y1="406" x2="1384" y2="406" stroke="#1A365D" stroke-width="3"/>
+    <text class="aname" x="1360" y="458" text-anchor="middle">Thành viên hộ</text>
+    <text class="sub" x="1360" y="476" text-anchor="middle">FAMILY_MEMBER</text>
+
+    <circle class="actor" cx="1360" cy="580" r="13"/><line class="actor" x1="1360" y1="593" x2="1360" y2="632" stroke="#1A365D" stroke-width="3"/>
+    <line class="actor" x1="1336" y1="606" x2="1384" y2="606" stroke="#1A365D" stroke-width="3"/>
+    <text class="aname" x="1360" y="658" text-anchor="middle">Quản trị hệ thống</text>
+    <text class="sub" x="1360" y="676" text-anchor="middle">ADMIN</text>
+  </g>
+
+  <!-- Links -->
+  <path class="link" d="M188 205 H250 V180 H360"/>
+  <path class="link" d="M188 215 H240 V200 H360"/>
+  <path class="link" d="M188 425 H300 V300 H360"/>
+  <path class="link" d="M300 425 V470 H360"/>
+  <path class="link" d="M300 425 V560 H360"/>
+  <path class="link" d="M1322 190 H1250 V300 H1150"/>
+  <path class="link" d="M1322 200 H1240 V520 H1150"/>
+  <path class="link" d="M1322 400 H1210 V330 H1150"/>
+  <path class="link" d="M1322 410 H1195 V620 H1150"/>
+  <path class="link" d="M1322 600 H1150"/>
+
+  <!-- Cards -->
+  <g>
+    <rect class="card" x="360" y="150" width="250" height="150" rx="8"/>
+    <text class="chead" x="376" y="174">Xác thực &amp; tài khoản</text>
+    <text class="uc" x="376" y="198">UC-01 Đăng ký tài khoản</text>
+    <text class="uc" x="376" y="220">UC-02 Đăng nhập, nhận JWT</text>
+    <text class="uc part" x="376" y="242">UC-03 Đăng xuất / huỷ phiên *</text>
+    <text class="uc todo" x="376" y="264">UC-04 Cập nhật hồ sơ †</text>
+    <text class="uc todo" x="376" y="286">UC-05 Lấy lại mật khẩu †</text>
+  </g>
+  <g>
+    <rect class="card" x="630" y="150" width="250" height="130" rx="8"/>
+    <text class="chead" x="646" y="174">Ví &amp; danh mục</text>
+    <text class="uc" x="646" y="198">UC-06 Tạo ví / thẻ</text>
+    <text class="uc" x="646" y="220">UC-07 Xem ví và số dư</text>
+    <text class="uc" x="646" y="242">UC-08 Danh mục hệ thống</text>
+    <text class="uc" x="646" y="264">UC-09 Danh mục tuỳ chỉnh</text>
+  </g>
+  <g>
+    <rect class="card" x="900" y="150" width="250" height="170" rx="8"/>
+    <text class="chead" x="916" y="174">Giao dịch</text>
+    <text class="uc" x="916" y="198">UC-10 Thêm giao dịch THU / CHI</text>
+    <text class="uc" x="916" y="220">UC-11 Danh sách hoạt động</text>
+    <text class="uc todo" x="916" y="242">UC-12 Sửa / xoá mềm †</text>
+    <text class="uc todo" x="916" y="264">UC-13 Lọc nâng cao †</text>
+    <text class="uc todo" x="916" y="286">UC-14 Chuyển khoản giữa 2 ví †</text>
+    <text class="sub" x="916" y="308">BR-03: cập nhật số dư cùng lúc</text>
+  </g>
+  <g>
+    <rect class="card" x="360" y="420" width="250" height="120" rx="8"/>
+    <text class="chead" x="376" y="444">Ngân sách &amp; mục tiêu</text>
+    <text class="uc" x="376" y="468">UC-15 Đặt hạn mức chi</text>
+    <text class="uc" x="376" y="490">UC-16 Cảnh báo 80% / 100%</text>
+    <text class="uc part" x="376" y="512">UC-17 Mục tiêu tiết kiệm *</text>
+  </g>
+  <g>
+    <rect class="card" x="630" y="420" width="250" height="150" rx="8"/>
+    <text class="chead" x="646" y="444">Thống kê &amp; gợi ý</text>
+    <text class="uc" x="646" y="468">UC-18 Dashboard tổng quan</text>
+    <text class="uc" x="646" y="490">UC-19 Biểu đồ cơ cấu chi</text>
+    <text class="uc" x="646" y="512">UC-20 Bot gợi ý chi tiêu</text>
+    <text class="uc todo" x="646" y="534">UC-21 Xuất CSV / Excel / PDF †</text>
+  </g>
+  <g>
+    <rect class="card" x="900" y="420" width="250" height="100" rx="8"/>
+    <text class="chead" x="916" y="444">Hộ gia đình &amp; quản trị</text>
+    <text class="uc todo" x="916" y="468">UC-22 Mời / phân quyền thành viên †</text>
+    <text class="uc todo" x="916" y="490">UC-23 Quản trị tài khoản †</text>
+  </g>
+
+  <!-- Notes -->
+  <g>
+    <rect class="card" x="360" y="600" width="790" height="72" rx="8"/>
+    <text class="chead" x="376" y="624">Chú giải</text>
+    <text class="legend" x="376" y="646">Chữ đen: đã có trong mã (controller + service) · <tspan class="part">màu nâu *: mới có bảng / service, chưa có API</tspan> · <tspan class="todo">màu cam †: chưa triển khai, kế hoạch Sprint 2–4</tspan></text>
+    <text class="legend" x="376" y="664">Ràng buộc xuyên suốt: BR-01 mọi truy vấn lọc theo user_id / family_group_id lấy từ token, không nhận từ client.</text>
+  </g>
+</svg>

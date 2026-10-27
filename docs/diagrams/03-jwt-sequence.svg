@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1120" viewBox="0 0 1500 1120" font-family="Segoe UI, Arial, sans-serif">
+  <style>
+    .title { font-size: 26px; font-weight: 700; fill: #1A365D; }
+    .sub   { font-size: 14px; fill: #4A5568; }
+    .lane  { fill: #1A365D; }
+    .lname { font-size: 15px; font-weight: 700; fill: #FFFFFF; }
+    .lsub  { font-size: 12px; fill: #CBD5E0; }
+    .lifeline { stroke: #A0AEC0; stroke-width: 1.2; stroke-dasharray: 5 5; }
+    .msg   { stroke: #2B6CB0; stroke-width: 1.8; fill: none; }
+    .ret   { stroke: #718096; stroke-width: 1.5; fill: none; stroke-dasharray: 6 4; }
+    .mtext { font-size: 13.5px; fill: #1A365D; }
+    .msub  { font-size: 12px; fill: #4A5568; }
+    .band  { fill: #2C5282; }
+    .btext { font-size: 14px; font-weight: 700; fill: #FFFFFF; }
+    .note  { fill: #FFF7E6; stroke: #B7791F; stroke-width: 1.2; }
+    .ntext { font-size: 12.5px; fill: #744210; }
+    .plan  { fill: #F0FFF4; stroke: #38A169; stroke-width: 1.2; }
+    .ptext { font-size: 12.5px; fill: #22543D; }
+  </style>
+
+  <text class="title" x="40" y="42">Luồng xác thực JWT — Budglee (hiện tại + lộ trình tăng cứng)</text>
+  <text class="sub" x="40" y="66">Nguồn: SecurityConfig · JwtAuthenticationFilter · JwtTokenProvider · CustomUserDetailsService · AuthService · application.yml (app.jwt.*)</text>
+
+  <!-- lanes -->
+  <g>
+    <rect class="lane" x="60"  y="96" width="180" height="52" rx="6"/>
+    <text class="lname" x="150" y="119" text-anchor="middle">React FE</text>
+    <text class="lsub" x="150" y="137" text-anchor="middle">Axios + interceptor</text>
+
+    <rect class="lane" x="330" y="96" width="190" height="52" rx="6"/>
+    <text class="lname" x="425" y="119" text-anchor="middle">AuthController</text>
+    <text class="lsub" x="425" y="137" text-anchor="middle">/api/v1/auth/**</text>
+
+    <rect class="lane" x="600" y="96" width="190" height="52" rx="6"/>
+    <text class="lname" x="695" y="119" text-anchor="middle">AuthService</text>
+    <text class="lsub" x="695" y="137" text-anchor="middle">AuthenticationManager</text>
+
+    <rect class="lane" x="870" y="96" width="180" height="52" rx="6"/>
+    <text class="lname" x="960" y="119" text-anchor="middle">BCrypt</text>
+    <text class="lsub" x="960" y="137" text-anchor="middle">PasswordEncoder(10)</text>
+
+    <rect class="lane" x="1130" y="96" width="180" height="52" rx="6"/>
+    <text class="lname" x="1220" y="119" text-anchor="middle">JwtTokenProvider</text>
+    <text class="lsub" x="1220" y="137" text-anchor="middle">HS256 · 24 giờ</text>
+
+    <rect class="lane" x="1345" y="96" width="130" height="52" rx="6"/>
+    <text class="lname" x="1410" y="119" text-anchor="middle">MySQL</text>
+    <text class="lsub" x="1410" y="137" text-anchor="middle">bảng users</text>
+  </g>
+  <g>
+    <line class="lifeline" x1="150" y1="148" x2="150" y2="1000"/>
+    <line class="lifeline" x1="425" y1="148" x2="425" y2="1000"/>
+    <line class="lifeline" x1="695" y1="148" x2="695" y2="1000"/>
+    <line class="lifeline" x1="960" y1="148" x2="960" y2="1000"/>
+    <line class="lifeline" x1="1220" y1="148" x2="1220" y2="1000"/>
+    <line class="lifeline" x1="1410" y1="148" x2="1410" y2="1000"/>
+  </g>
+
+  <defs>
+    <marker id="ar" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto">
+      <path d="M0,0 L11,4.5 L0,9 Z" fill="#2B6CB0"/>
+    </marker>
+    <marker id="arg" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto">
+      <path d="M0,0 L11,4.5 L0,9 Z" fill="#718096"/>
+    </marker>
+  </defs>
+
+  <!-- band 1: login -->
+  <rect class="band" x="60" y="170" width="420" height="26" rx="4"/>
+  <text class="btext" x="76" y="188">1 · ĐĂNG NHẬP (UC-02)</text>
+
+  <path class="msg" d="M150 222 H418" marker-end="url(#ar)"/>
+  <text class="mtext" x="158" y="216">1. POST /api/v1/auth/login { email, password }</text>
+  <path class="msg" d="M425 258 H688" marker-end="url(#ar)"/>
+  <text class="mtext" x="433" y="252">2. authenticate(username, password)</text>
+  <path class="msg" d="M695 294 H1403" marker-end="url(#ar)"/>
+  <text class="mtext" x="703" y="288">3. CustomUserDetailsService.loadUserByUsername(email)</text>
+  <path class="ret" d="M1410 330 H702" marker-end="url(#arg)"/>
+  <text class="msub" x="800" y="324">4. row users (password_hash, role, family_group_id)</text>
+  <path class="msg" d="M695 366 H953" marker-end="url(#ar)"/>
+  <text class="mtext" x="703" y="360">5. encoder.matches(raw, hash)</text>
+  <path class="ret" d="M960 400 H702" marker-end="url(#arg)"/>
+  <text class="msub" x="710" y="394">6. true / false → 401 nếu sai</text>
+  <path class="msg" d="M695 436 H1213" marker-end="url(#ar)"/>
+  <text class="mtext" x="703" y="430">7. generateToken(authentication)</text>
+  <path class="ret" d="M1220 470 H702" marker-end="url(#arg)"/>
+  <text class="msub" x="710" y="464">8. JWT HS256 · sub=email · claims userId, fullName · exp=24h</text>
+  <path class="ret" d="M425 506 H157" marker-end="url(#arg)"/>
+  <text class="msub" x="165" y="500">9. 200 AuthResponse { token } → FE lưu và gắn vào mọi request</text>
+
+  <!-- band 2: protected call -->
+  <rect class="band" x="60" y="536" width="420" height="26" rx="4"/>
+  <text class="btext" x="76" y="554">2 · GỌI API ĐƯỢC BẢO VỆ</text>
+
+  <path class="msg" d="M150 590 H418" marker-end="url(#ar)"/>
+  <text class="mtext" x="158" y="584">10. GET /api/v1/transactions · Authorization: Bearer &lt;token&gt;</text>
+  <path class="msg" d="M425 626 H1213" marker-end="url(#ar)"/>
+  <text class="mtext" x="433" y="620">11. JwtAuthenticationFilter → validateToken()</text>
+  <path class="ret" d="M1220 660 H432" marker-end="url(#arg)"/>
+  <text class="msub" x="440" y="654">12. hợp lệ → getEmailFromToken() → nạp UserPrincipal vào SecurityContext</text>
+  <path class="msg" d="M425 696 H688" marker-end="url(#ar)"/>
+  <text class="mtext" x="433" y="690">13. Controller / Service xử lý</text>
+  <rect class="note" x="700" y="678" width="620" height="46" rx="6"/>
+  <text class="ntext" x="712" y="698">BR-01: query luôn lọc theo user_id / family_group_id của principal,</text>
+  <text class="ntext" x="712" y="716">không nhận định danh hộ từ tham số URL hay body.</text>
+
+  <!-- band 3: planned -->
+  <rect class="band" x="60" y="756" width="420" height="26" rx="4"/>
+  <text class="btext" x="76" y="774">3 · LỘ TRÌNH TĂNG CỨNG (Sprint 2 — DUAN-39, DUAN-40)</text>
+
+  <rect class="plan" x="60" y="796" width="1360" height="150" rx="8"/>
+  <text class="ptext" x="78" y="820">a) Tách access 15 phút + refresh 30 ngày: server chỉ lưu băm SHA-256 của refresh token, mỗi lần làm mới thu hồi token cũ (rotation) — hết tình trạng token sống cả ngày.</text>
+  <text class="ptext" x="78" y="844">b) Bỏ giá trị mặc định của app.jwt.secret trong application.yml; bắt buộc cấp qua biến môi trường, độ dài ≥ 32 byte, khởi động thất bại nếu thiếu.</text>
+  <text class="ptext" x="78" y="868">c) Thêm @PreAuthorize cho thao tác quản trị và thao tác trên dữ liệu hộ (hiện @EnableMethodSecurity đã bật nhưng chưa nơi nào dùng).</text>
+  <text class="ptext" x="78" y="892">d) Thu hẹp permitAll của actuator/**, chỉ giữ /actuator/health; thông báo đăng nhập sai thống nhất; khoá tạm sau 5 lần sai / 15 phút.</text>
+  <text class="ptext" x="78" y="916">e) Kiểm thử tự động: không token → 401, sai mật khẩu → 401, user A đọc dữ liệu user B → 404, token hết hạn → 401.</text>
+
+  <!-- footer -->
+  <g>
+    <text class="mtext" x="60" y="960">Chính sách hiện hành:</text>
+    <text class="msub" x="60" y="982">· access = JWT HS256, sub là email, exp = app.jwt.expiration-ms (24 giờ) · mật khẩu BCrypt cost 10 · session STATELESS, CSRF tắt vì API không dùng cookie</text>
+    <text class="msub" x="60" y="1002">· CORS chỉ nhận origin cấu hình · Swagger /v3/api-docs · phân quyền theo users.role (INDIVIDUAL_USER, HEAD_OF_FAMILY, FAMILY_MEMBER, ADMIN)</text>
+  </g>
+</svg>
