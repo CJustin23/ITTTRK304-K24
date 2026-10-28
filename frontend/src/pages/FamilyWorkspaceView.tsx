@@ -43,7 +43,7 @@ export const FamilyWorkspaceView: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold mb-3">
               <Crown className="w-3.5 h-3.5 text-yellow-400" />
-              <span>Chủ hộ: Nguyễn Tiến Thành</span>
+              <span>Chủ hộ: Nguyễn Trường An</span>
             </div>
             <h3 className="text-3xl font-black tracking-tight text-white">
               Sổ quỹ Gia đình Nhóm 03 (HN-KS24-CNTT3)

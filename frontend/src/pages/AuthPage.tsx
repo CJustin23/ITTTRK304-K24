@@ -50,9 +50,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         {
           id: 1,
           fullName: 'Nguyễn Tiến Thành',
-          email: email || 'thanh.nt@budglee.com',
-          role: 'FAMILY_ADMIN',
-          familyGroupId: 'FAM-001',
+          email: email || 'demo@budglee.com',
+          role: 'INDIVIDUAL_USER',
           avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
         },
         'mock-jwt-token-ey123456789'
@@ -89,7 +88,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   };
 
   const handleFillDemo = () => {
-    setEmail('thanh.nt@budglee.com');
+    setEmail('demo@budglee.com');
     setPassword('Budglee@2026');
   };
 
@@ -236,7 +235,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               className="w-full py-2 px-3 text-xs font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 rounded-xl hover:bg-emerald-900/40 transition-colors flex items-center justify-center gap-2"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Điền nhanh thông tin tài khoản Demo (Admin Thành)</span>
+              <span>Điền nhanh thông tin tài khoản Demo (Người dùng Cá nhân)</span>
             </button>
           )}
 

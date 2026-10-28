@@ -9,6 +9,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 interface SidebarProps {
   activeTab: string;
@@ -17,6 +18,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenBot }) => {
+  const { currentUser } = useStore();
   const menuItems = [
     { id: 'overview', label: 'Tổng quan (Overview)', icon: LayoutDashboard },
     { id: 'wallets', label: 'Ví & Thẻ (Wallets)', icon: Wallet },
@@ -88,8 +90,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
             className="w-10 h-10 rounded-full border-2 border-emerald-500/50 object-cover"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">Nguyễn Tiến Thành</p>
-            <p className="text-xs text-slate-400 truncate">Family Admin</p>
+            <p className="text-sm font-semibold text-white truncate">
+              {currentUser?.fullName || 'Nguyễn Tiến Thành'}
+            </p>
+            <p className="text-xs text-slate-400 truncate">
+              {currentUser?.role === 'FAMILY_ADMIN' ? 'Chủ hộ (Admin)' : 'Người dùng Cá nhân'}
+            </p>
           </div>
           <button
             onClick={() => setActiveTab('auth')}
