@@ -23,6 +23,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
     { id: 'transactions', label: 'Giao dịch (Activities)', icon: ArrowLeftRight },
     { id: 'budgets', label: 'Ngân sách (Budgets)', icon: PieChart },
     { id: 'goals', label: 'Mục tiêu (Goals)', icon: Target },
+    { id: 'insights', label: 'Phân tích AI (Insights)', icon: Sparkles },
     { id: 'family', label: 'Quỹ gia đình (Family)', icon: Users },
   ];
 
