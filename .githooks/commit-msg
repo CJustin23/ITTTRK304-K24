@@ -1,0 +1,28 @@
+#!/bin/sh
+# Kiem commit message co gan DUAN-xx de lien ket ve Jira board.
+# Bat mot lan moi may:  git config core.hooksPath .githooks
+
+FILE="$1"
+MSG=$(tr -d '\r' < "$FILE")
+
+case "$MSG" in
+  Merge\ *|Revert\ *|Initial\ *) exit 0 ;;
+esac
+
+FIRST_LINE=$(printf '%s\n' "$MSG" | head -1)
+
+if ! printf '%s' "$FIRST_LINE" | grep -Eq '^(feat|fix|test|docs|refactor|chore|ci|perf)(\([a-z0-9-]+\))?: .+'; then
+  echo "COMMIT MESSAGE TU CHOI" >&2
+  echo "  Thong thieu: <loai>: <mo ta>, vi du 'feat(auth): them dang ky BCrypt'" >&2
+  echo "  Loai hop le: feat fix test docs refactor chore ci perf" >&2
+  exit 1
+fi
+
+if ! printf '%s' "$MSG" | grep -Eq 'DUAN-[0-9]+'; then
+  echo "COMMIT MESSAGE TU CHOI" >&2
+  echo "  Chua co tham chieu issue Jira dang 'DUAN-xx'." >&2
+  echo "  Vi du: git commit -m 'feat(auth): đăng ký và đăng nhập JWT (DUAN-39)'" >&2
+  exit 1
+fi
+
+exit 0

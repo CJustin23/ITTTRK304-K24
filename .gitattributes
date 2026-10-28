@@ -1,0 +1,20 @@
+* text=auto
+
+# Script shell bắt buộc LF, nếu không ./mvnw sẽ lỗi "bad interpreter" trên Linux/macOS
+mvnw text eol=lf
+*.sh text eol=lf
+.githooks/commit-msg text eol=lf
+
+# Launcher chỉ dùng trên Windows
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Nhị phân: không chuẩn hoá xuống dòng
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.zip binary
+*.pdf binary
