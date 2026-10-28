@@ -3,9 +3,10 @@ import { Utensils, ShoppingBag, Car, HeartPulse, Receipt, Edit2 } from 'lucide-r
 
 interface CategoryListProps {
   categories: Record<string, number>;
+  onEdit?: () => void;
 }
 
-export const CategoryList: React.FC<CategoryListProps> = ({ categories }) => {
+export const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit }) => {
   const getCategoryIcon = (name: string) => {
     if (name.includes('Ăn uống') || name.includes('Food')) return Utensils;
     if (name.includes('Mua sắm') || name.includes('Shopping')) return ShoppingBag;
@@ -32,6 +33,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories }) => {
           <p className="text-xs text-slate-500 mt-0.5">Tỷ trọng chi tiêu theo từng danh mục</p>
         </div>
         <button
+          onClick={onEdit}
           className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-emerald-600 transition-colors"
         >
           <Edit2 className="w-3.5 h-3.5" />

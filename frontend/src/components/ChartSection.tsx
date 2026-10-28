@@ -9,26 +9,76 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+import { Timeframe } from '../types';
+
 interface ChartSectionProps {
-  data: { label: string; amount: number }[];
+  data?: { label: string; amount: number }[];
 }
 
 export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
-  const [timeframe, setTimeframe] = useState<'Daily' | 'Weekly' | 'Monthly' | 'Yearly'>('Monthly');
+  const [timeframe, setTimeframe] = useState<Timeframe>('Monthly');
 
-  const tabs: ('Daily' | 'Weekly' | 'Monthly' | 'Yearly')[] = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
+  const tabs: Timeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'];
+
+  // Dữ liệu theo các mốc thời gian (Phân hệ của Thành)
+  const datasets: Record<Timeframe, { label: string; amount: number }[]> = {
+    Daily: [
+      { label: 'Thứ 2', amount: 1200000 },
+      { label: 'Thứ 3', amount: 2450000 },
+      { label: 'Thứ 4', amount: 850000 },
+      { label: 'Thứ 5', amount: 3100000 },
+      { label: 'Thứ 6', amount: 1950000 },
+      { label: 'Thứ 7', amount: 3500000 },
+      { label: 'Chủ nhật', amount: 1200000 },
+    ],
+    Weekly: [
+      { label: 'Tuần 1', amount: 4500000 },
+      { label: 'Tuần 2', amount: 5200000 },
+      { label: 'Tuần 3', amount: 3800000 },
+      { label: 'Tuần 4', amount: 4100000 },
+    ],
+    Monthly: [
+      { label: 'Tháng 7', amount: 12500000 },
+      { label: 'Tháng 8', amount: 13800000 },
+      { label: 'Tháng 9', amount: 15200000 },
+      { label: 'Tháng 10', amount: 14250000 },
+    ],
+    Yearly: [
+      { label: '2023', amount: 120000000 },
+      { label: '2024', amount: 155000000 },
+      { label: '2025', amount: 170000000 },
+      { label: '2026', amount: 142500000 },
+    ],
+    Custom: [
+      { label: '15/10', amount: 1850000 },
+      { label: '18/10', amount: 2400000 },
+      { label: '21/10', amount: 950000 },
+      { label: '24/10', amount: 3200000 },
+      { label: '28/10', amount: 1450000 },
+    ],
+  };
+
+  const activeData = datasets[timeframe] || data || [];
 
   const formatTooltipValue = (value: number) => {
     return [new Intl.NumberFormat('vi-VN').format(value) + ' ₫', 'Tổng chi tiêu'];
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+    <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm">
       {/* Header & Filter Tabs */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h3 className="text-lg font-bold text-slate-800">Biến động chi tiêu (Total Spent)</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Theo dõi dòng tiền chi tiêu thực tế qua các mốc thời gian</p>
+          <p className="text-xs text-slate-500 mt-0.5 flex items-center flex-wrap gap-1">
+            <span>Dòng tiền chi tiêu theo mốc:</span>
+            <span className="font-semibold text-emerald-600">{timeframe}</span>
+            {timeframe === 'Custom' && (
+              <span className="ml-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                15/10/2026 – 28/10/2026
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Timeframe Tabs */}
@@ -37,9 +87,9 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
             <button
               key={tab}
               onClick={() => setTimeframe(tab)}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
                 timeframe === tab
-                  ? 'bg-white text-emerald-600 shadow-sm'
+                  ? 'bg-white text-emerald-600 shadow-sm font-bold'
                   : 'hover:text-slate-900'
               }`}
             >
@@ -52,10 +102,10 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
       {/* Chart Canvas */}
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={activeData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="spentGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
                 <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
               </linearGradient>
             </defs>
