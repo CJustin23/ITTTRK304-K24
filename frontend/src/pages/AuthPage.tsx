@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   TrendingUp,
   Wallet,
+  AlertCircle,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Role } from '../types';
@@ -36,11 +37,43 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const { setAuth } = useStore();
+
+  const validateEmail = (val: string) => {
+    if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(val.trim())) return 'Địa chỉ email không đúng định dạng (VD: demo@budglee.com)';
+    return '';
+  };
+
+  const validatePassword = (val: string) => {
+    if (!val) return 'Vui lòng nhập mật khẩu';
+    if (val.length < 6) return 'Mật khẩu phải chứa ít nhất 6 ký tự';
+    return '';
+  };
+
+  const validateFullName = (val: string) => {
+    if (!val.trim()) return 'Vui lòng nhập họ và tên của bạn';
+    if (val.trim().length < 2) return 'Họ và tên cần có ít nhất 2 ký tự';
+    return '';
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    const errs: Record<string, string> = {};
+    const emailErr = validateEmail(email);
+    if (emailErr) errs.email = emailErr;
+    const passErr = validatePassword(password);
+    if (passErr) errs.password = passErr;
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setIsLoading(true);
 
     setTimeout(() => {
@@ -50,7 +83,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         {
           id: 1,
           fullName: 'Nguyễn Tiến Thành',
-          email: email || 'demo@budglee.com',
+          email: email.trim() || 'demo@budglee.com',
           role: 'INDIVIDUAL_USER',
           avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
         },
@@ -63,20 +96,35 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-
-    if (password !== confirmPassword) {
-      setErrorMessage('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại!');
-      return;
+    const errs: Record<string, string> = {};
+    const nameErr = validateFullName(fullName);
+    if (nameErr) errs.fullName = nameErr;
+    const emailErr = validateEmail(email);
+    if (emailErr) errs.email = emailErr;
+    const passErr = validatePassword(password);
+    if (passErr) errs.password = passErr;
+    if (!confirmPassword) {
+      errs.confirmPassword = 'Vui lòng xác nhận lại mật khẩu';
+    } else if (confirmPassword !== password) {
+      errs.confirmPassword = 'Mật khẩu xác nhận không trùng khớp';
+    }
+    if (!agreeTerms) {
+      errs.agreeTerms = 'Bạn cần đồng ý với Điều khoản dịch vụ & Chính sách bảo mật';
     }
 
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
       setAuth(
         {
           id: Date.now(),
-          fullName: fullName || 'Người dùng mới',
-          email: email,
+          fullName: fullName.trim(),
+          email: email.trim(),
           role: role,
           familyGroupId: role === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined,
           avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
@@ -90,6 +138,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const handleFillDemo = () => {
     setEmail('demo@budglee.com');
     setPassword('Budglee@2026');
+    setErrors({});
   };
 
   return (
@@ -241,7 +290,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
           {/* ===================== FORM ĐĂNG NHẬP ===================== */}
           {isLogin ? (
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <form onSubmit={handleLoginSubmit} noValidate className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Địa chỉ Email
@@ -251,13 +300,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="login-email"
                     type="email"
-                    required
                     placeholder="name@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      errors.email
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                        : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.email}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -272,11 +333,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
-                    required
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+                    }}
+                    className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      errors.password
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                        : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
                   />
                   <button
                     type="button"
@@ -286,6 +353,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {errors.password && (
+                  <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.password}</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center">
@@ -318,7 +391,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             </form>
           ) : (
             /* ===================== FORM ĐĂNG KÝ ===================== */
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            <form onSubmit={handleRegisterSubmit} noValidate className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Họ và tên của bạn
@@ -328,13 +401,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="reg-fullname"
                     type="text"
-                    required
                     placeholder="VD: Nguyễn Tiến Thành"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: '' }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      errors.fullName
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                        : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
                   />
                 </div>
+                {errors.fullName && (
+                  <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.fullName}</span>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -346,13 +431,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="reg-email"
                     type="email"
-                    required
                     placeholder="email@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      errors.email
+                        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                        : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.email}</span>
+                  </p>
+                )}
               </div>
 
               {/* Vai trò / Phân quyền đăng ký */}
@@ -396,14 +493,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <input
                       id="reg-password"
                       type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+                      }}
+                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                        errors.password
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                          : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      }`}
                     />
                   </div>
+                  {errors.password && (
+                    <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.password}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -415,27 +523,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <input
                       id="reg-confirm-password"
                       type={showPassword ? 'text' : 'password'}
-                      required
                       placeholder="••••••••"
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: '' }));
+                      }}
+                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                        errors.confirmPassword
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                          : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      }`}
                     />
                   </div>
+                  {errors.confirmPassword && (
+                    <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.confirmPassword}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  id="agree-terms"
-                  type="checkbox"
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
-                />
-                <label htmlFor="agree-terms" className="ml-2 text-xs text-slate-400 select-none">
-                  Tôi đồng ý với <a href="#terms" className="text-emerald-400 hover:underline">Điều khoản dịch vụ</a> và <a href="#privacy" className="text-emerald-400 hover:underline">Chính sách bảo mật</a>
-                </label>
+              <div>
+                <div className="flex items-center">
+                  <input
+                    id="agree-terms"
+                    type="checkbox"
+                    checked={agreeTerms}
+                    onChange={(e) => {
+                      setAgreeTerms(e.target.checked);
+                      if (e.target.checked && errors.agreeTerms) {
+                        setErrors((prev) => ({ ...prev, agreeTerms: '' }));
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
+                  />
+                  <label htmlFor="agree-terms" className="ml-2 text-xs text-slate-400 select-none">
+                    Tôi đồng ý với <a href="#terms" className="text-emerald-400 hover:underline">Điều khoản dịch vụ</a> và <a href="#privacy" className="text-emerald-400 hover:underline">Chính sách bảo mật</a>
+                  </label>
+                </div>
+                {errors.agreeTerms && (
+                  <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errors.agreeTerms}</span>
+                  </p>
+                )}
               </div>
 
               <button
