@@ -123,7 +123,7 @@ class AuthLoginTest {
     @Test
     void protectedEndpointRejectsWhenNoTokenIsPresented() throws Exception {
         mvc.perform(get("/api/v1/budgets").param("month", "10").param("year", "2026"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -137,7 +137,7 @@ class AuthLoginTest {
                         .header("Authorization", "Bearer " + tampered)
                         .param("month", "10")
                         .param("year", "2026"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
