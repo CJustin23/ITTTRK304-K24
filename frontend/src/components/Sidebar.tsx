@@ -70,15 +70,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
 
         {/* AI Bot Recommendation Highlight */}
         <div className="pt-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 mb-2">
-            Trợ lý AI
+          <div className="flex items-center justify-between px-3 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Trợ lý AI</span>
+            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              Đang phát triển
+            </span>
           </div>
           <button
             onClick={onOpenBot}
-            className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/40 transition-all shadow-sm group"
+            className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/40 transition-all shadow-sm group"
           >
-            <Sparkles className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span>Kích hoạt AI Bot</span>
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>AI Cố vấn Tài chính</span>
+            </div>
+            <span className="text-[10px] text-slate-400 group-hover:text-emerald-300">Beta</span>
           </button>
         </div>
       </nav>
