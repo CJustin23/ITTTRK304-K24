@@ -5,7 +5,7 @@
 -- This script does not delete existing records.
 -- ==========================================================
 
-USE budglee_db;
+-- USE budglee_db;
 
 -- 1. Create a demo user if it does not exist.
 -- The password hash is BCrypt for the development password "password".
