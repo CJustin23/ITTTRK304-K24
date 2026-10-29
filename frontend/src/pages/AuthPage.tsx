@@ -89,6 +89,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   const handleRemoveMemberRow = (id: string) => {
     setInitialFamilyMembers((prev) => prev.filter((m) => m.id !== id));
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[`member_${id}_name`];
+      delete copy[`member_${id}_email`];
+      return copy;
+    });
   };
 
   const handleMemberChange = (id: string, field: 'fullName' | 'email' | 'role', value: string) => {
@@ -207,10 +213,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         if (!m.fullName.trim()) {
           errs[`member_${m.id}_name`] = 'Vui lòng nhập họ tên thành viên';
         }
-        if (!m.email.trim()) {
-          errs[`member_${m.id}_email`] = 'Vui lòng nhập email thành viên';
-        } else if (!validateEmail(m.email)) {
-          errs[`member_${m.id}_email`] = 'Email thành viên không đúng định dạng';
+        const memberEmailErr = validateEmail(m.email);
+        if (memberEmailErr) {
+          errs[`member_${m.id}_email`] = memberEmailErr;
         } else if (m.email.trim().toLowerCase() === email.trim().toLowerCase()) {
           errs[`member_${m.id}_email`] = 'Email không được trùng với email chủ hộ';
         }
