@@ -13,12 +13,23 @@ import {
   TrendingUp,
   Wallet,
   AlertCircle,
+  Plus,
+  Trash2,
+  Home,
+  Crown,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { Role } from '../types';
+import { Role, User } from '../types';
 
 interface AuthPageProps {
   onSuccess?: () => void;
+}
+
+interface InitialMemberRow {
+  id: string;
+  fullName: string;
+  email: string;
+  role: Role;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
@@ -31,33 +42,64 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<Role>('INDIVIDUAL_USER');
-  const [familyCode, setFamilyCode] = useState('');
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
 
+  // Family registration states
+  const [familyName, setFamilyName] = useState('');
+  const [initialFamilyMembers, setInitialFamilyMembers] = useState<InitialMemberRow[]>([]);
+
+  // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { setAuth } = useStore();
 
+  // Helper validation
   const validateEmail = (val: string) => {
-    if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(val.trim())) return 'Địa chỉ email không đúng định dạng (VD: demo@budglee.com)';
+    if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
+    if (!emailRegex.test(val.trim())) return 'Địa chỉ email không đúng định dạng (VD: example@domain.com)';
     return '';
   };
 
   const validatePassword = (val: string) => {
     if (!val) return 'Vui lòng nhập mật khẩu';
-    if (val.length < 6) return 'Mật khẩu phải chứa ít nhất 6 ký tự';
+    if (val.length < 6) return 'Mật khẩu phải có tối thiểu 6 ký tự';
     return '';
   };
 
   const validateFullName = (val: string) => {
     if (!val.trim()) return 'Vui lòng nhập họ và tên của bạn';
-    if (val.trim().length < 2) return 'Họ và tên cần có ít nhất 2 ký tự';
+    if (val.trim().length < 2) return 'Họ và tên phải có ít nhất 2 ký tự';
     return '';
+  };
+
+  const handleAddMemberRow = () => {
+    setInitialFamilyMembers((prev) => [
+      ...prev,
+      {
+        id: 'member-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+        fullName: '',
+        email: '',
+        role: 'FAMILY_MEMBER',
+      },
+    ]);
+  };
+
+  const handleRemoveMemberRow = (id: string) => {
+    setInitialFamilyMembers((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const handleMemberChange = (id: string, field: 'fullName' | 'email' | 'role', value: string) => {
+    setInitialFamilyMembers((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+    );
+    // Clear error for this field
+    const errKey = `member_${id}_${field === 'fullName' ? 'name' : field}`;
+    if (errors[errKey]) {
+      setErrors((prev) => ({ ...prev, [errKey]: '' }));
+    }
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -78,17 +120,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
     setTimeout(() => {
       setIsLoading(false);
-      // Giả lập xác thực thành công và lưu state
-      setAuth(
-        {
-          id: 1,
-          fullName: 'Nguyễn Tiến Thành',
-          email: email.trim() || 'demo@budglee.com',
-          role: 'INDIVIDUAL_USER',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-        },
-        'mock-jwt-token-ey123456789'
-      );
+      const trimmedEmail = email.trim().toLowerCase();
+
+      if (trimmedEmail === 'demo@budglee.com') {
+        // Tài khoản demo mặc định: nạp bộ dữ liệu mẫu phong phú
+        setAuth(
+          {
+            id: 1,
+            fullName: 'Nguyễn Tiến Thành',
+            email: 'demo@budglee.com',
+            role: 'INDIVIDUAL_USER',
+            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+          },
+          'mock-jwt-token-demo'
+        );
+      } else {
+        // Tài khoản người dùng thực: tra cứu thông tin đã đăng ký trong localStorage
+        const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
+        let userToLogin: User;
+
+        if (savedUserStr) {
+          try {
+            userToLogin = JSON.parse(savedUserStr);
+          } catch {
+            userToLogin = {
+              id: Date.now(),
+              fullName: email.split('@')[0],
+              email: trimmedEmail,
+              role: 'INDIVIDUAL_USER',
+              avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
+            };
+          }
+        } else {
+          userToLogin = {
+            id: Date.now(),
+            fullName: email.split('@')[0],
+            email: trimmedEmail,
+            role: 'INDIVIDUAL_USER',
+            avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
+          };
+          localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
+        }
+
+        // Đăng nhập tài khoản với dữ liệu riêng (không lẫn dữ liệu demo)
+        setAuth(userToLogin, 'mock-jwt-token-' + Date.now(), false);
+      }
+
       if (onSuccess) onSuccess();
     }, 600);
   };
@@ -97,40 +174,89 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     e.preventDefault();
     setErrorMessage('');
     const errs: Record<string, string> = {};
+
     const nameErr = validateFullName(fullName);
     if (nameErr) errs.fullName = nameErr;
+
     const emailErr = validateEmail(email);
     if (emailErr) errs.email = emailErr;
+
     const passErr = validatePassword(password);
     if (passErr) errs.password = passErr;
+
     if (!confirmPassword) {
       errs.confirmPassword = 'Vui lòng xác nhận lại mật khẩu';
     } else if (confirmPassword !== password) {
       errs.confirmPassword = 'Mật khẩu xác nhận không trùng khớp';
     }
+
     if (!agreeTerms) {
       errs.agreeTerms = 'Bạn cần đồng ý với Điều khoản dịch vụ & Chính sách bảo mật';
+    }
+
+    // Nếu đăng ký làm Chủ hộ gia đình:
+    if (role === 'FAMILY_ADMIN') {
+      if (!familyName.trim()) {
+        errs.familyName = 'Vui lòng nhập tên sổ quỹ gia đình';
+      } else if (familyName.trim().length < 2) {
+        errs.familyName = 'Tên sổ quỹ phải có ít nhất 2 ký tự';
+      }
+
+      // Kiểm tra danh sách thành viên gia đình ban đầu
+      initialFamilyMembers.forEach((m) => {
+        if (!m.fullName.trim()) {
+          errs[`member_${m.id}_name`] = 'Vui lòng nhập họ tên thành viên';
+        }
+        if (!m.email.trim()) {
+          errs[`member_${m.id}_email`] = 'Vui lòng nhập email thành viên';
+        } else if (!validateEmail(m.email)) {
+          errs[`member_${m.id}_email`] = 'Email thành viên không đúng định dạng';
+        } else if (m.email.trim().toLowerCase() === email.trim().toLowerCase()) {
+          errs[`member_${m.id}_email`] = 'Email không được trùng với email chủ hộ';
+        }
+      });
     }
 
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
+
     setErrors({});
     setIsLoading(true);
+
     setTimeout(() => {
       setIsLoading(false);
+      const trimmedEmail = email.trim().toLowerCase();
+      const familyGroupId = role === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined;
+
+      const newUser: User = {
+        id: Date.now(),
+        fullName: fullName.trim(),
+        email: trimmedEmail,
+        role: role,
+        familyGroupId,
+        familyGroupName: role === 'FAMILY_ADMIN' ? familyName.trim() : undefined,
+        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
+      };
+
+      // Lưu hồ sơ tài khoản
+      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(newUser));
+
+      // Tạo tài khoản MỚI HOÀN TOÀN SẠCH (isNewRegistration = true, không dính ví/giao dịch cũ)
       setAuth(
-        {
-          id: Date.now(),
-          fullName: fullName.trim(),
-          email: email.trim(),
-          role: role,
-          familyGroupId: role === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined,
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-        },
-        'mock-jwt-token-ey987654321'
+        newUser,
+        'mock-jwt-token-' + Date.now(),
+        true,
+        initialFamilyMembers
+          .filter((m) => m.fullName.trim() && m.email.trim())
+          .map((m) => ({
+            fullName: m.fullName.trim(),
+            email: m.email.trim(),
+            role: m.role,
+          }))
       );
+
       if (onSuccess) onSuccess();
     }, 700);
   };
@@ -243,6 +369,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               onClick={() => {
                 setIsLogin(true);
                 setErrorMessage('');
+                setErrors({});
               }}
               className={`py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${
                 isLogin
@@ -258,6 +385,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               onClick={() => {
                 setIsLogin(false);
                 setErrorMessage('');
+                setErrors({});
               }}
               className={`py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${
                 !isLogin
@@ -278,14 +406,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
           {/* Quick Demo Fill (Convenience feature for grading/testing) */}
           {isLogin && (
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="w-full py-2 px-3 text-xs font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 rounded-xl hover:bg-emerald-900/40 transition-colors flex items-center justify-center gap-2"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Điền nhanh thông tin tài khoản Demo (Người dùng Cá nhân)</span>
-            </button>
+            <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Sparkles className="w-4 h-4 text-yellow-400 shrink-0" />
+                <span>Khảo sát nhanh với tài khoản mẫu?</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleFillDemo}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors shrink-0 shadow-sm"
+              >
+                Điền nhanh Demo
+              </button>
+            </div>
           )}
 
           {/* ===================== FORM ĐĂNG NHẬP ===================== */}
@@ -293,14 +426,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             <form onSubmit={handleLoginSubmit} noValidate className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Địa chỉ Email
+                  Địa chỉ Email <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     id="login-email"
                     type="email"
-                    placeholder="name@example.com"
+                    placeholder="demo@budglee.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -322,9 +455,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Mật khẩu</label>
-                  <a href="#forgot" className="text-xs text-emerald-400 hover:underline">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Mật khẩu <span className="text-rose-500">*</span>
+                  </label>
+                  <a
+                    href="#forgot"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      alert('Tính năng khôi phục mật khẩu qua Email sẽ được gửi mã OTP');
+                    }}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
                     Quên mật khẩu?
                   </a>
                 </div>
@@ -348,7 +490,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -361,15 +503,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                 )}
               </div>
 
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  type="checkbox"
-                  defaultChecked
-                  className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
-                />
-                <label htmlFor="remember-me" className="ml-2 text-xs text-slate-400 select-none">
-                  Ghi nhớ đăng nhập trên thiết bị này trong 30 ngày
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
+                  />
+                  <span>Ghi nhớ phiên đăng nhập (30 ngày)</span>
                 </label>
               </div>
 
@@ -394,7 +535,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             <form onSubmit={handleRegisterSubmit} noValidate className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Họ và tên của bạn
+                  Họ và tên của bạn <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <UserIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -424,7 +565,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Địa chỉ Email
+                  Địa chỉ Email <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -455,12 +596,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               {/* Vai trò / Phân quyền đăng ký */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Mục đích sử dụng chính
+                  Mục đích sử dụng chính <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setRole('INDIVIDUAL_USER')}
+                    onClick={() => {
+                      setRole('INDIVIDUAL_USER');
+                      setErrors((prev) => {
+                        const copy = { ...prev };
+                        delete copy.familyName;
+                        return copy;
+                      });
+                    }}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       role === 'INDIVIDUAL_USER'
                         ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-md'
@@ -472,7 +620,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRole('FAMILY_ADMIN')}
+                    onClick={() => {
+                      setRole('FAMILY_ADMIN');
+                      if (initialFamilyMembers.length === 0) {
+                        handleAddMemberRow();
+                      }
+                    }}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       role === 'FAMILY_ADMIN'
                         ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-md'
@@ -485,9 +638,153 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                 </div>
               </div>
 
+              {/* KHỐI CẤU HÌNH DÀNH RIÊNG CHO GIA ĐÌNH (FAMILY_ADMIN) */}
+              {role === 'FAMILY_ADMIN' && (
+                <div className="p-4 rounded-2xl bg-slate-900/90 border border-emerald-500/40 space-y-4 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                    <Crown className="w-4 h-4 text-yellow-400" />
+                    <span>Thiết lập Không gian Sổ quỹ Gia đình</span>
+                  </div>
+
+                  {/* Tên Sổ quỹ Gia đình */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Tên Sổ quỹ Gia đình <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Home className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="VD: Gia đình Nguyễn, Tổ ấm nhỏ..."
+                        value={familyName}
+                        onChange={(e) => {
+                          setFamilyName(e.target.value);
+                          if (errors.familyName) setErrors((prev) => ({ ...prev, familyName: '' }));
+                        }}
+                        className={`w-full pl-9 pr-3 py-2 bg-slate-950 border rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                          errors.familyName
+                            ? 'border-rose-500 ring-1 ring-rose-500'
+                            : 'border-slate-700 focus:border-emerald-500'
+                        }`}
+                      />
+                    </div>
+                    {errors.familyName && (
+                      <p className="text-xs text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span>{errors.familyName}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Danh sách thành viên gia đình ban đầu */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-300">
+                        Thành viên gia đình cần thêm:
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleAddMemberRow}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>+ Thêm thành viên</span>
+                      </button>
+                    </div>
+
+                    {initialFamilyMembers.length === 0 ? (
+                      <p className="text-[11px] text-slate-500 italic">
+                        Chưa có thành viên nào. Bấm "+ Thêm thành viên" để mời người thân ngay lúc tạo sổ quỹ.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {initialFamilyMembers.map((member, idx) => (
+                          <div
+                            key={member.id}
+                            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
+                          >
+                            <div className="flex items-center justify-between text-[11px] text-slate-400">
+                              <span className="font-semibold">Thành viên #{idx + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMemberRow(member.id)}
+                                className="text-slate-500 hover:text-rose-400 p-0.5 rounded transition-colors"
+                                title="Xóa dòng thành viên này"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <input
+                                  type="text"
+                                  placeholder="Họ tên thành viên"
+                                  value={member.fullName}
+                                  onChange={(e) =>
+                                    handleMemberChange(member.id, 'fullName', e.target.value)
+                                  }
+                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
+                                    errors[`member_${member.id}_name`]
+                                      ? 'border-rose-500'
+                                      : 'border-slate-700 focus:border-emerald-500'
+                                  }`}
+                                />
+                                {errors[`member_${member.id}_name`] && (
+                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
+                                    {errors[`member_${member.id}_name`]}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div>
+                                <input
+                                  type="email"
+                                  placeholder="Email thành viên"
+                                  value={member.email}
+                                  onChange={(e) =>
+                                    handleMemberChange(member.id, 'email', e.target.value)
+                                  }
+                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
+                                    errors[`member_${member.id}_email`]
+                                      ? 'border-rose-500'
+                                      : 'border-slate-700 focus:border-emerald-500'
+                                  }`}
+                                />
+                                {errors[`member_${member.id}_email`] && (
+                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
+                                    {errors[`member_${member.id}_email`]}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-400">Vai trò:</span>
+                              <select
+                                value={member.role}
+                                onChange={(e) =>
+                                  handleMemberChange(member.id, 'role', e.target.value)
+                                }
+                                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-slate-300 focus:outline-none focus:border-emerald-500"
+                              >
+                                <option value="FAMILY_MEMBER">Thành viên (Ghi chép thu chi)</option>
+                                <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Mật khẩu</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Mật khẩu <span className="text-rose-500">*</span>
+                  </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
@@ -516,7 +813,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Xác nhận lại
+                    Xác nhận lại <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -574,7 +871,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               <button
                 id="btn-register-submit"
                 type="submit"
-                disabled={isLoading || !agreeTerms}
+                disabled={isLoading}
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-50"
               >
                 {isLoading ? (
@@ -589,52 +886,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             </form>
           )}
 
-          {/* Social / Alternative divider */}
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-800"></div>
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-[#0F172A] px-3 text-slate-500">Hoặc tiếp tục nhanh với</span>
-            </div>
-          </div>
-
-          {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 flex items-center justify-center gap-2 transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Google Account</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 flex items-center justify-center gap-2 transition-colors"
-            >
-              <Users className="w-4 h-4 text-emerald-400" />
-              <span>Gia nhập Sổ quỹ</span>
-            </button>
+          {/* Social Proof Footer */}
+          <div className="pt-2 border-t border-slate-800 text-center">
+            <p className="text-xs text-slate-500">
+              Budglee Finance Platform • Hệ thống Quản lý Chi tiêu Cá nhân & Hộ Gia đình
+            </p>
           </div>
         </div>
       </div>

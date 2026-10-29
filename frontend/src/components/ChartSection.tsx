@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-
+import { useStore } from '../store/useStore';
 import { Timeframe } from '../types';
 
 interface ChartSectionProps {
@@ -17,11 +17,12 @@ interface ChartSectionProps {
 
 export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
   const [timeframe, setTimeframe] = useState<Timeframe>('Monthly');
+  const { currentUser, recentTransactions } = useStore();
 
   const tabs: Timeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'];
 
-  // Dữ liệu theo các mốc thời gian (Phân hệ của Thành)
-  const datasets: Record<Timeframe, { label: string; amount: number }[]> = {
+  // Dữ liệu mẫu theo các mốc thời gian dành cho Demo
+  const demoDatasets: Record<Timeframe, { label: string; amount: number }[]> = {
     Daily: [
       { label: 'Thứ 2', amount: 1200000 },
       { label: 'Thứ 3', amount: 2450000 },
@@ -58,7 +59,23 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     ],
   };
 
-  const activeData = datasets[timeframe] || data || [];
+  const isDemo = currentUser?.email.toLowerCase() === 'demo@budglee.com';
+  const hasExpenses = recentTransactions.some((t) => t.transactionType === 'EXPENSE');
+
+  // Tài khoản Demo hiển thị dữ liệu demo; tài khoản thường nếu chưa có chi tiêu thì để 0
+  const activeData = isDemo
+    ? (demoDatasets[timeframe] || data || [])
+    : hasExpenses
+    ? (demoDatasets[timeframe] || data || [])
+    : [
+        { label: 'Thứ 2', amount: 0 },
+        { label: 'Thứ 3', amount: 0 },
+        { label: 'Thứ 4', amount: 0 },
+        { label: 'Thứ 5', amount: 0 },
+        { label: 'Thứ 6', amount: 0 },
+        { label: 'Thứ 7', amount: 0 },
+        { label: 'Chủ nhật', amount: 0 },
+      ];
 
   const formatTooltipValue = (value: number) => {
     return [new Intl.NumberFormat('vi-VN').format(value) + ' ₫', 'Tổng chi tiêu'];
@@ -77,6 +94,9 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
               <span className="ml-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
                 15/10/2026 – 28/10/2026
               </span>
+            )}
+            {!hasExpenses && !isDemo && (
+              <span className="text-slate-400 italic ml-2">• Chưa có giao dịch chi tiêu</span>
             )}
           </p>
         </div>

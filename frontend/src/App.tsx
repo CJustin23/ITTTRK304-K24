@@ -13,6 +13,7 @@ import { BudgetsView } from './pages/BudgetsView';
 import { SavingGoalsView } from './pages/SavingGoalsView';
 import { FamilyWorkspaceView } from './pages/FamilyWorkspaceView';
 import { InsightsView } from './pages/InsightsView';
+import { SettingsView } from './pages/SettingsView';
 import { AuthPage } from './pages/AuthPage';
 
 import { BotInsightModal } from './components/BotInsightModal';
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
     isTransactionModalOpen,
     setBotModalOpen,
     setTransactionModalOpen,
+    setWalletModalOpen,
     addTransaction,
     logout,
   } = useStore();
@@ -115,6 +117,8 @@ export const App: React.FC = () => {
         return <InsightsView />;
       case 'family':
         return <FamilyWorkspaceView />;
+      case 'settings':
+        return <SettingsView />;
       case 'overview':
       default:
         return (
@@ -123,7 +127,7 @@ export const App: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-                  Xin chào, {currentUser?.fullName || 'Nguyễn Tiến Thành'} 👋
+                  Xin chào, {currentUser?.fullName || 'Người dùng'} 👋
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
                   Đây là bức tranh tài chính tổng quan của cá nhân và quỹ gia đình tháng 10/2026.
@@ -141,28 +145,28 @@ export const App: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard
                 title="Tổng số dư (Total balance)"
-                amount={dashboardSummary?.totalBalance || 67150000}
+                amount={dashboardSummary?.totalBalance ?? 0}
                 icon={Wallet}
                 variant="emerald"
                 trend="+4.2% so với tháng trước"
               />
               <StatCard
                 title="Tổng thu tháng (Monthly income)"
-                amount={dashboardSummary?.monthlyIncome || 35000000}
+                amount={dashboardSummary?.monthlyIncome ?? 0}
                 icon={TrendingUp}
                 variant="blue"
-                subtext="Nguồn: Lương & Đầu tư"
+                subtext="Nguồn: Lương & Thu nhập"
               />
               <StatCard
                 title="Tổng chi tháng (Monthly spending)"
-                amount={dashboardSummary?.monthlySpending || 14250000}
+                amount={dashboardSummary?.monthlySpending ?? 0}
                 icon={TrendingDown}
                 variant="rose"
-                subtext="Đạt 68.5% hạn mức"
+                subtext={`Đạt ${(dashboardSummary?.spendingPercentageOfBudget ?? 0).toFixed(1)}% hạn mức`}
               />
               <StatCard
                 title="Còn được phép tiêu (Left to spend)"
-                amount={dashboardSummary?.leftToSpend || 20750000}
+                amount={dashboardSummary?.leftToSpend ?? 0}
                 icon={PiggyBank}
                 variant="amber"
                 trend="An toàn"
@@ -181,9 +185,10 @@ export const App: React.FC = () => {
               <div className="space-y-8">
                 <CardsSection
                   wallets={wallets}
-                  leftToSpend={dashboardSummary?.leftToSpend || 20750000}
-                  spendingPercentage={dashboardSummary?.spendingPercentageOfBudget || 68.5}
+                  leftToSpend={dashboardSummary?.leftToSpend ?? 0}
+                  spendingPercentage={dashboardSummary?.spendingPercentageOfBudget ?? 0}
                   onNewBudget={() => setActiveTab('budgets')}
+                  onNewWallet={() => setWalletModalOpen(true)}
                 />
                 <CategoryList
                   categories={dashboardSummary?.categoryExpenses || {}}
