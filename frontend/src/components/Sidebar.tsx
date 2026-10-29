@@ -8,6 +8,7 @@ import {
   Sparkles,
   Settings,
   Users,
+  LogOut,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
@@ -18,7 +19,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenBot }) => {
-  const { currentUser } = useStore();
+  const { currentUser, logout } = useStore();
   const menuItems = [
     { id: 'overview', label: 'Tổng quan (Overview)', icon: LayoutDashboard },
     { id: 'wallets', label: 'Ví & Thẻ (Wallets)', icon: Wallet },
@@ -27,6 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
     { id: 'goals', label: 'Mục tiêu (Goals)', icon: Target },
     { id: 'insights', label: 'Phân tích AI (Insights)', icon: Sparkles },
     { id: 'family', label: 'Quỹ gia đình (Family)', icon: Users },
+    { id: 'settings', label: 'Cài đặt (Settings)', icon: Settings },
   ];
 
   return (
@@ -68,41 +70,69 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
 
         {/* AI Bot Recommendation Highlight */}
         <div className="pt-6">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 mb-2">
-            Trợ lý AI
+          <div className="flex items-center justify-between px-3 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Trợ lý AI</span>
+            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
+              Đang phát triển
+            </span>
           </div>
           <button
             onClick={onOpenBot}
-            className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/40 transition-all shadow-sm group"
+            className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 hover:bg-emerald-900/40 transition-all shadow-sm group"
           >
-            <Sparkles className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span>Kích hoạt AI Bot</span>
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span>AI Cố vấn Tài chính</span>
+            </div>
+            <span className="text-[10px] text-slate-400 group-hover:text-emerald-300">Beta</span>
           </button>
         </div>
       </nav>
 
       {/* Footer / User Mini Profile */}
       <div className="p-4 border-t border-slate-700/60 bg-slate-800/40">
-        <div className="flex items-center gap-3">
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
-            alt="User avatar"
-            className="w-10 h-10 rounded-full border-2 border-emerald-500/50 object-cover"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {currentUser?.fullName || 'Nguyễn Tiến Thành'}
-            </p>
-            <p className="text-xs text-slate-400 truncate">
-              {currentUser?.role === 'FAMILY_ADMIN' ? 'Chủ hộ (Admin)' : 'Người dùng Cá nhân'}
-            </p>
-          </div>
+        <div className="flex items-center gap-2.5">
           <button
-            onClick={() => setActiveTab('auth')}
-            title="Đăng xuất / Màn hình Đăng nhập & Đăng ký"
+            onClick={() => setActiveTab('settings')}
+            className="flex items-center gap-2.5 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+          >
+            <img
+              src={currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces'}
+              alt="User avatar"
+              className="w-10 h-10 rounded-full border-2 border-emerald-500/50 object-cover shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate">
+                {currentUser?.fullName || 'Người dùng'}
+              </p>
+              <p className="text-xs text-slate-400 truncate">
+                {currentUser?.role === 'FAMILY_ADMIN'
+                  ? 'Chủ hộ (Admin)'
+                  : currentUser?.role === 'FAMILY_MEMBER'
+                  ? 'Thành viên Gia đình'
+                  : 'Quản lý Cá nhân'}
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            title="Cài đặt tài khoản & Sổ quỹ"
+            className={`p-2 rounded-xl transition-colors ${
+              activeTab === 'settings'
+                ? 'bg-emerald-500 text-white'
+                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={logout}
+            title="Đăng xuất"
             className="text-slate-400 hover:text-rose-400 p-2 rounded-xl hover:bg-slate-700/50 transition-colors"
           >
-            <Settings className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -59,36 +59,38 @@ export const BudgetsView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-            Tổng hạn mức tháng
+            Tổng hạn mức thiết lập
           </p>
           <h3 className="text-2xl font-black text-slate-800">
             {new Intl.NumberFormat('vi-VN').format(totalLimit)} ₫
           </h3>
-          <p className="text-xs text-slate-400 mt-2">Dành cho {budgets.length} danh mục</p>
+          <p className="text-xs text-slate-400 mt-2">{budgets.length} danh mục có hạn mức</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-            Tổng số tiền đã chi
+            Tổng tiền đã chi tiêu
           </p>
-          <h3 className="text-2xl font-black text-rose-600">
+          <h3 className="text-2xl font-black text-slate-800">
             {new Intl.NumberFormat('vi-VN').format(totalSpent)} ₫
           </h3>
-          <p className="text-xs text-slate-500 mt-2">Đạt {overallPercentage.toFixed(1)}% ngân sách</p>
+          <p className="text-xs text-emerald-600 mt-2 font-medium">
+            Đạt {overallPercentage.toFixed(1)}% tổng ngân sách
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-            Còn được phép tiêu (Left to spend)
+            Tiền còn lại trong hạn mức
           </p>
           <h3
             className={`text-2xl font-black ${
-              totalRemaining >= 0 ? 'text-emerald-600' : 'text-rose-600'
+              totalRemaining < 0 ? 'text-rose-600' : 'text-emerald-600'
             }`}
           >
-            {new Intl.NumberFormat('vi-VN').format(totalRemaining)} ₫
+            {new Intl.NumberFormat('vi-VN').format(Math.max(0, totalRemaining))} ₫
           </h3>
-          <p className="text-xs text-emerald-600 mt-2 font-medium">Hạn mức tháng 10/2026</p>
+          <p className="text-xs text-emerald-600 mt-2 font-medium">Hạn mức tháng hiện tại</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
@@ -107,121 +109,139 @@ export const BudgetsView: React.FC = () => {
       </div>
 
       {/* Main Budget Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {budgets.map((b) => {
-          const Icon = getCategoryIcon(b.categoryName || '');
-          const percentage = (b.spentAmount / b.amountLimit) * 100;
-          const leftToSpend = b.amountLimit - b.spentAmount;
-          const isWarning = percentage >= b.alertThreshold && percentage < 100;
-          const isOverspent = percentage >= 100;
+      {budgets.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+            <PieChart className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800">Chưa thiết lập ngân sách nào</h3>
+          <p className="text-sm text-slate-500 mt-1 mb-6">
+            Hãy đặt hạn mức chi tiêu cho các danh mục (Ăn uống, Mua sắm, Di chuyển...) để kiểm soát dòng tiền tốt hơn.
+          </p>
+          <button
+            onClick={() => setBudgetModalOpen(true)}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all"
+          >
+            + Thiết lập ngân sách đầu tiên
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {budgets.map((b) => {
+            const Icon = getCategoryIcon(b.categoryName || '');
+            const percentage = (b.spentAmount / b.amountLimit) * 100;
+            const leftToSpend = b.amountLimit - b.spentAmount;
+            const isWarning = percentage >= b.alertThreshold && percentage < 100;
+            const isOverspent = percentage >= 100;
 
-          return (
-            <div
-              key={b.id}
-              className={`bg-white rounded-3xl p-6 border transition-all ${
-                isOverspent
-                  ? 'border-rose-300 shadow-md shadow-rose-500/5 ring-1 ring-rose-200'
-                  : isWarning
-                  ? 'border-amber-300 shadow-md shadow-amber-500/5 ring-1 ring-amber-200'
-                  : 'border-slate-200/80 shadow-sm'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-5">
-                <div className="flex items-center gap-3.5">
-                  <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                      isOverspent
-                        ? 'bg-rose-100 text-rose-600'
-                        : isWarning
-                        ? 'bg-amber-100 text-amber-600'
-                        : 'bg-emerald-100 text-emerald-600'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-bold text-slate-800">{b.categoryName}</h4>
-                    <p className="text-xs text-slate-400">
-                      Hạn mức: {new Intl.NumberFormat('vi-VN').format(b.amountLimit)} ₫
-                    </p>
-                  </div>
-                </div>
-
-                <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                    isOverspent
-                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                      : isWarning
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  }`}
-                >
-                  {percentage.toFixed(0)}%
-                </span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="space-y-2 mb-4">
-                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 ${
-                      isOverspent
-                        ? 'bg-rose-500'
-                        : isWarning
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500'
-                    }`}
-                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                  ></div>
-                </div>
-                <div className="flex justify-between items-center text-xs text-slate-500">
-                  <span>Đã chi: {new Intl.NumberFormat('vi-VN').format(b.spentAmount)} ₫</span>
-                  <span
-                    className={`font-semibold ${
-                      isOverspent
-                        ? 'text-rose-600'
-                        : isWarning
-                        ? 'text-amber-600'
-                        : 'text-emerald-600'
-                    }`}
-                  >
-                    {isOverspent ? 'Vượt: ' : 'Còn lại: '}
-                    {new Intl.NumberFormat('vi-VN').format(Math.abs(leftToSpend))} ₫
-                  </span>
-                </div>
-              </div>
-
-              {/* Status Alert Badge */}
+            return (
               <div
-                className={`flex items-center gap-2 p-3 rounded-xl text-xs font-medium border ${
+                key={b.id}
+                className={`bg-white rounded-3xl p-6 border transition-all ${
                   isOverspent
-                    ? 'bg-rose-50 border-rose-200 text-rose-700'
+                    ? 'border-rose-300 shadow-md shadow-rose-500/5 ring-1 ring-rose-200'
                     : isWarning
-                    ? 'bg-amber-50 border-amber-200 text-amber-700'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    ? 'border-amber-300 shadow-md shadow-amber-500/5 ring-1 ring-amber-200'
+                    : 'border-slate-200/80 shadow-sm'
                 }`}
               >
-                {isOverspent ? (
-                  <>
-                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                    <span>Cảnh báo đỏ: Đã vượt quá 100% ngân sách đề ra!</span>
-                  </>
-                ) : isWarning ? (
-                  <>
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>Cảnh báo vàng: Đã chạm ngưỡng {b.alertThreshold}% ngân sách!</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
-                    <span>An toàn: Tiến độ chi tiêu nằm trong tầm kiểm soát.</span>
-                  </>
-                )}
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                        isOverspent
+                          ? 'bg-rose-100 text-rose-600'
+                          : isWarning
+                          ? 'bg-amber-100 text-amber-600'
+                          : 'bg-emerald-100 text-emerald-600'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-800">{b.categoryName}</h4>
+                      <p className="text-xs text-slate-400">
+                        Hạn mức: {new Intl.NumberFormat('vi-VN').format(b.amountLimit)} ₫
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                      isOverspent
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : isWarning
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}
+                  >
+                    {percentage.toFixed(0)}%
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-2 mb-4">
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        isOverspent
+                          ? 'bg-rose-500'
+                          : isWarning
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min(percentage, 100)}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-slate-500">
+                    <span>Đã chi: {new Intl.NumberFormat('vi-VN').format(b.spentAmount)} ₫</span>
+                    <span
+                      className={`font-semibold ${
+                        isOverspent
+                          ? 'text-rose-600'
+                          : isWarning
+                          ? 'text-amber-600'
+                          : 'text-emerald-600'
+                      }`}
+                    >
+                      {isOverspent ? 'Vượt: ' : 'Còn lại: '}
+                      {new Intl.NumberFormat('vi-VN').format(Math.abs(leftToSpend))} ₫
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Alert Badge */}
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-xl text-xs font-medium border ${
+                    isOverspent
+                      ? 'bg-rose-50 border-rose-200 text-rose-700'
+                      : isWarning
+                      ? 'bg-amber-50 border-amber-200 text-amber-700'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  }`}
+                >
+                  {isOverspent ? (
+                    <>
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                      <span>Cảnh báo đỏ: Đã vượt quá 100% ngân sách đề ra!</span>
+                    </>
+                  ) : isWarning ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>Cảnh báo vàng: Đã chạm ngưỡng {b.alertThreshold}% ngân sách!</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span>An toàn: Tiến độ chi tiêu nằm trong tầm kiểm soát.</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

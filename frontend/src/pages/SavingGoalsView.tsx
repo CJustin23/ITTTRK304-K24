@@ -59,9 +59,9 @@ export const SavingGoalsView: React.FC = () => {
             <h4 className="text-3xl font-black text-emerald-600">
               {totalTarget > 0 ? ((totalCurrent / totalTarget) * 100).toFixed(1) : 0}%
             </h4>
-            <p className="text-xs text-slate-500 mt-1">Đang hoàn thành đúng lộ trình</p>
+            <p className="text-xs text-slate-400 mt-1">{savingGoals.length} mục tiêu đang theo dõi</p>
           </div>
-          <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <TrendingUp className="w-6 h-6" />
           </div>
         </div>
@@ -69,114 +69,132 @@ export const SavingGoalsView: React.FC = () => {
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Mục tiêu đã cán đích
+              Mục tiêu đã hoàn thành
             </p>
             <h4 className="text-3xl font-black text-slate-800">
               {totalCompletedGoals} / {savingGoals.length}
             </h4>
-            <p className="text-xs text-slate-500 mt-1">Kế hoạch đã đạt 100%</p>
+            <p className="text-xs text-slate-400 mt-1">Đạt 100% kế hoạch tài chính</p>
           </div>
-          <div className="p-4 rounded-2xl bg-teal-50 text-teal-600 border border-teal-100">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <CheckCircle className="w-6 h-6" />
           </div>
         </div>
       </div>
 
       {/* Goals Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {savingGoals.map((goal) => {
-          const percentage = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
-          const isCompleted = goal.status === 'COMPLETED' || percentage >= 100;
+      {savingGoals.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+            <Target className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800">Chưa có mục tiêu tích lũy nào</h3>
+          <p className="text-sm text-slate-500 mt-1 mb-6">
+            Lập kế hoạch mua sắm lớn, quỹ dự phòng hoặc du lịch để theo dõi tiến độ tiết kiệm mỗi tháng.
+          </p>
+          <button
+            onClick={() => setGoalModalOpen(true)}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all"
+          >
+            + Tạo mục tiêu đầu tiên
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {savingGoals.map((goal) => {
+            const percentage = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+            const isCompleted = goal.status === 'COMPLETED' || percentage >= 100;
 
-          return (
-            <div
-              key={goal.id}
-              className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between ${
-                isCompleted
-                  ? 'border-emerald-300 shadow-md shadow-emerald-500/5 ring-1 ring-emerald-200'
-                  : 'border-slate-200/80 shadow-sm hover:shadow-md'
-              }`}
-            >
-              <div>
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                    <Target className="w-6 h-6" />
-                  </div>
-                  <span
-                    className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                      isCompleted
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    }`}
-                  >
-                    {isCompleted ? 'Đã hoàn thành' : 'Đang tích lũy'}
-                  </span>
-                </div>
-
-                {/* Title & Target */}
-                <h4 className="text-lg font-bold text-slate-800 tracking-tight mb-1">
-                  {goal.goalName}
-                </h4>
-                <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-6">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Hạn chót: {goal.deadline || 'Không giới hạn'}</span>
-                </div>
-
-                {/* Progress Visual */}
-                <div className="space-y-2 mb-6">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-slate-600">Tiến độ</span>
-                    <span className="font-bold text-emerald-600">{percentage.toFixed(1)}%</span>
-                  </div>
-                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
-                      style={{ width: `${percentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                {/* Amounts Detail */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 mb-6 text-xs">
-                  <div className="flex justify-between text-slate-500">
-                    <span>Đã có:</span>
-                    <span className="font-bold text-slate-800">
-                      {new Intl.NumberFormat('vi-VN').format(goal.currentAmount)} ₫
+            return (
+              <div
+                key={goal.id}
+                className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between ${
+                  isCompleted
+                    ? 'border-emerald-300 shadow-md shadow-emerald-500/5 ring-1 ring-emerald-200'
+                    : 'border-slate-200/80 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div>
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                      <Target className="w-6 h-6" />
+                    </div>
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        isCompleted
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      }`}
+                    >
+                      {isCompleted ? 'Đã hoàn thành' : 'Đang tích lũy'}
                     </span>
                   </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Mục tiêu:</span>
-                    <span className="font-bold text-slate-800">
-                      {new Intl.NumberFormat('vi-VN').format(goal.targetAmount)} ₫
-                    </span>
+
+                  {/* Title & Target */}
+                  <h4 className="text-lg font-bold text-slate-800 tracking-tight mb-1">
+                    {goal.goalName}
+                  </h4>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-6">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Hạn chót: {goal.deadline || 'Không giới hạn'}</span>
+                  </div>
+
+                  {/* Progress Visual */}
+                  <div className="space-y-2 mb-6">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-slate-600">Tiến độ</span>
+                      <span className="font-bold text-emerald-600">{percentage.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Amounts Detail */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 mb-6 text-xs">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Đã có:</span>
+                      <span className="font-bold text-slate-800">
+                        {new Intl.NumberFormat('vi-VN').format(goal.currentAmount)} ₫
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>Mục tiêu:</span>
+                      <span className="font-bold text-slate-800">
+                        {new Intl.NumberFormat('vi-VN').format(goal.targetAmount)} ₫
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Action Button */}
-              <div>
-                {!isCompleted ? (
-                  <button
-                    onClick={() => {
-                      (window as any).openDepositModal && (window as any).openDepositModal(goal);
-                    }}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Nạp thêm tiền tiết kiệm</span>
-                  </button>
-                ) : (
-                  <div className="w-full py-2.5 bg-emerald-50 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200 text-center flex items-center justify-center gap-1.5">
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Chúc mừng! Bạn đã đạt mục tiêu</span>
-                  </div>
-                )}
+                {/* Action Button */}
+                <div>
+                  {!isCompleted ? (
+                    <button
+                      onClick={() => {
+                        (window as any).openDepositModal && (window as any).openDepositModal(goal);
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Nạp thêm tiền tiết kiệm</span>
+                    </button>
+                  ) : (
+                    <div className="w-full py-2.5 bg-emerald-50 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200 text-center flex items-center justify-center gap-1.5">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Chúc mừng! Bạn đã đạt mục tiêu</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

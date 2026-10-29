@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, ShoppingBag, Car, HeartPulse, Receipt, Edit2 } from 'lucide-react';
+import { Utensils, ShoppingBag, Car, HeartPulse, Receipt, Edit2, Layers } from 'lucide-react';
 
 interface CategoryListProps {
   categories: Record<string, number>;
@@ -23,7 +23,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit }
     return 'bg-purple-100 text-purple-700';
   };
 
-  const entries = Object.entries(categories);
+  const entries = Object.entries(categories).filter(([_, amount]) => amount > 0);
 
   return (
     <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
@@ -41,28 +41,35 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit }
         </button>
       </div>
 
-      <div className="space-y-3">
-        {entries.map(([name, amount]) => {
-          const Icon = getCategoryIcon(name);
-          const colorClass = getCategoryColor(name);
-          return (
-            <div
-              key={name}
-              className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colorClass}`}>
-                  <Icon className="w-4 h-4" />
+      {entries.length === 0 ? (
+        <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+          <Layers className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+          <p>Chưa có chi tiêu theo hạng mục nào phát sinh.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {entries.map(([name, amount]) => {
+            const Icon = getCategoryIcon(name);
+            const colorClass = getCategoryColor(name);
+            return (
+              <div
+                key={name}
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colorClass}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">{name}</span>
                 </div>
-                <span className="text-sm font-semibold text-slate-700">{name}</span>
+                <span className="text-sm font-bold text-slate-800">
+                  {new Intl.NumberFormat('vi-VN').format(amount)} ₫
+                </span>
               </div>
-              <span className="text-sm font-bold text-slate-800">
-                {new Intl.NumberFormat('vi-VN').format(amount)} ₫
-              </span>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
