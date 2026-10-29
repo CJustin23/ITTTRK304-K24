@@ -293,4 +293,49 @@ class CategoryCrudFlowTest {
         mvc.perform(delete("/api/v1/categories/" + categoryId))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void postingAnotherUsersIdCreatesANewCategoryInsteadOfHijacking() throws Exception {
+        String ownerToken = loginNewUser();
+        long ownerCategoryId = createCategory(ownerToken, "Của chủ");
+
+        String attackerToken = loginNewUser();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", ownerCategoryId);
+        payload.put("name", "Kẻ gian chiếm");
+        payload.put("type", "EXPENSE");
+
+        MvcResult result = mvc.perform(post("/api/v1/categories")
+                        .header("Authorization", "Bearer " + attackerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(payload)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long createdId = json(result).at("/data/id").asLong();
+        long attackerId = json(result).at("/data/user/id").asLong();
+
+        Category untouched = find(ownerCategoryId).orElseThrow();
+        assertThat(createdId).as("không được ghi đè bản ghi của người khác").isNotEqualTo(ownerCategoryId);
+        assertThat(untouched.getName()).isEqualTo("Của chủ");
+        assertThat(untouched.getUser().getId()).as("chủ sở hữu cũ không bị đổi").isNotEqualTo(attackerId);
+        assertThat(find(createdId).orElseThrow().getUser().getId()).isEqualTo(attackerId);
+    }
+
+    @Test
+    void createRejectsBlankAndOversizedPayloads() throws Exception {
+        String token = loginNewUser();
+
+        mvc.perform(post("/api/v1/categories")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(post("/api/v1/categories")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(Map.of("name", "A".repeat(120), "type", "EXPENSE"))))
+                .andExpect(status().isBadRequest());
+    }
 }

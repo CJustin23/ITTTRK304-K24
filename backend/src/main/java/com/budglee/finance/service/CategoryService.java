@@ -3,8 +3,10 @@ package com.budglee.finance.service;
 import com.budglee.finance.dto.CategoryRequest;
 import com.budglee.finance.entity.Category;
 import com.budglee.finance.entity.Role;
+import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.CategoryRepository;
 import com.budglee.finance.repository.TransactionRepository;
+import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +14,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 /**
  * =========================================================================
@@ -34,6 +38,31 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
+    private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public List<Category> listAvailable(Long userId) {
+        return categoryRepository.findAllAvailableForUser(userId);
+    }
+
+    @Transactional
+    public Category create(Long userId, CategoryRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không còn tồn tại"));
+
+        Category category = Category.builder()
+                .name(request.getName().trim())
+                .type(request.getType())
+                .icon(trimToNull(request.getIcon()))
+                .colorCode(trimToNull(request.getColorCode()))
+                .user(user)
+                .build();
+
+        Category saved = categoryRepository.save(category);
+        log.info("Tạo danh mục id={} user={} tên={} loại={}",
+                saved.getId(), userId, saved.getName(), saved.getType());
+        return saved;
+    }
 
     @Transactional
     public Category update(Long categoryId, CategoryRequest request, UserPrincipal actor) {
