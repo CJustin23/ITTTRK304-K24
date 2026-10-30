@@ -12,6 +12,7 @@ export interface User {
   email: string;
   role: Role;
   familyGroupId?: string;
+  familyGroupName?: string;
   avatarUrl?: string;
 }
 
@@ -22,6 +23,7 @@ export interface Wallet {
   balance: number;
   currency: string;
   type: WalletType;
+  color?: string;
 }
 
 export interface Category {
@@ -51,11 +53,32 @@ export interface Budget {
   id: number;
   categoryId?: number;
   categoryName?: string;
+  categoryIcon?: string;
   amountLimit: number;
   spentAmount: number;
   periodMonth: number;
   periodYear: number;
-  alertThreshold: number;
+  alertThreshold: number; // percentage (e.g. 80)
+}
+
+export interface SavingGoal {
+  id: number;
+  goalName: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  color?: string;
+}
+
+export interface FamilyMember {
+  id: number;
+  fullName: string;
+  email: string;
+  role: Role;
+  avatarUrl?: string;
+  joinedDate: string;
+  isOwner?: boolean;
 }
 
 export interface DashboardSummary {
@@ -77,4 +100,15 @@ export interface HabitRecommendation {
     increasePercentage: number;
     recommendation: string;
   }[];
+}
+
+export type Timeframe = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly' | 'Custom';
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  type: 'WARNING' | 'ALERT' | 'INFO' | 'SUCCESS';
+  read: boolean;
 }

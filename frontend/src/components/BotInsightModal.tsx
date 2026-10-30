@@ -1,48 +1,19 @@
 import React from 'react';
-import { Sparkles, X, CheckCircle, AlertTriangle, TrendingUp, Lightbulb } from 'lucide-react';
+import { Sparkles, X, Clock, Bot, Wrench, ArrowRight } from 'lucide-react';
 import { HabitRecommendation } from '../types';
 
 interface BotInsightModalProps {
   isOpen: boolean;
   onClose: () => void;
-  recommendation: HabitRecommendation | null;
+  recommendation?: HabitRecommendation | null;
 }
 
-export const BotInsightModal: React.FC<BotInsightModalProps> = ({
-  isOpen,
-  onClose,
-  recommendation,
-}) => {
+export const BotInsightModal: React.FC<BotInsightModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-
-  const defaultAdvice = {
-    status: 'WARNING',
-    primaryAdvice:
-      'Tháng này chi tiêu cho Ăn uống và Cà phê đã tăng 22% so với tháng trước. Tỷ lệ tiết kiệm hiện tại chỉ đạt 18% (mục tiêu: 25%).',
-    actionItems: [
-      'Cắt giảm số lần ăn ngoài cuối tuần, ưu tiên tự nấu tại gia đình.',
-      'Tạm dừng các đăng ký dịch vụ streaming chưa sử dụng thường xuyên.',
-      'Trích lập ngay 3.000.000 ₫ sang Mục tiêu Tiết kiệm (Saving Goal).',
-    ],
-    categoryWarnings: [
-      {
-        categoryName: 'Ăn uống ngoài & Nhà hàng',
-        increasePercentage: 24.8,
-        recommendation: 'Giới hạn mức tiêu tối đa 200.000 ₫/ngày trong 7 ngày tới.',
-      },
-      {
-        categoryName: 'Mua sắm & Quần áo',
-        increasePercentage: 15.2,
-        recommendation: 'Trì hoãn việc mua sắm không khẩn cấp sang kỳ sau.',
-      },
-    ],
-  };
-
-  const data = recommendation || defaultAdvice;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden">
         {/* Header with AI Gradient */}
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 p-6 text-white flex justify-between items-start">
           <div className="flex items-center gap-3">
@@ -51,7 +22,7 @@ export const BotInsightModal: React.FC<BotInsightModalProps> = ({
             </div>
             <div>
               <h3 className="text-xl font-bold">Budglee AI Financial Advisor</h3>
-              <p className="text-xs text-emerald-100 mt-0.5">Phân tích thói quen chi tiêu thông minh</p>
+              <p className="text-xs text-emerald-100 mt-0.5">Trợ lý Cố vấn Tài chính Thông minh</p>
             </div>
           </div>
           <button
@@ -62,55 +33,47 @@ export const BotInsightModal: React.FC<BotInsightModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 space-y-6">
-          {/* Primary Assessment */}
-          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-bold mb-1">Đánh giá chung:</p>
-              <p className="leading-relaxed text-amber-800">{data.primaryAdvice}</p>
+        {/* Modal Body - Đang phát triển */}
+        <div className="p-8 text-center space-y-6">
+          <div className="relative mx-auto w-20 h-20">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-100 via-teal-50 to-emerald-50 flex items-center justify-center text-emerald-600 shadow-inner">
+              <Bot className="w-10 h-10 animate-bounce" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 p-1.5 rounded-xl bg-amber-500 text-white shadow-md">
+              <Wrench className="w-3.5 h-3.5" />
             </div>
           </div>
 
-          {/* Category Warnings */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-rose-500" />
-              <span>Hạng mục tăng đột biến</span>
-            </h4>
-            <div className="space-y-2.5">
-              {data.categoryWarnings.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{item.categoryName}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{item.recommendation}</p>
-                  </div>
-                  <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full">
-                    +{item.increasePercentage}%
-                  </span>
-                </div>
-              ))}
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Tính năng đang được phát triển</span>
             </div>
+            <h4 className="text-xl font-black text-slate-800 tracking-tight">
+              Sắp ra mắt phiên bản AI Chatbot!
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+              Phân hệ Trợ lý AI Cố vấn Tài chính đang được đội ngũ kỹ thuật hoàn thiện mô hình phân tích dữ liệu và tương tác 2 chiều. Tính năng sẽ sớm được cập nhật trong các phiên bản tiếp theo.
+            </p>
           </div>
 
-          {/* Action Items */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-emerald-600" />
-              <span>Khuyến nghị tối ưu tuần này</span>
-            </h4>
-            <ul className="space-y-2">
-              {data.actionItems.map((action, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 text-sm text-slate-700">
-                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>{action}</span>
-                </li>
-              ))}
-            </ul>
+          {/* Planned capabilities */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left space-y-2.5 text-xs text-slate-600">
+            <p className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Dự kiến bao gồm:
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Chatbot hỏi đáp tình hình thu chi và số dư ví thời gian thực</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Tự động phát hiện bất thường và cảnh báo nguy cơ vượt hạn mức</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Đề xuất lộ trình tiết kiệm cá nhân hóa cho từng hộ gia đình</span>
+            </div>
           </div>
         </div>
 
@@ -120,7 +83,7 @@ export const BotInsightModal: React.FC<BotInsightModalProps> = ({
             onClick={onClose}
             className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20"
           >
-            Đã hiểu & Áp dụng
+            Đã hiểu
           </button>
         </div>
       </div>
