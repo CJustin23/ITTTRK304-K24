@@ -39,18 +39,24 @@ export const SettingsView: React.FC = () => {
   // Profile Form state
   const [fullName, setFullName] = useState(currentUser?.fullName || '');
   const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
+  const [profileError, setProfileError] = useState('');
 
   // Password Form state
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
+  const [passwordErrors, setPasswordErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
 
   // Upgrade to family form state (for INDIVIDUAL_USER)
   const [upgradeFamilyName, setUpgradeFamilyName] = useState('');
+  const [upgradeFamilyError, setUpgradeFamilyError] = useState('');
+
+  // Quick direct member state
   const [inviteMemberName, setInviteMemberName] = useState('');
   const [inviteMemberEmail, setInviteMemberEmail] = useState('');
   const [inviteMemberRole, setInviteMemberRole] = useState<Role>('FAMILY_MEMBER');
+  const [directMemberErrors, setDirectMemberErrors] = useState<{ name?: string; email?: string }>({});
   const [familySuccessMsg, setFamilySuccessMsg] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -58,9 +64,15 @@ export const SettingsView: React.FC = () => {
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || fullName.trim().length < 2) {
+    if (!fullName.trim()) {
+      setProfileError('Vui lòng nhập họ và tên của bạn');
       return;
     }
+    if (fullName.trim().length < 2) {
+      setProfileError('Họ và tên phải có tối thiểu 2 ký tự');
+      return;
+    }
+    setProfileError('');
     updateProfile({ fullName: fullName.trim() });
     setProfileSuccessMsg('Hồ sơ cá nhân đã được lưu thành công!');
     setTimeout(() => setProfileSuccessMsg(''), 3000);
@@ -68,19 +80,28 @@ export const SettingsView: React.FC = () => {
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: { current?: string; new?: string; confirm?: string } = {};
+
     if (!currentPassword) {
-      setPasswordMsg({ type: 'error', text: 'Vui lòng nhập mật khẩu hiện tại' });
-      return;
+      errs.current = 'Vui lòng nhập mật khẩu hiện tại';
     }
-    if (newPassword.length < 6) {
-      setPasswordMsg({ type: 'error', text: 'Mật khẩu mới phải có tối thiểu 6 ký tự' });
-      return;
+    if (!newPassword) {
+      errs.new = 'Vui lòng nhập mật khẩu mới';
+    } else if (newPassword.length < 6) {
+      errs.new = 'Mật khẩu mới phải có tối thiểu 6 ký tự';
     }
-    if (newPassword !== confirmPassword) {
-      setPasswordMsg({ type: 'error', text: 'Mật khẩu xác nhận không trùng khớp' });
+    if (!confirmPassword) {
+      errs.confirm = 'Vui lòng xác nhận lại mật khẩu mới';
+    } else if (newPassword && newPassword !== confirmPassword) {
+      errs.confirm = 'Mật khẩu xác nhận không trùng khớp';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setPasswordErrors(errs);
       return;
     }
 
+    setPasswordErrors({});
     setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
     setCurrentPassword('');
     setNewPassword('');
@@ -90,8 +111,15 @@ export const SettingsView: React.FC = () => {
 
   const handleUpgradeToFamily = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!upgradeFamilyName.trim()) return;
-
+    if (!upgradeFamilyName.trim()) {
+      setUpgradeFamilyError('Vui lòng đặt tên cho Sổ quỹ Gia đình của bạn');
+      return;
+    }
+    if (upgradeFamilyName.trim().length < 2) {
+      setUpgradeFamilyError('Tên Sổ quỹ Gia đình phải có tối thiểu 2 ký tự');
+      return;
+    }
+    setUpgradeFamilyError('');
     upgradeToFamilyAdmin(upgradeFamilyName.trim());
     setFamilySuccessMsg('Đã kích hoạt Sổ quỹ Gia đình thành công! Bạn hiện là Chủ hộ.');
     setUpgradeFamilyName('');
@@ -100,8 +128,27 @@ export const SettingsView: React.FC = () => {
 
   const handleAddDirectMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteMemberName.trim() || !inviteMemberEmail.trim()) return;
+    const errs: { name?: string; email?: string } = {};
 
+    if (!inviteMemberName.trim()) {
+      errs.name = 'Vui lòng nhập họ tên thành viên';
+    } else if (inviteMemberName.trim().length < 2) {
+      errs.name = 'Họ tên phải có ít nhất 2 ký tự';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!inviteMemberEmail.trim()) {
+      errs.email = 'Vui lòng nhập địa chỉ email';
+    } else if (!emailRegex.test(inviteMemberEmail.trim())) {
+      errs.email = 'Email không đúng định dạng (VD: example@domain.com)';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setDirectMemberErrors(errs);
+      return;
+    }
+
+    setDirectMemberErrors({});
     addFamilyMember({
       fullName: inviteMemberName.trim(),
       email: inviteMemberEmail.trim(),
@@ -111,7 +158,7 @@ export const SettingsView: React.FC = () => {
 
     setInviteMemberName('');
     setInviteMemberEmail('');
-    setFamilySuccessMsg('Đã gửi lời mời và thêm thành viên vào sổ quỹ gia đình!');
+    setFamilySuccessMsg('Đã thêm thành viên vào sổ quỹ gia đình thành công!');
     setTimeout(() => setFamilySuccessMsg(''), 3000);
   };
 
@@ -251,7 +298,7 @@ export const SettingsView: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
+            <form onSubmit={handleSaveProfile} noValidate className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                   Họ và tên hiển thị <span className="text-rose-500">*</span>
@@ -259,9 +306,20 @@ export const SettingsView: React.FC = () => {
                 <input
                   type="text"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    if (profileError) setProfileError('');
+                  }}
+                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                    profileError ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                  }`}
                 />
+                {profileError && (
+                  <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {profileError}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -328,19 +386,29 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleUpgradeToFamily} className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4 max-w-xl">
+              <form onSubmit={handleUpgradeToFamily} noValidate className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 space-y-4 max-w-xl">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Đặt tên Sổ quỹ Gia đình của bạn <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="VD: Gia đình Nguyễn, Sổ quỹ An Gia, Tổ ấm nhỏ..."
                     value={upgradeFamilyName}
-                    onChange={(e) => setUpgradeFamilyName(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
+                    onChange={(e) => {
+                      setUpgradeFamilyName(e.target.value);
+                      if (upgradeFamilyError) setUpgradeFamilyError('');
+                    }}
+                    className={`w-full px-4 py-2.5 bg-slate-900/80 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      upgradeFamilyError ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-700 focus:border-emerald-500'
+                    }`}
                   />
+                  {upgradeFamilyError && (
+                    <p className="mt-1.5 text-xs text-rose-400 flex items-center gap-1 font-medium animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {upgradeFamilyError}
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -446,37 +514,68 @@ export const SettingsView: React.FC = () => {
               {/* Quick Add Member Section */}
               <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
                 <h4 className="text-base font-bold text-slate-800">Thêm nhanh thành viên mới</h4>
-                <form onSubmit={handleAddDirectMember} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Họ và tên thành viên"
-                    value={inviteMemberName}
-                    onChange={(e) => setInviteMemberName(e.target.value)}
-                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
-                  />
-                  <input
-                    type="email"
-                    required
-                    placeholder="Địa chỉ Email"
-                    value={inviteMemberEmail}
-                    onChange={(e) => setInviteMemberEmail(e.target.value)}
-                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
-                  />
-                  <select
-                    value={inviteMemberRole}
-                    onChange={(e) => setInviteMemberRole(e.target.value as Role)}
-                    className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="FAMILY_MEMBER">Thành viên (Thu chi)</option>
-                    <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
-                  </select>
-                  <button
-                    type="submit"
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all"
-                  >
-                    + Thêm vào sổ quỹ
-                  </button>
+                <form onSubmit={handleAddDirectMember} noValidate className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Họ và tên thành viên"
+                        value={inviteMemberName}
+                        onChange={(e) => {
+                          setInviteMemberName(e.target.value);
+                          if (directMemberErrors.name) setDirectMemberErrors((prev) => ({ ...prev, name: undefined }));
+                        }}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-800 font-medium focus:outline-none transition-all ${
+                          directMemberErrors.name ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                        }`}
+                      />
+                      {directMemberErrors.name && (
+                        <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1 font-medium">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {directMemberErrors.name}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        type="email"
+                        placeholder="Địa chỉ Email"
+                        value={inviteMemberEmail}
+                        onChange={(e) => {
+                          setInviteMemberEmail(e.target.value);
+                          if (directMemberErrors.email) setDirectMemberErrors((prev) => ({ ...prev, email: undefined }));
+                        }}
+                        className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-800 font-medium focus:outline-none transition-all ${
+                          directMemberErrors.email ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                        }`}
+                      />
+                      {directMemberErrors.email && (
+                        <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1 font-medium">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          {directMemberErrors.email}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <select
+                        value={inviteMemberRole}
+                        onChange={(e) => setInviteMemberRole(e.target.value as Role)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="FAMILY_MEMBER">Thành viên (Thu chi)</option>
+                        <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <button
+                        type="submit"
+                        className="w-full h-full min-h-[38px] py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Thêm thành viên</span>
+                      </button>
+                    </div>
+                  </div>
                 </form>
               </div>
             </div>
@@ -511,47 +610,77 @@ export const SettingsView: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleChangePassword} className="space-y-4">
+          <form onSubmit={handleChangePassword} noValidate className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                Mật khẩu hiện tại
+                Mật khẩu hiện tại <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
-                required
                 placeholder="••••••••"
                 value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
+                  if (passwordErrors.current) setPasswordErrors((prev) => ({ ...prev, current: undefined }));
+                }}
+                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                  passwordErrors.current ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                }`}
               />
+              {passwordErrors.current && (
+                <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {passwordErrors.current}
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                Mật khẩu mới (tối thiểu 6 ký tự)
+                Mật khẩu mới (tối thiểu 6 ký tự) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
-                required
                 placeholder="••••••••"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (passwordErrors.new) setPasswordErrors((prev) => ({ ...prev, new: undefined }));
+                }}
+                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                  passwordErrors.new ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                }`}
               />
+              {passwordErrors.new && (
+                <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {passwordErrors.new}
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                Xác nhận lại mật khẩu mới
+                Xác nhận lại mật khẩu mới <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
-                required
                 placeholder="••••••••"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (passwordErrors.confirm) setPasswordErrors((prev) => ({ ...prev, confirm: undefined }));
+                }}
+                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                  passwordErrors.confirm ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                }`}
               />
+              {passwordErrors.confirm && (
+                <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {passwordErrors.confirm}
+                </p>
+              )}
             </div>
 
             <div className="pt-2">
