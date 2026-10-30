@@ -40,3 +40,77 @@ echo "[$(date)] Dọn dẹp bản sao lưu cũ quá ${RETENTION_DAYS} ngày..."
 find "${BACKUP_DIR}" -type f -name "budglee_backup_*.sql.gz" -mtime +${RETENTION_DAYS} -exec rm -f {} \;
 
 echo "[$(date)] Hoàn tất quy trình sao lưu an toàn."
+
+# Kiểm tra dependency
+for cmd in mysqldump gzip find sort; do
+    command -v "$cmd" >/dev/null 2>&1 || {
+        echo "[$(date)] [ERROR] Thiếu lệnh: $cmd" >&2
+        exit 1
+    }
+done
+
+# Không cho phép chạy với mật khẩu mặc định rỗng
+if [[ -z "$DB_PASSWORD" ]]; then
+    echo "[$(date)] [ERROR] Chưa cấu hình DB_PASSWORD!" >&2
+    exit 1
+fi
+
+mkdir -p "$BACKUP_DIR"
+
+# Xóa file chưa hoàn chỉnh nếu quá trình backup thất bại
+cleanup() {
+    if [[ -n "${BACKUP_FILE:-}" && -f "$BACKUP_FILE" ]]; then
+        rm -f -- "$BACKUP_FILE"
+    fi
+}
+trap cleanup ERR
+
+echo "[$(date)] Bắt đầu backup database: ${DB_NAME}"
+
+# MYSQL_PWD tránh ghi mật khẩu trực tiếp trong tham số -p.
+# Lưu ý: nên dùng file cấu hình client được bảo vệ hoặc Docker secrets
+# khi triển khai production.
+export MYSQL_PWD="$DB_PASSWORD"
+
+mysqldump \
+    -h "$DB_HOST" \
+    -P "$DB_PORT" \
+    -u "$DB_USER" \
+    --single-transaction \
+    --quick \
+    --routines \
+    --triggers \
+    --events \
+    "$DB_NAME" | gzip -c > "$BACKUP_FILE"
+
+unset MYSQL_PWD
+
+# Kiểm tra file backup
+if [[ ! -s "$BACKUP_FILE" ]]; then
+    echo "[$(date)] [ERROR] File backup rỗng hoặc không tồn tại!" >&2
+    exit 1
+fi
+
+gzip -t "$BACKUP_FILE"
+
+FILE_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+echo "[$(date)] Backup thành công: $BACKUP_FILE ($FILE_SIZE)"
+
+# Giữ lại đúng 7 bản backup mới nhất
+mapfile -t BACKUPS < <(
+    find "$BACKUP_DIR" -maxdepth 1 -type f \
+        -name 'budglee_backup_*.sql.gz' \
+        -printf '%T@ %p\n' |
+    sort -nr |
+    cut -d' ' -f2-
+)
+
+if (( ${#BACKUPS[@]} > RETENTION_COUNT )); then
+    for old_backup in "${BACKUPS[@]:RETENTION_COUNT}"; do
+        rm -f -- "$old_backup"
+        echo "[$(date)] Đã xóa backup cũ: $old_backup"
+    done
+fi
+
+trap - ERR
+echo "[$(date)] Hoàn tất quy trình backup."
