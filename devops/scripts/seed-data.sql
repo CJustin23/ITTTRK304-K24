@@ -19,7 +19,7 @@ INSERT INTO users (
 SELECT
     'Budglee Demo User',
     'seed.user@budglee.local',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+    '$2a$10$cgBJwkzu6UwxqBcjo/pVv.nTXz1Qm1QToqaTuWFaHsKWM.6nNtG3a',
     'INDIVIDUAL_USER',
     NULL
     WHERE NOT EXISTS (
@@ -27,6 +27,12 @@ SELECT
     FROM users
     WHERE email = 'seed.user@budglee.local'
 );
+
+-- Cập nhật mật khẩu tài khoản demo nếu user đã tồn tại.
+UPDATE users
+SET password_hash = '$2a$10$cgBJwkzu6UwxqBcjo/pVv.nTXz1Qm1QToqaTuWFaHsKWM.6nNtG3a'
+WHERE email = 'seed.user@budglee.local';
+
 
 -- 2. Create demo categories for the demo user.
 INSERT INTO categories (name, type, icon, color_code, user_id)

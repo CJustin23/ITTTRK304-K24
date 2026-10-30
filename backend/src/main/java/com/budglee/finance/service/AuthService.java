@@ -7,10 +7,14 @@ import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.security.JwtTokenProvider;
+import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,14 +27,15 @@ import java.util.Set;
  * SERVICE: XÁC THỰC & PHÂN QUYỀN (AUTH & SECURITY)
  * Phụ trách: Nguyễn Trường An (Backend Lead) — nhánh 'an'
  *
- * Đã cài đặt (DUAN-39, phần đăng ký):
+ * Đã cài đặt (DUAN-39):
  * 1. Email lưu ở dạng chữ thường; đăng ký lại bằng chữ HOA vẫn bị 409.
  * 2. Mật khẩu chỉ lưu dạng băm BCrypt, không bao giờ trả ra response.
  * 3. Vai trò bị khoá: đơn đăng ký công khai chỉ được INDIVIDUAL_USER hoặc FAMILY_MEMBER,
  *    và FAMILY_MEMBER phải kèm mã nhóm hộ. Nhận FAMILY_ADMIN/SYSTEM_ADMIN thì trả 400,
  *    vì nếu không thì ai cũng tự cấp quyền quản trị cho mình.
- *
- * Còn lại (DUAN-39, phần đăng nhập): xác thực qua AuthenticationManager và cấp JWT.
+ * 4. Đăng nhập đi qua AuthenticationManager (DaoAuthenticationProvider + BCrypt),
+ *    sai một trong hai thông tin đều trả cùng một thông báo 401 để không dò được email nào có thật.
+ * 5. Thành công cấp JWT HS256 qua JwtTokenProvider; token này đi vừa với JwtAuthenticationFilter.
  * =========================================================================
  */
 @Service
@@ -84,11 +89,29 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        log.info("[TODO - AN] Cài đặt chức năng đăng nhập JWT cho email: {}", request.getEmail());
-        // TODO: Nguyễn Trường An cài đặt logic đăng nhập tại đây
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+        } catch (AuthenticationException exception) {
+            log.warn("Đăng nhập thất bại với email={}", email);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
+        }
+
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        User user = userRepository.findByEmail(principal.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
+
         return AuthResponse.builder()
-                .token("mock-token")
-                .email(request.getEmail())
+                .token(tokenProvider.generateToken(authentication))
+                .type("Bearer")
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .familyGroupId(user.getFamilyGroupId())
                 .build();
     }
 
