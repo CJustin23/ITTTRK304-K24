@@ -13,7 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -26,6 +29,8 @@ import java.util.regex.Pattern;
  *    repository.save(...) biến request tạo mới thành cập nhật ví của người khác.
  * 2. Mã tiền tệ mặc định VND, số dư khởi tạo mặc định 0.
  * 3. Chỉ lưu số thẻ đã che: chuỗi có 10 chữ số liên tiếp bị từ chối.
+ * 4. Danh sách ví nhìn thấy gồm ví của mình và ví chung của hộ gia đình (DUAN-40);
+ *    người không cùng hộ không thấy gì.
  * =========================================================================
  */
 @Service
@@ -67,7 +72,18 @@ public class WalletService {
 
     @Transactional(readOnly = true)
     public List<Wallet> list(Long userId) {
-        return walletRepository.findByUserId(userId);
+        String familyGroupId = userRepository.findById(userId)
+                .map(User::getFamilyGroupId)
+                .orElse(null);
+        if (familyGroupId == null || familyGroupId.isBlank()) {
+            return walletRepository.findByUserId(userId);
+        }
+
+        Map<Long, Wallet> visible = new LinkedHashMap<>();
+        walletRepository.findByUserId(userId).forEach(wallet -> visible.put(wallet.getId(), wallet));
+        walletRepository.findByFamilyGroupId(familyGroupId)
+                .forEach(wallet -> visible.putIfAbsent(wallet.getId(), wallet));
+        return new ArrayList<>(visible.values());
     }
 
     private static String trimToNull(String value) {

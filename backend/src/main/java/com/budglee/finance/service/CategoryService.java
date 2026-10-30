@@ -15,7 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * =========================================================================
@@ -29,6 +32,8 @@ import java.util.List;
  *    phân quyền theo vai trò đầu tiên có thật trong API.
  * 3. Đã có giao dịch gắn vào thì không cho xoá, và không cho đổi loại THU/CHI vì ngân sách
  *    và báo cáo đang khoá theo loại.
+ * 4. Danh sách hiển thị gồm: danh mục hệ thống, danh mục của mình, và danh mục của người
+ *    cùng nhóm hộ (DUAN-40). Xem được nhưng không được sửa của người khác.
  * =========================================================================
  */
 @Service
@@ -42,7 +47,18 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public List<Category> listAvailable(Long userId) {
-        return categoryRepository.findAllAvailableForUser(userId);
+        Map<Long, Category> visible = new LinkedHashMap<>();
+        categoryRepository.findAllAvailableForUser(userId)
+                .forEach(category -> visible.put(category.getId(), category));
+
+        String familyGroupId = userRepository.findById(userId)
+                .map(User::getFamilyGroupId)
+                .orElse(null);
+        if (familyGroupId != null && !familyGroupId.isBlank()) {
+            categoryRepository.findByUserFamilyGroupId(familyGroupId)
+                    .forEach(category -> visible.putIfAbsent(category.getId(), category));
+        }
+        return new ArrayList<>(visible.values());
     }
 
     @Transactional

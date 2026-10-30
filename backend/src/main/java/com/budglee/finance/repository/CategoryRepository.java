@@ -14,6 +14,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     @Query("SELECT c FROM Category c WHERE c.user.id = :userId OR c.user IS NULL")
     List<Category> findAllAvailableForUser(@Param("userId") Long userId);
 
+    List<Category> findByUserFamilyGroupId(String familyGroupId);
+
     @Query("SELECT c FROM Category c WHERE (c.user.id = :userId OR c.user IS NULL) AND c.type = :type")
     List<Category> findByUserIdAndType(@Param("userId") Long userId, @Param("type") CategoryType type);
 }

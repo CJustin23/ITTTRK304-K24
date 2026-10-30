@@ -17,6 +17,8 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     Page<Transaction> findByUserIdOrderByTransactionDateDesc(Long userId, Pageable pageable);
 
+    Page<Transaction> findByWalletIdInOrderByTransactionDateDesc(java.util.Collection<Long> walletIds, Pageable pageable);
+
     boolean existsByCategoryId(Long categoryId);
 
     List<Transaction> findByUserIdAndTransactionDateBetween(
