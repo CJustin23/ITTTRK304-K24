@@ -388,6 +388,8 @@ interface AppState {
   // Budget actions
   setBudgets: (budgets: Budget[]) => void;
   addBudget: (budget: Omit<Budget, 'id'>) => void;
+  updateBudget: (id: number, budgetData: Partial<Budget>) => void;
+  deleteBudget: (id: number) => void;
 
   // Saving Goal actions
   setSavingGoals: (goals: SavingGoal[]) => void;
@@ -660,6 +662,34 @@ export const useStore = create<AppState>((set, get) => ({
     };
     set((state) => {
       const updatedBudgets = [...state.budgets, newBudget];
+      const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
+      const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
+
+      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
+        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
+      }
+      return newState;
+    });
+  },
+
+  updateBudget: (id, budgetData) => {
+    set((state) => {
+      const updatedBudgets = state.budgets.map((b) =>
+        b.id === id ? { ...b, ...budgetData } : b
+      );
+      const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
+      const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
+
+      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
+        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
+      }
+      return newState;
+    });
+  },
+
+  deleteBudget: (id) => {
+    set((state) => {
+      const updatedBudgets = state.budgets.filter((b) => b.id !== id);
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
       const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
 
