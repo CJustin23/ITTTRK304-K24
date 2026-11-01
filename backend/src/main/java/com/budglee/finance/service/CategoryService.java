@@ -116,7 +116,7 @@ public class CategoryService {
 
         Long ownerId = category.getUser() == null ? null : category.getUser().getId();
         if (ownerId == null) {
-            if (!isSystemAdmin(actor)) {
+            if (!actor.hasRole(Role.SYSTEM_ADMIN)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                         "Danh mục hệ thống chỉ quản trị viên mới được sửa");
             }
@@ -126,11 +126,6 @@ public class CategoryService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Danh mục không tồn tại");
         }
         return category;
-    }
-
-    private static boolean isSystemAdmin(UserPrincipal actor) {
-        String required = "ROLE_" + Role.SYSTEM_ADMIN.name();
-        return actor.getAuthorities().stream().anyMatch(authority -> required.equals(authority.getAuthority()));
     }
 
     private static String trimToNull(String value) {
