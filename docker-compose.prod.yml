@@ -1,4 +1,3 @@
-
 services:
   # 1. MySQL Database
   mysql:
