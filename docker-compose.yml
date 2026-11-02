@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Database Service: MySQL 8.0
   mysql:
@@ -12,11 +10,10 @@ services:
       MYSQL_USER: ${DB_USER:-budglee_user}
       MYSQL_PASSWORD: ${DB_PASSWORD:-budglee_secret}
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./devops/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -31,7 +28,7 @@ services:
     container_name: budglee-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -61,7 +58,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-budglee_secret}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
     ports:
       - "${SERVER_PORT:-8080}:8080"
