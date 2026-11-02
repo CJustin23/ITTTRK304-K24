@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   PieChart,
   Plus,
@@ -12,11 +12,28 @@ import {
   Receipt,
   Plane,
   HeartPulse,
+  Edit2,
+  Trash2,
+  X,
+  DollarSign,
+  Percent,
+  Check,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { Budget } from '../types';
 
 export const BudgetsView: React.FC = () => {
-  const { budgets, setBudgetModalOpen } = useStore();
+  const { budgets, setBudgetModalOpen, updateBudget, deleteBudget } = useStore();
+
+  // State chỉnh sửa ngân sách
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [editAmountLimit, setEditAmountLimit] = useState('');
+  const [editAlertThreshold, setEditAlertThreshold] = useState('80');
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  // State xác nhận xóa
+  const [deletingBudget, setDeletingBudget] = useState<Budget | null>(null);
 
   const totalLimit = budgets.reduce((sum, b) => sum + b.amountLimit, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spentAmount, 0);
@@ -34,6 +51,55 @@ export const BudgetsView: React.FC = () => {
     return HeartPulse;
   };
 
+  const handleOpenEdit = (b: Budget) => {
+    setEditingBudget(b);
+    setEditCategoryName(b.categoryName || 'Ăn uống & Cà phê');
+    setEditAmountLimit(b.amountLimit.toString());
+    setEditAlertThreshold((b.alertThreshold || 80).toString());
+    setEditErrors({});
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBudget) return;
+
+    const errs: Record<string, string> = {};
+    const numLimit = parseFloat(editAmountLimit);
+
+    if (!editAmountLimit.trim()) {
+      errs.amountLimit = 'Vui lòng nhập hạn mức ngân sách';
+    } else if (isNaN(numLimit) || numLimit <= 0) {
+      errs.amountLimit = 'Hạn mức ngân sách phải lớn hơn 0 ₫';
+    }
+
+    const numThreshold = parseFloat(editAlertThreshold);
+    if (!editAlertThreshold.trim()) {
+      errs.alertThreshold = 'Vui lòng nhập ngưỡng phần trăm cảnh báo';
+    } else if (isNaN(numThreshold) || numThreshold < 10 || numThreshold > 100) {
+      errs.alertThreshold = 'Ngưỡng cảnh báo phải nằm trong khoảng từ 10% đến 100%';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs);
+      return;
+    }
+
+    updateBudget(editingBudget.id, {
+      categoryName: editCategoryName,
+      amountLimit: numLimit,
+      alertThreshold: numThreshold || 80,
+    });
+
+    setEditingBudget(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingBudget) {
+      deleteBudget(deletingBudget.id);
+      setDeletingBudget(null);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* Top Header */}
@@ -43,7 +109,7 @@ export const BudgetsView: React.FC = () => {
             Quản lý Ngân sách & Hạn mức Chi tiêu
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Thiết lập hạn mức chi theo danh mục kèm cơ chế cảnh báo đổi màu (80% / 100%)
+            Thiết lập, chỉnh sửa hạn mức chi theo danh mục kèm cơ chế cảnh báo đổi màu (80% / 100%)
           </p>
         </div>
         <button
@@ -166,17 +232,37 @@ export const BudgetsView: React.FC = () => {
                     </div>
                   </div>
 
-                  <span
-                    className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                      isOverspent
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                        : isWarning
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}
-                  >
-                    {percentage.toFixed(0)}%
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                        isOverspent
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : isWarning
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}
+                    >
+                      {percentage.toFixed(0)}%
+                    </span>
+
+                    {/* Nút Chỉnh sửa & Xóa */}
+                    <div className="flex items-center gap-1 bg-slate-100/80 border border-slate-200 rounded-xl p-1">
+                      <button
+                        onClick={() => handleOpenEdit(b)}
+                        title="Chỉnh sửa hạn mức & cảnh báo"
+                        className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-white rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingBudget(b)}
+                        title="Xóa ngân sách này"
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-white rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
@@ -240,6 +326,164 @@ export const BudgetsView: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ===================== MODAL CHỈNH SỬA NGÂN SÁCH ===================== */}
+      {editingBudget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+                  <Edit2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Chỉnh sửa Ngân sách</h3>
+              </div>
+              <button
+                onClick={() => setEditingBudget(null)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} noValidate className="p-6 space-y-4">
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Hạng mục áp dụng <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={editCategoryName}
+                  onChange={(e) => setEditCategoryName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 font-medium"
+                >
+                  <option value="Ăn uống & Cà phê">Ăn uống & Cà phê</option>
+                  <option value="Mua sắm & Gia đình">Mua sắm & Gia đình</option>
+                  <option value="Di chuyển & Xăng xe">Di chuyển & Xăng xe</option>
+                  <option value="Hóa đơn & Tiện ích">Hóa đơn & Tiện ích</option>
+                  <option value="Sức khỏe & Y tế">Sức khỏe & Y tế</option>
+                  <option value="Giáo dục & Khóa học">Giáo dục & Khóa học</option>
+                  <option value="Giải trí & Du lịch">Giải trí & Du lịch</option>
+                </select>
+              </div>
+
+              {/* Amount Limit */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Hạn mức tối đa tháng (VND) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="number"
+                    step="100000"
+                    placeholder="VD: 5000000"
+                    value={editAmountLimit}
+                    onChange={(e) => {
+                      setEditAmountLimit(e.target.value);
+                      if (editErrors.amountLimit) setEditErrors((prev) => ({ ...prev, amountLimit: '' }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-semibold ${
+                      editErrors.amountLimit
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500'
+                        : 'border-slate-200 focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+                {editErrors.amountLimit && (
+                  <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {editErrors.amountLimit}
+                  </p>
+                )}
+              </div>
+
+              {/* Alert Threshold */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Ngưỡng cảnh báo chi tiêu (%) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Percent className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="number"
+                    min="10"
+                    max="100"
+                    placeholder="80"
+                    value={editAlertThreshold}
+                    onChange={(e) => {
+                      setEditAlertThreshold(e.target.value);
+                      if (editErrors.alertThreshold) setEditErrors((prev) => ({ ...prev, alertThreshold: '' }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-semibold ${
+                      editErrors.alertThreshold
+                        ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500'
+                        : 'border-slate-200 focus:border-emerald-500'
+                    }`}
+                  />
+                </div>
+                {editErrors.alertThreshold && (
+                  <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {editErrors.alertThreshold}
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingBudget(null)}
+                  className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20"
+                >
+                  Lưu thay đổi
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== MODAL XÁC NHẬN XÓA NGÂN SÁCH ===================== */}
+      {deletingBudget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <div>
+              <h4 className="text-lg font-bold text-slate-800">Xóa hạn mức ngân sách?</h4>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Bạn có chắc chắn muốn xóa ngân sách danh mục <strong>"{deletingBudget.categoryName}"</strong> không? Hành động này sẽ bỏ theo dõi hạn mức chi của danh mục này.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingBudget(null)}
+                className="flex-1 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-rose-600/20 transition-all"
+              >
+                Xóa ngay
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
