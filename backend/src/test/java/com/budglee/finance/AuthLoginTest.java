@@ -53,10 +53,8 @@ class AuthLoginTest {
         body.put("fullName", "Người đăng nhập");
         body.put("email", email);
         body.put("password", "MatKhau123");
-        mvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsString(body)))
-                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(body))).andExpect(status().isOk());
     }
 
     private MvcResult login(String email, String password) throws Exception {
