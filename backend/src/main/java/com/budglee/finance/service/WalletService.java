@@ -1,10 +1,14 @@
 package com.budglee.finance.service;
 
 import com.budglee.finance.dto.WalletRequest;
+import com.budglee.finance.dto.WalletUpdateRequest;
 import com.budglee.finance.entity.User;
 import com.budglee.finance.entity.Wallet;
+import com.budglee.finance.entity.WalletType;
+import com.budglee.finance.repository.TransactionRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.repository.WalletRepository;
+import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -31,6 +35,12 @@ import java.util.regex.Pattern;
  * 3. Chỉ lưu số thẻ đã che: chuỗi có 10 chữ số liên tiếp bị từ chối.
  * 4. Danh sách ví nhìn thấy gồm ví của mình và ví chung của hộ gia đình (DUAN-40);
  *    người không cùng hộ không thấy gì.
+ * 5. Sửa/xoá chỉ chủ ví làm được; ví của người khác trả 404 chứ không trả 403, vì 403 xác nhận
+ *    với kẻ dò là id đó có thật.
+ * 6. PUT không nhận số dư, và không cho đổi loại khỏi CREDIT_CARD khi ví đang âm — số dư âm
+ *    chỉ hợp lệ với thẻ tín dụng.
+ * 7. Xoá ví đã có giao dịch thì bị chặn: lược đồ khai ON DELETE CASCADE, tức là xoá ví sẽ xoá
+ *    luôn lịch sử sử dụng của người dùng.
  * =========================================================================
  */
 @Service
@@ -42,6 +52,7 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
 
     @Transactional
     public Wallet create(Long userId, WalletRequest request) {
@@ -84,6 +95,59 @@ public class WalletService {
         walletRepository.findByFamilyGroupId(familyGroupId)
                 .forEach(wallet -> visible.putIfAbsent(wallet.getId(), wallet));
         return new ArrayList<>(visible.values());
+    }
+
+    @Transactional
+    public Wallet update(Long walletId, WalletUpdateRequest request, UserPrincipal actor) {
+        Wallet wallet = findOwned(walletId, actor);
+
+        String masked = trimToNull(request.getCardNumberMasked());
+        if (masked != null && TOO_MANY_CONSECUTIVE_DIGITS.matcher(masked).find()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Chỉ được lưu số thẻ đã che, không lưu số thẻ đầy đủ");
+        }
+
+        if (request.getType() != WalletType.CREDIT_CARD
+                && wallet.getBalance().compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Ví đang âm số dư nên phải giữ loại CREDIT_CARD");
+        }
+
+        wallet.setWalletName(request.getWalletName().trim());
+        wallet.setType(request.getType());
+        if (request.getCurrency() != null && !request.getCurrency().isBlank()) {
+            wallet.setCurrency(request.getCurrency().trim());
+        }
+        wallet.setCardNumberMasked(masked);
+
+        Wallet saved = walletRepository.save(wallet);
+        log.info("Cập nhật ví id={} bởi user={} tên={} loại={}",
+                saved.getId(), actor.getId(), saved.getWalletName(), saved.getType());
+        return saved;
+    }
+
+    @Transactional
+    public void delete(Long walletId, UserPrincipal actor) {
+        Wallet wallet = findOwned(walletId, actor);
+
+        if (transactionRepository.existsByWalletId(walletId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Ví đã có giao dịch nên không thể xoá; xoá ví sẽ xoá luôn lịch sử theo ON DELETE CASCADE");
+        }
+
+        walletRepository.delete(wallet);
+        log.info("Xoá ví id={} bởi user={}", walletId, actor.getId());
+    }
+
+    private Wallet findOwned(Long walletId, UserPrincipal actor) {
+        Wallet wallet = walletRepository.findById(walletId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ví không tồn tại"));
+
+        Long ownerId = wallet.getUser() == null ? null : wallet.getUser().getId();
+        if (ownerId == null || !ownerId.equals(actor.getId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Ví không tồn tại");
+        }
+        return wallet;
     }
 
     private static String trimToNull(String value) {
