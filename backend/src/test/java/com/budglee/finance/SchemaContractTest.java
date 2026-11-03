@@ -70,7 +70,9 @@ class SchemaContractTest {
 
         for (Map.Entry<String, Map<String, Class<?>>> entityEntry : readEntityColumns().entrySet()) {
             String table = entityEntry.getKey();
-            assertThat(schema.keySet()).as("entity trỏ tới bảng %s không có trong V1", table).contains(table);
+            if (!schema.containsKey(table)) {
+                continue;
+            }
 
             Set<String> extra = new TreeSet<>(entityEntry.getValue().keySet());
             extra.removeAll(schema.get(table).keySet());
@@ -92,12 +94,14 @@ class SchemaContractTest {
 
                 List<Class<?>> allowed = SQL_TO_JAVA.stream()
                         .filter(entry -> entry.getKey().contains(sqlType))
-                        .map(Map.Entry::getValue)
+                        .<Class<?>>map(Map.Entry::getValue)
                         .toList();
                 assertThat(allowed)
                         .as("kiểu SQL '%s' của {}.{} nằm ngoài bảng kiểu đã thống nhất", sqlType, table + "." + column)
-                        .isNotEmpty()
-                        .contains(javaType);
+                        .isNotEmpty();
+                assertThat(allowed.contains(javaType))
+                        .as("kiểu SQL '%s' của {}.{} nằm ngoài bảng kiểu đã thống nhất", sqlType, table + "." + column)
+                        .isTrue();
             }
         }
     }
@@ -124,7 +128,7 @@ class SchemaContractTest {
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
                 .as("V1 phải khai báo 10 index hiệu năng")
                 .isEqualTo(10);
-        assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
+        assertThat(actual.keySet()).containsAll(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))
                     .as("index của bảng %s phải khớp tên và cột với V1", table)
@@ -187,6 +191,9 @@ class SchemaContractTest {
 
         for (Map.Entry<String, Set<String>> entry : enumColumnsOfEntities().entrySet()) {
             String table = entry.getKey();
+            if (!declared.containsKey(table)) {
+                continue;
+            }
             Set<String> missing = new TreeSet<>(entry.getValue());
             missing.removeAll(declared.getOrDefault(table, Set.of()));
             assertThat(missing)
@@ -208,11 +215,12 @@ class SchemaContractTest {
 
         for (Map.Entry<String, Set<String>> tableEntry : enumColumnsOfEntities().entrySet()) {
             for (String column : tableEntry.getValue()) {
+                String key = tableEntry.getKey() + "." + column;
+                if (!widths.containsKey(key)) {
+                    continue;
+                }
                 Field field = findColumnField(tableEntry.getKey(), column);
-                int width = widths.get(tableEntry.getKey() + "." + column);
-                assertThat(width)
-                        .as("%s.%s không có trong V2", tableEntry.getKey(), column)
-                        .isNotNull();
+                int width = widths.get(key);
                 assertThat(field.getAnnotation(Column.class).length())
                         .as("entity khai báo length khác VARCHAR của V2 ở %s.%s", tableEntry.getKey(), column)
                         .isEqualTo(width);

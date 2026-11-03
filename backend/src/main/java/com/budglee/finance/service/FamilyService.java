@@ -1,0 +1,435 @@
+package com.budglee.finance.service;
+
+import com.budglee.finance.dto.FamilyInvitationRequest;
+import com.budglee.finance.dto.FamilyInvitationResponse;
+import com.budglee.finance.dto.FamilyMemberResponse;
+import com.budglee.finance.entity.*;
+import com.budglee.finance.repository.FamilyGroupRepository;
+import com.budglee.finance.repository.FamilyInvitationRepository;
+import com.budglee.finance.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class FamilyService {
+
+    private final UserRepository userRepository;
+    private final FamilyGroupRepository familyGroupRepository;
+    private final FamilyInvitationRepository familyInvitationRepository;
+
+    /**
+     * Lấy thông tin người dùng hiện tại.
+     */
+    private User getCurrentUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy tài khoản"
+                ));
+    }
+
+    /**
+     * Xác minh người dùng hiện tại là chủ sở hữu thực sự của nhóm.
+     */
+    private FamilyGroup getOwnedFamilyGroup(Long userId) {
+        User user = getCurrentUser(userId);
+
+        if (user.getRole() != Role.FAMILY_ADMIN
+                || user.getFamilyGroupId() == null
+                || user.getFamilyGroupId().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Bạn không có quyền quản lý nhóm gia đình"
+            );
+        }
+
+        return familyGroupRepository
+                .findByIdAndCreatedById(user.getFamilyGroupId(), userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Bạn không phải chủ sở hữu nhóm gia đình"
+                ));
+    }
+
+    /**
+     * Chuyển lời mời thành DTO trả về frontend.
+     */
+    private FamilyInvitationResponse toInvitationResponse(
+            FamilyInvitation invitation
+    ) {
+        FamilyGroup familyGroup = familyGroupRepository
+                .findById(invitation.getFamilyGroupId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy nhóm gia đình"
+                ));
+
+        return FamilyInvitationResponse.builder()
+                .id(invitation.getId())
+                .familyGroupId(invitation.getFamilyGroupId())
+                .familyGroupName(familyGroup.getName())
+                .invitedById(invitation.getInvitedBy().getId())
+                .invitedByName(invitation.getInvitedBy().getFullName())
+                .inviteeEmail(invitation.getInvitee().getEmail())
+                .status(invitation.getStatus())
+                .createdAt(invitation.getCreatedAt())
+                .expiresAt(invitation.getExpiresAt())
+                .respondedAt(invitation.getRespondedAt())
+                .build();
+    }
+
+    /**
+     * Chuyển người dùng thành DTO thành viên gia đình.
+     */
+    private FamilyMemberResponse toMemberResponse(User user) {
+        return FamilyMemberResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .avatarUrl(user.getAvatarUrl())
+                .role(user.getRole())
+                .joinedAt(user.getCreatedAt())
+                .build();
+    }
+
+    /**
+     * Chủ nhóm gửi lời mời tham gia gia đình bằng email.
+     */
+    public FamilyInvitationResponse sendInvitation(
+            Long currentUserId,
+            FamilyInvitationRequest request
+    ) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+
+        String email = request.getEmail().trim().toLowerCase();
+
+        User currentUser = getCurrentUser(currentUserId);
+
+        if (currentUser.getEmail().equalsIgnoreCase(email)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Bạn không thể tự gửi lời mời cho chính mình"
+            );
+        }
+
+        User invitee = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Email này chưa đăng ký tài khoản Budglee"
+                ));
+
+        if (invitee.getFamilyGroupId() != null
+                && !invitee.getFamilyGroupId().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Tài khoản này đã thuộc một gia đình"
+            );
+        }
+
+        boolean invitationExists =
+                familyInvitationRepository
+                        .existsByFamilyGroupIdAndInviteeIdAndStatus(
+                                familyGroup.getId(),
+                                invitee.getId(),
+                                FamilyInvitationStatus.PENDING
+                        );
+
+        if (invitationExists) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Đã có lời mời đang chờ xử lý cho tài khoản này"
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        FamilyInvitation invitation = FamilyInvitation.builder()
+                .familyGroupId(familyGroup.getId())
+                .invitedBy(currentUser)
+                .invitee(invitee)
+                .status(FamilyInvitationStatus.PENDING)
+                .expiresAt(now.plusDays(7))
+                .build();
+
+        FamilyInvitation savedInvitation =
+                familyInvitationRepository.save(invitation);
+
+        return toInvitationResponse(savedInvitation);
+    }
+
+    /**
+     * Lấy danh sách lời mời của nhóm gia đình hiện tại.
+     */
+    public List<FamilyInvitationResponse> getSentInvitations(
+            Long currentUserId
+    ) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+
+        List<FamilyInvitation> invitations =
+                familyInvitationRepository
+                        .findByFamilyGroupIdOrderByCreatedAtDesc(
+                                familyGroup.getId()
+                        );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (FamilyInvitation invitation : invitations) {
+            if (invitation.getStatus() == FamilyInvitationStatus.PENDING
+                    && !invitation.getExpiresAt().isAfter(now)) {
+
+                invitation.setStatus(FamilyInvitationStatus.EXPIRED);
+                invitation.setRespondedAt(now);
+
+                familyInvitationRepository.save(invitation);
+            }
+        }
+
+        return invitations.stream()
+                .map(this::toInvitationResponse)
+                .toList();
+    }
+
+    /**
+     * Chủ nhóm hủy lời mời đang chờ xử lý.
+     */
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public void cancelInvitation(Long currentUserId, Long invitationId) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+
+        FamilyInvitation invitation = familyInvitationRepository
+                .findByIdAndInvitedById(invitationId, currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy lời mời"
+                ));
+
+        if (!invitation.getFamilyGroupId().equals(familyGroup.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Bạn không có quyền hủy lời mời này"
+            );
+        }
+
+        if (invitation.getStatus() != FamilyInvitationStatus.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Chỉ có thể hủy lời mời đang chờ xử lý"
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!invitation.getExpiresAt().isAfter(now)) {
+            invitation.setStatus(FamilyInvitationStatus.EXPIRED);
+            invitation.setRespondedAt(now);
+            familyInvitationRepository.save(invitation);
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lời mời đã hết hạn"
+            );
+        }
+
+        invitation.setStatus(FamilyInvitationStatus.CANCELLED);
+        invitation.setRespondedAt(now);
+
+        familyInvitationRepository.save(invitation);
+    }
+
+    /**
+     * Lấy danh sách lời mời mà tài khoản hiện tại nhận được.
+     */
+    public List<FamilyInvitationResponse> getReceivedInvitations(
+            Long currentUserId
+    ) {
+        List<FamilyInvitation> invitations =
+                familyInvitationRepository
+                        .findByInviteeIdOrderByCreatedAtDesc(currentUserId);
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for (FamilyInvitation invitation : invitations) {
+            if (invitation.getStatus() == FamilyInvitationStatus.PENDING
+                    && !invitation.getExpiresAt().isAfter(now)) {
+
+                invitation.setStatus(FamilyInvitationStatus.EXPIRED);
+                invitation.setRespondedAt(now);
+
+                familyInvitationRepository.save(invitation);
+            }
+        }
+
+        return invitations.stream()
+                .map(this::toInvitationResponse)
+                .toList();
+    }
+
+    /**
+     * Người được mời chấp nhận lời mời tham gia gia đình.
+     */
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public FamilyInvitationResponse acceptInvitation(
+            Long currentUserId,
+            Long invitationId
+    ) {
+        User invitee = getCurrentUser(currentUserId);
+
+        FamilyInvitation invitation = familyInvitationRepository
+                .findByIdAndInviteeId(invitationId, currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy lời mời dành cho tài khoản của bạn"
+                ));
+
+        if (invitation.getStatus() != FamilyInvitationStatus.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lời mời này không còn ở trạng thái chờ xử lý"
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!invitation.getExpiresAt().isAfter(now)) {
+            invitation.setStatus(FamilyInvitationStatus.EXPIRED);
+            invitation.setRespondedAt(now);
+            familyInvitationRepository.save(invitation);
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lời mời đã hết hạn"
+            );
+        }
+
+        if (invitee.getFamilyGroupId() != null
+                && !invitee.getFamilyGroupId().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Bạn đã thuộc một gia đình khác"
+            );
+        }
+
+        FamilyGroup familyGroup = familyGroupRepository
+                .findById(invitation.getFamilyGroupId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Nhóm gia đình không còn tồn tại"
+                ));
+
+        invitation.setStatus(FamilyInvitationStatus.ACCEPTED);
+        invitation.setRespondedAt(now);
+
+        invitee.setFamilyGroupId(familyGroup.getId());
+        invitee.setRole(Role.FAMILY_MEMBER);
+
+        userRepository.save(invitee);
+        familyInvitationRepository.save(invitation);
+
+        return toInvitationResponse(invitation);
+    }
+
+    /**
+     * Người được mời từ chối lời mời tham gia gia đình.
+     */
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public FamilyInvitationResponse rejectInvitation(
+            Long currentUserId,
+            Long invitationId
+    ) {
+        FamilyInvitation invitation = familyInvitationRepository
+                .findByIdAndInviteeId(invitationId, currentUserId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy lời mời dành cho tài khoản của bạn"
+                ));
+
+        if (invitation.getStatus() != FamilyInvitationStatus.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lời mời này không còn ở trạng thái chờ xử lý"
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (!invitation.getExpiresAt().isAfter(now)) {
+            invitation.setStatus(FamilyInvitationStatus.EXPIRED);
+            invitation.setRespondedAt(now);
+            familyInvitationRepository.save(invitation);
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lời mời đã hết hạn"
+            );
+        }
+
+        invitation.setStatus(FamilyInvitationStatus.REJECTED);
+        invitation.setRespondedAt(now);
+
+        FamilyInvitation savedInvitation =
+                familyInvitationRepository.save(invitation);
+
+        return toInvitationResponse(savedInvitation);
+    }
+
+    /**
+     * Lấy danh sách thành viên thuộc nhóm gia đình hiện tại.
+     */
+    @Transactional(readOnly = true)
+    public List<FamilyMemberResponse> getFamilyMembers(
+            Long currentUserId
+    ) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+
+        List<User> members =
+                userRepository.findByFamilyGroupId(familyGroup.getId());
+
+        return members.stream()
+                .map(this::toMemberResponse)
+                .toList();
+    }
+
+    /**
+     * Chủ nhóm xóa một thành viên khỏi gia đình.
+     */
+    public void removeFamilyMember(
+            Long currentUserId,
+            Long memberId
+    ) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+
+        if (currentUserId.equals(memberId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Chủ nhóm không thể tự xóa mình khỏi gia đình"
+            );
+        }
+
+        User member = userRepository.findById(memberId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy thành viên"
+                ));
+
+        if (!familyGroup.getId().equals(member.getFamilyGroupId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Tài khoản này không thuộc gia đình của bạn"
+            );
+        }
+
+        member.setFamilyGroupId(null);
+        member.setRole(Role.INDIVIDUAL_USER);
+
+        userRepository.save(member);
+    }
+
+}

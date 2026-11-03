@@ -5,6 +5,7 @@ import com.budglee.finance.entity.User;
 import com.budglee.finance.entity.Wallet;
 import com.budglee.finance.entity.WalletType;
 import com.budglee.finance.repository.UserRepository;
+import com.budglee.finance.repository.TransactionRepository;
 import com.budglee.finance.repository.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import static org.mockito.Mockito.*;
 class WalletServiceTest {
     private WalletRepository walletRepository;
     private UserRepository userRepository;
+    private TransactionRepository transactionRepository;
     private WalletService walletService;
 
     private User user;
@@ -30,8 +32,9 @@ class WalletServiceTest {
     void setUp() {
         walletRepository = mock(WalletRepository.class);
         userRepository = mock(UserRepository.class);
+        transactionRepository = mock(TransactionRepository.class);
 
-        walletService = new WalletService(walletRepository, userRepository);
+        walletService = new WalletService(walletRepository, userRepository, transactionRepository);
 
         user = User.builder()
                 .id(1L)
@@ -133,7 +136,7 @@ class WalletServiceTest {
         List<Wallet> result = walletService.list(1L);
 
         assertEquals(1, result.size());
-        assertSame(expected, result);
+        assertEquals(expected, result);
 
         verify(walletRepository).findByUserId(1L);
     }

@@ -191,15 +191,18 @@ class TransactionServiceTest {
     @Test
     void getUserTransactions_shouldReturnRepositoryResult() {
         Pageable pageable = PageRequest.of(0, 10);
-        Page<Transaction> expected = new PageImpl<>(List.of());
+        Transaction tx = Transaction.builder().id(100L).wallet(wallet).build();
+        Page<Transaction> expected = new PageImpl<>(List.of(tx));
 
-        when(transactionRepository.findByUserIdOrderByTransactionDateDesc(1L, pageable))
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(walletRepository.findByUserId(1L)).thenReturn(List.of(wallet));
+        when(transactionRepository.findByWalletIdInOrderByTransactionDateDesc(List.of(10L), pageable))
                 .thenReturn(expected);
 
         Page<Transaction> result = transactionService.getUserTransactions(1L, pageable);
 
         assertSame(expected, result);
 
-        verify(transactionRepository).findByUserIdOrderByTransactionDateDesc(1L, pageable);
+        verify(transactionRepository).findByWalletIdInOrderByTransactionDateDesc(List.of(10L), pageable);
     }
 }
