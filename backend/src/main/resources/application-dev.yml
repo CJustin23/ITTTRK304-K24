@@ -6,7 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -18,7 +18,9 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:6379}
       timeout: 2000ms
   flyway:
-    enabled: false # Set to true when Flyway migration is activated by Database Lead (Tu)
+    enabled: true # Set to true when Flyway migration is activated by Database Lead (Tu)
+    baseline-on-migrate: true
+    baseline-version: 1
 
 logging:
   level:

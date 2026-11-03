@@ -5,18 +5,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 /**
  * =========================================================================
- * KHUÔN MẪU SERVICE: BOT GỢI Ý TỐI ƯU CHI TIÊU (SPENDING HABITS BOT)
+ * PHÂN HỆ: TRỢ LÝ AI GỢI Ý TỐI ƯU CHI TIÊU (SPENDING HABITS RECOMMENDATION BOT)
  * Phụ trách: Nguyễn Tiến Thành (Frontend & Backend Lead)
- * Nhánh làm việc: 'thanh'
+ * Nhánh phát triển: 'thanh'
  *
- * Yêu cầu nghiệp vụ cần làm:
- * 1. Phân tích lịch sử chi tiêu tháng này so với tháng trước.
- * 2. Phát hiện các Category tăng bất thường (> 15-20%).
- * 3. Đưa ra cảnh báo và khuyến nghị điều chỉnh thói quen chi tiêu.
+ * Trạng thái: Đang phát triển (Under Development)
  * =========================================================================
  */
 @Service
@@ -25,13 +23,16 @@ import java.util.Collections;
 public class RecommendationService {
 
     public HabitRecommendationResponse generateSpendingAdvice(Long userId, int year, int month) {
-        log.info("[TODO - THÀNH] Cài đặt thuật toán Bot phân tích thói quen chi tiêu cho userId: {}", userId);
-        
-        // TODO: Nguyễn Tiến Thành cài đặt logic phân tích thói quen tại đây
+        log.info("[THÀNH - AI BOT] Phân tích thói quen chi tiêu (Trạng thái: Đang phát triển) cho userId: {}, kỳ: {}/{}", userId, month, year);
+
         return HabitRecommendationResponse.builder()
-                .status("ON_TRACK")
-                .primaryAdvice("Hệ thống đang sẵn sàng ghi nhận dữ liệu chi tiêu của bạn.")
-                .actionItems(Collections.emptyList())
+                .status("UNDER_DEVELOPMENT")
+                .primaryAdvice("Tính năng Trợ lý AI Cố vấn Tài chính đang được hoàn thiện và tích hợp mô hình phân tích dữ liệu chuyên sâu.")
+                .actionItems(Arrays.asList(
+                        "Chatbot hỏi đáp tình hình thu chi và số dư ví thời gian thực (Đang phát triển).",
+                        "Tự động phát hiện bất thường và cảnh báo nguy cơ vượt hạn mức ngân sách.",
+                        "Dự kiến chính thức ra mắt trong bản cập nhật kế tiếp của Budglee Platform."
+                ))
                 .categoryWarnings(Collections.emptyList())
                 .build();
     }

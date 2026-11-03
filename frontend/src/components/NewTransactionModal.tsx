@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, DollarSign } from 'lucide-react';
+import { X, DollarSign, AlertCircle } from 'lucide-react';
 import { TransactionType, Wallet } from '../types';
 
 interface NewTransactionModalProps {
@@ -28,26 +28,51 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [amount, setAmount] = useState('');
   const [categoryName, setCategoryName] = useState('Ăn uống & Cà phê');
   const [note, setNote] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actionTitle || !amount) return;
+    const errs: Record<string, string> = {};
+    const numAmount = parseFloat(amount);
+
+    if (!amount.trim()) {
+      errs.amount = 'Vui lòng nhập số tiền giao dịch';
+    } else if (isNaN(numAmount) || numAmount <= 0) {
+      errs.amount = 'Số tiền giao dịch phải lớn hơn 0 ₫';
+    } else if (transactionType === 'EXPENSE') {
+      const selectedWallet = wallets.find((w) => w.id === walletId);
+      if (selectedWallet && numAmount > selectedWallet.balance) {
+        errs.amount = `Số tiền chi tiêu vượt quá số dư ví (${new Intl.NumberFormat('vi-VN').format(selectedWallet.balance)} ₫)`;
+      }
+    }
+
+    if (!actionTitle.trim()) {
+      errs.actionTitle = 'Vui lòng nhập mô tả giao dịch';
+    } else if (actionTitle.trim().length < 2) {
+      errs.actionTitle = 'Mô tả giao dịch phải có ít nhất 2 ký tự';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
 
     onSubmit({
       walletId,
-      actionTitle,
-      amount: parseFloat(amount),
+      actionTitle: actionTitle.trim(),
+      amount: numAmount,
       transactionType,
       categoryName,
-      note,
+      note: note.trim(),
     });
 
     // Reset & Close
     setActionTitle('');
     setAmount('');
     setNote('');
+    setErrors({});
     onClose();
   };
 
@@ -57,19 +82,25 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
           <h3 className="text-lg font-bold text-slate-800">Thêm giao dịch mới</h3>
           <button
-            onClick={onClose}
+            onClick={() => {
+              setErrors({});
+              onClose();
+            }}
             className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           {/* Transaction Type Tabs */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
             <button
               type="button"
-              onClick={() => setTransactionType('EXPENSE')}
+              onClick={() => {
+                setTransactionType('EXPENSE');
+                if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+              }}
               className={`py-2 text-sm font-semibold rounded-lg transition-all ${
                 transactionType === 'EXPENSE'
                   ? 'bg-rose-500 text-white shadow-sm'
@@ -80,7 +111,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setTransactionType('INCOME')}
+              onClick={() => {
+                setTransactionType('INCOME');
+                if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+              }}
               className={`py-2 text-sm font-semibold rounded-lg transition-all ${
                 transactionType === 'INCOME'
                   ? 'bg-emerald-500 text-white shadow-sm'
@@ -98,15 +132,25 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
               <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="number"
-                required
-                min="1000"
-                step="1000"
                 placeholder="VD: 150000"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold"
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+                }}
+                className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-semibold ${
+                  errors.amount
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                }`}
               />
             </div>
+            {errors.amount && (
+              <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errors.amount}</span>
+              </p>
+            )}
           </div>
 
           {/* Action Title */}
@@ -114,12 +158,24 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             <label className="block text-xs font-semibold text-slate-600 mb-1">Mô tả giao dịch</label>
             <input
               type="text"
-              required
               placeholder="VD: Cà phê sáng với bạn bè"
               value={actionTitle}
-              onChange={(e) => setActionTitle(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              onChange={(e) => {
+                setActionTitle(e.target.value);
+                if (errors.actionTitle) setErrors((prev) => ({ ...prev, actionTitle: '' }));
+              }}
+              className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all ${
+                errors.actionTitle
+                  ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                  : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+              }`}
             />
+            {errors.actionTitle && (
+              <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errors.actionTitle}</span>
+              </p>
+            )}
           </div>
 
           {/* Wallet Selector */}
@@ -127,7 +183,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             <label className="block text-xs font-semibold text-slate-600 mb-1">Nguồn tiền (Ví / Thẻ)</label>
             <select
               value={walletId}
-              onChange={(e) => setWalletId(Number(e.target.value))}
+              onChange={(e) => {
+                setWalletId(Number(e.target.value));
+                if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+              }}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
             >
               {wallets.map((w) => (

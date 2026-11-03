@@ -1,5 +1,6 @@
 package com.budglee.finance.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -8,6 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "budgets", indexes = {
         @Index(name = "idx_budgets_period", columnList = "user_id,period_year,period_month")
@@ -55,4 +57,20 @@ public class Budget {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * Trạng thái cảnh báo suy ra từ số đã chi và hạn mức, trả kèm response để frontend
+     * không phải tự tính ngưỡng.
+     */
+    public String getAlertLevel() {
+        if (amountLimit == null || amountLimit.compareTo(BigDecimal.ZERO) <= 0 || spentAmount == null) {
+            return "OK";
+        }
+        double ratio = spentAmount.doubleValue() / amountLimit.doubleValue() * 100.0;
+        double threshold = alertThreshold == null ? 80.0 : alertThreshold.doubleValue();
+        if (ratio >= 100.0) {
+            return "EXCEEDED";
+        }
+        return ratio >= threshold ? "WARNING" : "OK";
+    }
 }

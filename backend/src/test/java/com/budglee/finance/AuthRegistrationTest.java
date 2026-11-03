@@ -165,6 +165,5 @@ class AuthRegistrationTest {
         assertThat(hash).startsWith("$2").hasSize(60).doesNotContain("MatKhau123");
     }
 
-    // DUAN-40 sẽ thêm: request ẩn danh phải trả 401 (hiện scaffold trả 403),
-    // và kiểm tra quyền theo vai trò khi đọc/ghi dữ liệu của hộ gia đình.
+    // DUAN-40 còn lại: kiểm tra quyền theo vai trò khi đọc/ghi dữ liệu của hộ gia đình.
 }

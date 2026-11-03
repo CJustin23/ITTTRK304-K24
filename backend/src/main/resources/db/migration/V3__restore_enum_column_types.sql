@@ -1,0 +1,27 @@
+
+-- Restore MySQL ENUM column types to match Hibernate's enum mapping.
+
+ALTER TABLE users
+    MODIFY COLUMN role
+    ENUM('INDIVIDUAL_USER', 'FAMILY_ADMIN', 'FAMILY_MEMBER', 'SYSTEM_ADMIN')
+    NOT NULL DEFAULT 'INDIVIDUAL_USER';
+
+ALTER TABLE wallets
+    MODIFY COLUMN type
+    ENUM('CASH', 'BANK', 'CREDIT_CARD')
+    NOT NULL DEFAULT 'CASH';
+
+ALTER TABLE categories
+    MODIFY COLUMN type
+    ENUM('INCOME', 'EXPENSE')
+    NOT NULL;
+
+ALTER TABLE transactions
+    MODIFY COLUMN transaction_type
+    ENUM('INCOME', 'EXPENSE', 'TRANSFER')
+    NOT NULL;
+
+ALTER TABLE saving_goals
+    MODIFY COLUMN status
+    ENUM('IN_PROGRESS', 'COMPLETED', 'CANCELLED')
+    NOT NULL DEFAULT 'IN_PROGRESS';

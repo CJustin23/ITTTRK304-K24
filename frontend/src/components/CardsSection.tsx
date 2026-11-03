@@ -7,6 +7,7 @@ interface CardsSectionProps {
   leftToSpend: number;
   spendingPercentage: number;
   onNewBudget: () => void;
+  onNewWallet?: () => void;
 }
 
 export const CardsSection: React.FC<CardsSectionProps> = ({
@@ -14,9 +15,12 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
   leftToSpend,
   spendingPercentage,
   onNewBudget,
+  onNewWallet,
 }) => {
   const isWarning = spendingPercentage >= 80 && spendingPercentage < 100;
   const isOverspent = spendingPercentage >= 100;
+  const hasWallets = wallets.length > 0;
+  const primaryWallet = hasWallets ? wallets[0] : null;
 
   return (
     <div className="space-y-6">
@@ -29,56 +33,80 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
           </span>
         </div>
 
-        {/* Primary Visual Card (Budglee style) */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 p-6 text-white shadow-xl shadow-slate-900/10 mb-4">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <p className="text-xs text-slate-400 font-medium tracking-wider uppercase">Thẻ chính (Primary)</p>
-              <h4 className="text-lg font-bold tracking-wide mt-1">Techcombank Visa</h4>
+        {hasWallets && primaryWallet ? (
+          /* Primary Visual Card (Budglee style) */
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-800 p-6 text-white shadow-xl shadow-slate-900/10 mb-4">
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <p className="text-xs text-slate-400 font-medium tracking-wider uppercase">Thẻ chính (Primary)</p>
+                <h4 className="text-lg font-bold tracking-wide mt-1">{primaryWallet.walletName}</h4>
+              </div>
+              <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                <CreditCard className="w-5 h-5 text-emerald-400" />
+              </div>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <CreditCard className="w-5 h-5 text-emerald-400" />
-            </div>
-          </div>
 
-          <div className="space-y-1 mb-6">
-            <p className="text-xs text-slate-400">Số dư khả dụng</p>
-            <p className="text-2xl font-black tracking-tight text-white">
-              {new Intl.NumberFormat('vi-VN').format(wallets[0]?.balance || 0)} ₫
+            <div className="space-y-1 mb-6">
+              <p className="text-xs text-slate-400">Số dư khả dụng</p>
+              <p className="text-2xl font-black tracking-tight text-white">
+                {new Intl.NumberFormat('vi-VN').format(primaryWallet.balance)} ₫
+              </p>
+            </div>
+
+            <div className="flex justify-between items-center text-xs text-slate-300 font-mono">
+              <span>{primaryWallet.cardNumberMasked || (primaryWallet.type === 'CASH' ? 'Tiền mặt' : 'Tài khoản chính')}</span>
+              <span>{primaryWallet.type}</span>
+            </div>
+
+            {/* Decorative ambient orb */}
+            <div className="absolute -right-12 -bottom-12 w-36 h-36 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none"></div>
+          </div>
+        ) : (
+          /* Empty Wallet State */
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center mb-4 bg-slate-50/50">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <WalletIcon className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-slate-700">Chưa liên kết ví hoặc thẻ</h4>
+            <p className="text-xs text-slate-400 mt-1 mb-4">
+              Thêm tài khoản ngân hàng hoặc ví tiền mặt để bắt đầu ghi chép dòng tiền.
             </p>
+            {onNewWallet && (
+              <button
+                onClick={onNewWallet}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Thêm ví đầu tiên</span>
+              </button>
+            )}
           </div>
-
-          <div className="flex justify-between items-center text-xs text-slate-300 font-mono">
-            <span>{wallets[0]?.cardNumberMasked || '**** 4892'}</span>
-            <span>10/28</span>
-          </div>
-
-          {/* Decorative ambient orb */}
-          <div className="absolute -right-12 -bottom-12 w-36 h-36 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none"></div>
-        </div>
+        )}
 
         {/* Other Mini Wallets */}
-        <div className="space-y-2.5">
-          {wallets.slice(1).map((w) => (
-            <div
-              key={w.id}
-              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  {w.type === 'CASH' ? <WalletIcon className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+        {wallets.length > 1 && (
+          <div className="space-y-2.5">
+            {wallets.slice(1).map((w) => (
+              <div
+                key={w.id}
+                className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/70 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    {w.type === 'CASH' ? <WalletIcon className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{w.walletName}</p>
+                    <p className="text-xs text-slate-400">{w.cardNumberMasked || 'Tiền mặt'}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{w.walletName}</p>
-                  <p className="text-xs text-slate-400">{w.cardNumberMasked || 'Tiền mặt'}</p>
-                </div>
+                <span className="text-sm font-bold text-slate-700">
+                  {new Intl.NumberFormat('vi-VN').format(w.balance)} ₫
+                </span>
               </div>
-              <span className="text-sm font-bold text-slate-700">
-                {new Intl.NumberFormat('vi-VN').format(w.balance)} ₫
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Budget Control Box (FR-04) */}
