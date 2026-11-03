@@ -20,8 +20,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Locale;
-import java.util.Set;
-
 /**
  * =========================================================================
  * SERVICE: XÁC THỰC & PHÂN QUYỀN (AUTH & SECURITY)
@@ -43,8 +41,6 @@ import java.util.Set;
 @Slf4j
 public class AuthService {
 
-    private static final Set<Role> SELF_SERVICE_ROLES = Set.of(Role.INDIVIDUAL_USER, Role.FAMILY_MEMBER);
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
@@ -52,32 +48,54 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        Role role = request.getRole() == null ? Role.INDIVIDUAL_USER : request.getRole();
 
-        if (!SELF_SERVICE_ROLES.contains(role)) {
-            log.warn("Đơn đăng ký tự nhận vai trò đặc quyền {} cho email={}", role, email);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Không thể tự đăng ký với vai trò này");
+        Role role = request.getRole() == null
+                ? Role.INDIVIDUAL_USER
+                : request.getRole();
+
+        // Đăng ký công khai chỉ được tạo tài khoản cá nhân.
+        // FAMILY_ADMIN và FAMILY_MEMBER phải được cấp thông qua nghiệp vụ riêng.
+        if (role != Role.INDIVIDUAL_USER) {
+            log.warn("Đăng ký không hợp lệ với vai trò {} cho email={}", role, email);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Chỉ được đăng ký tài khoản cá nhân. Muốn tham gia gia đình, hãy nhận lời mời."
+            );
         }
-        String familyGroupId = trimToNull(request.getFamilyGroupId());
-        if (role == Role.FAMILY_MEMBER && familyGroupId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Thành viên hộ gia đình phải kèm mã nhóm hộ");
+
+        // Không cho phép truyền familyGroupId khi đăng ký công khai.
+        if (request.getFamilyGroupId() != null
+                && !request.getFamilyGroupId().trim().isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Không thể tự tham gia nhóm gia đình khi đăng ký"
+            );
         }
 
         if (userRepository.existsByEmail(email)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email đã được đăng ký");
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Email đã được đăng ký"
+            );
         }
 
         User user = User.builder()
                 .fullName(request.getFullName().trim())
                 .email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(role)
-                .familyGroupId(role == Role.FAMILY_MEMBER ? familyGroupId : null)
+                .role(Role.INDIVIDUAL_USER)
+                .familyGroupId(null)
                 .build();
+
         User saved = userRepository.save(user);
-        log.info("Đăng ký thành công id={} email={} vai tro={}", saved.getId(), saved.getEmail(), saved.getRole());
+
+        log.info(
+                "Đăng ký thành công id={} email={} vai tro={}",
+                saved.getId(),
+                saved.getEmail(),
+                saved.getRole()
+        );
 
         return AuthResponse.builder()
                 .id(saved.getId())
@@ -92,17 +110,30 @@ public class AuthService {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
 
         Authentication authentication;
+
         try {
             authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+                    new UsernamePasswordAuthenticationToken(
+                            email,
+                            request.getPassword()
+                    )
+            );
         } catch (AuthenticationException exception) {
             log.warn("Đăng nhập thất bại với email={}", email);
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Email hoặc mật khẩu không đúng"
+            );
         }
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+
         User user = userRepository.findByEmail(principal.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "Email hoặc mật khẩu không đúng"
+                ));
 
         return AuthResponse.builder()
                 .token(tokenProvider.generateToken(authentication))
@@ -113,13 +144,5 @@ public class AuthService {
                 .role(user.getRole())
                 .familyGroupId(user.getFamilyGroupId())
                 .build();
-    }
-
-    private static String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }
