@@ -13,6 +13,7 @@ import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,7 @@ public class TransactionService {
     private final UserRepository userRepository;
 
     @Transactional
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     public Transaction createTransaction(Long userId, TransactionRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không còn tồn tại"));
