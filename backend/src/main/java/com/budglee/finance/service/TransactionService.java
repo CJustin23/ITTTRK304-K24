@@ -40,9 +40,8 @@ import java.util.Map;
  * 2. INCOME cộng số dư, EXPENSE trừ số dư; cập nhật ví và lưu giao dịch trong cùng @Transactional.
  * 3. Chỉ ví CREDIT_CARD được phép âm số dư, ví khác trả 400 và toàn bộ giao dịch bị rollback.
  * 4. balance_after luôn được lưu; ngày giao dịch lấy hiện tại nếu frontend không gửi.
- *
- * Chưa làm: TRANSFER giữa hai ví — TransactionRequest thiếu ví đích và bảng transactions
- * thiếu cột liên kết hai bản ghi, nên trả 501 có chủ đích thay vì ghi số dư một chiều.
+ * 5. TRANSFER giữa hai ví ghi thành hai bản ghi EXPENSE/INCOME nối nhau qua linked_transaction_id
+ *    (V6), nên lịch sử hai ví đều đầy đủ mà số dư không bao giờ lệch nhau.
  * =========================================================================
  */
 @Service
@@ -62,14 +61,10 @@ public class TransactionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không còn tồn tại"));
 
         if (request.getTransactionType() == TransactionType.TRANSFER) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
-                    "Chuyển khoản giữa hai ví cần thêm cột liên kết bản ghi, thống nhất ở Sprint 3");
+            return transfer(user, request);
         }
 
-        Wallet wallet = walletRepository.findById(request.getWalletId())
-                .filter(w -> canUse(w, user))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Ví không tồn tại hoặc không thuộc về bạn"));
+        Wallet wallet = findUsableWallet(request.getWalletId(), user);
 
         Category category = null;
         if (request.getCategoryId() != null) {
@@ -115,6 +110,80 @@ public class TransactionService {
         return saved;
     }
 
+    /**
+     * Chuyển giữa hai ví ghi thành hai bản ghi nối nhau: EXPENSE ở ví nguồn và INCOME ở ví đích,
+     * mỗi bên có balance_after riêng nên lịch sử của cả hai ví đều đúng. Danh mục bị bỏ qua vì
+     * chuyển tiền giữa hai ví của mình không phải thu hay chi.
+     */
+    @Transactional
+    public Transaction transfer(User actor, TransactionRequest request) {
+        Long toWalletId = request.getToWalletId();
+        if (toWalletId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Chuyển giữa hai ví phải kèm ví nhận (toWalletId)");
+        }
+        if (toWalletId.equals(request.getWalletId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Ví gửi và ví nhận phải là hai ví khác nhau");
+        }
+
+        Wallet source = findUsableWallet(request.getWalletId(), actor);
+        Wallet target = findUsableWallet(toWalletId, actor);
+
+        BigDecimal amount = request.getAmount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền phải lớn hơn 0");
+        }
+
+        BigDecimal afterSource = source.getBalance().subtract(amount);
+        if (afterSource.compareTo(BigDecimal.ZERO) < 0 && source.getType() != WalletType.CREDIT_CARD) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Số dư ví không đủ; chỉ thẻ tín dụng (CREDIT_CARD) mới cho phép âm");
+        }
+        BigDecimal afterTarget = target.getBalance().add(amount);
+        LocalDateTime when = request.getTransactionDate() == null
+                ? LocalDateTime.now()
+                : request.getTransactionDate();
+        String title = request.getActionTitle().trim();
+
+        // Tru ví nguồn trước, cộng ví đích sau: hai bước nằm trong cùng một transaction nên không
+        // có trường hợp mất tiền mà bên nhận không có.
+        source.setBalance(afterSource);
+        walletRepository.save(source);
+        Transaction outgoing = transactionRepository.save(Transaction.builder()
+                .wallet(source)
+                .user(actor)
+                .actionTitle(title)
+                .amount(amount)
+                .transactionType(TransactionType.EXPENSE)
+                .balanceAfter(afterSource)
+                .transactionDate(when)
+                .note(request.getNote())
+                .build());
+
+        target.setBalance(afterTarget);
+        walletRepository.save(target);
+        Transaction incoming = transactionRepository.save(Transaction.builder()
+                .wallet(target)
+                .user(actor)
+                .actionTitle(title)
+                .amount(amount)
+                .transactionType(TransactionType.INCOME)
+                .balanceAfter(afterTarget)
+                .transactionDate(when)
+                .note(request.getNote())
+                .build());
+
+        outgoing.setLinkedTransactionId(incoming.getId());
+        incoming.setLinkedTransactionId(outgoing.getId());
+        transactionRepository.save(outgoing);
+        transactionRepository.save(incoming);
+
+        log.info("Chuyển {} từ ví={} (con {}) sang ví={} (con {}) bởi user={}",
+                amount, source.getId(), afterSource, target.getId(), afterTarget, actor.getId());
+        return outgoing;
+    }
+
     @Transactional(readOnly = true)
     public Page<Transaction> getUserTransactions(Long userId, Pageable pageable) {
         List<Long> walletIds = visibleWalletIds(userId);
@@ -141,6 +210,13 @@ public class TransactionService {
                     .forEach(wallet -> ids.putIfAbsent(wallet.getId(), wallet.getId()));
         }
         return new ArrayList<>(ids.keySet());
+    }
+
+    private Wallet findUsableWallet(Long walletId, User actor) {
+        return walletRepository.findById(walletId)
+                .filter(w -> canUse(w, actor))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Ví không tồn tại hoặc không thuộc về bạn"));
     }
 
     /**

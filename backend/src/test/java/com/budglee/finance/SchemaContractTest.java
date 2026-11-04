@@ -43,11 +43,21 @@ class SchemaContractTest {
 
     private static final String MIGRATION = "/db/migration/V1__init_schema.sql";
 
-    /** Mọi file khai CREATE TABLE: V1 bảng cốt lõi, V4 nhóm hộ, V5 lời mời. */
+    /** Mọi file khai CREATE TABLE: V1 bảng cốt lõi, V4 nhóm hộ, V5 lời mời, V6 cột liên kết chuyển ví. */
     private static final List<String> SCHEMA_MIGRATIONS = List.of(
             MIGRATION,
             "/db/migration/V4__create_family_groups.sql",
-            "/db/migration/V5__create_family_invitations.sql");
+            "/db/migration/V5__create_family_invitations.sql",
+            "/db/migration/V6__link_transfer_transactions.sql");
+
+    /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V6 thêm cột vào bảng đã có. */
+    private static final Pattern ADD_COLUMN = Pattern.compile(
+            "ALTER TABLE (\\w+)\\s+ADD COLUMN (\\w+)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|ENUM)\\b(\\s*\\([^)]*\\))?",
+            Pattern.CASE_INSENSITIVE);
+
+    /** CREATE INDEX t ON x (cot) — cách V6 khai index mà vẫn chạy được trên H2. */
+    private static final Pattern CREATE_INDEX_ON = Pattern.compile(
+            "CREATE INDEX (\\w+)\\s+ON (\\w+)\\s*\\(([^)]*)\\)", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern CREATE_TABLE =
             Pattern.compile("CREATE TABLE (?:IF NOT EXISTS )?(\\w+)\\s*\\((.*?)\\n\\)", Pattern.DOTALL);
@@ -137,8 +147,8 @@ class SchemaContractTest {
 
         assertThat(expected).hasSize(7);
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
-                .as("V1 khai 10 index, V5 khai thêm 3 index cho family_invitations")
-                .isEqualTo(13);
+                .as("V1 khai 10 index, V5 thêm 3 cho family_invitations, V6 thêm 1 cho linked_transaction_id")
+                .isEqualTo(14);
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))
@@ -310,6 +320,11 @@ class SchemaContractTest {
                 }
                 indexes.put(table, names);
             }
+            Matcher standalone = CREATE_INDEX_ON.matcher(readMigrationText(location));
+            while (standalone.find()) {
+                indexes.computeIfAbsent(standalone.group(2).toLowerCase(), key -> new TreeSet<>())
+                        .add(standalone.group(1) + "(" + normalizeColumns(standalone.group(3)) + ")");
+            }
         }
         indexes.values().removeIf(Set::isEmpty);
         return indexes;
@@ -388,6 +403,15 @@ class SchemaContractTest {
                     columns.put(line.group(1).toLowerCase(), type + size);
                 }
                 tables.put(tablesMatcher.group(1).toLowerCase(), columns);
+            }
+
+            Matcher altered = ADD_COLUMN.matcher(readMigrationText(location));
+            while (altered.find()) {
+                Map<String, String> columns = tables.get(altered.group(1).toLowerCase());
+                if (columns != null) {
+                    columns.put(altered.group(2).toLowerCase(), altered.group(3).toUpperCase()
+                            + (altered.group(4) == null ? "" : altered.group(4).trim().toUpperCase()));
+                }
             }
         }
         assertThat(tables)

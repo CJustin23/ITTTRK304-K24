@@ -33,8 +33,8 @@ import java.util.Map;
  * 1. Một ngân sách cho bộ (người dùng, danh mục, tháng, năm); đặt lại kỳ cũ thì cập nhật
  *    hạn mức chứ không tạo bản trùng.
  * 2. categoryId = null nghĩa là hạn mức tổng của cả kỳ; chỉ danh mục loại EXPENSE mới có ngân sách.
- * 3. spent_amount tính trực tiếp từ giao dịch EXPENSE trong kỳ khi đọc, nên tiến độ không bao giờ
- *    lệch với lịch sử chi.
+ * 3. spent_amount tính trực tiếp từ giao dịch EXPENSE trong kỳ khi đọc, không tính hai bản ghi
+ *    của một lần chuyển giữa hai ví, nên tiến độ không bao giờ lệch với lịch sử chi.
  * 4. alertLevel = OK / WARNING (>= alertThreshold, mặc định 80%) / EXCEEDED (>= 100%).
  * =========================================================================
  */
@@ -115,7 +115,7 @@ public class BudgetService {
         List<Transaction> expenses = transactionRepository.findByUserIdAndTransactionDateBetween(
                         userId, firstDay.atStartOfDay(), firstDay.plusMonths(1).atStartOfDay())
                 .stream()
-                .filter(t -> t.getTransactionType() == TransactionType.EXPENSE)
+                .filter(t -> t.getTransactionType() == TransactionType.EXPENSE && t.getLinkedTransactionId() == null)
                 .toList();
 
         Map<Long, BigDecimal> spentByCategory = new HashMap<>();
