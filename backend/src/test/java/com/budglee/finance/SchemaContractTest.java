@@ -43,19 +43,19 @@ class SchemaContractTest {
 
     private static final String MIGRATION = "/db/migration/V1__init_schema.sql";
 
-    /** Mọi file khai CREATE TABLE: V1 bảng cốt lõi, V4 nhóm hộ, V5 lời mời, V6 cột liên kết chuyển ví. */
+    /** Các file khai cấu trúc: V1 bảng cốt lõi, V4 nhóm hộ, V5 lời mời, V8 cột liên kết chuyển ví. */
     private static final List<String> SCHEMA_MIGRATIONS = List.of(
             MIGRATION,
             "/db/migration/V4__create_family_groups.sql",
             "/db/migration/V5__create_family_invitations.sql",
-            "/db/migration/V6__link_transfer_transactions.sql");
+            "/db/migration/V8__link_transfer_transactions.sql");
 
-    /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V6 thêm cột vào bảng đã có. */
+    /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V8 thêm cột vào bảng đã có. */
     private static final Pattern ADD_COLUMN = Pattern.compile(
             "ALTER TABLE (\\w+)\\s+ADD COLUMN (\\w+)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|ENUM)\\b(\\s*\\([^)]*\\))?",
             Pattern.CASE_INSENSITIVE);
 
-    /** CREATE INDEX t ON x (cot) — cách V6 khai index mà vẫn chạy được trên H2. */
+    /** CREATE INDEX t ON x (cot) — cách V8 khai index mà vẫn chạy được trên H2. */
     private static final Pattern CREATE_INDEX_ON = Pattern.compile(
             "CREATE INDEX (\\w+)\\s+ON (\\w+)\\s*\\(([^)]*)\\)", Pattern.CASE_INSENSITIVE);
 
@@ -147,7 +147,7 @@ class SchemaContractTest {
 
         assertThat(expected).hasSize(7);
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
-                .as("V1 khai 10 index, V5 thêm 3 cho family_invitations, V6 thêm 1 cho linked_transaction_id")
+                .as("V1 khai 10 index, V5 thêm 3 cho family_invitations, V8 thêm 1 cho linked_transaction_id")
                 .isEqualTo(14);
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {

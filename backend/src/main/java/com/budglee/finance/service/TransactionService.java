@@ -41,7 +41,7 @@ import java.util.Map;
  * 3. Chỉ ví CREDIT_CARD được phép âm số dư, ví khác trả 400 và toàn bộ giao dịch bị rollback.
  * 4. balance_after luôn được lưu; ngày giao dịch lấy hiện tại nếu frontend không gửi.
  * 5. TRANSFER giữa hai ví ghi thành hai bản ghi EXPENSE/INCOME nối nhau qua linked_transaction_id
- *    (V6), nên lịch sử hai ví đều đầy đủ mà số dư không bao giờ lệch nhau.
+ *    (V8), nên lịch sử hai ví đều đầy đủ mà số dư không bao giờ lệch nhau.
  * =========================================================================
  */
 @Service
