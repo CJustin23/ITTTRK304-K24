@@ -12,6 +12,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./devops/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./devops/backups:/backups
     healthcheck:
       test:
         - CMD-SHELL

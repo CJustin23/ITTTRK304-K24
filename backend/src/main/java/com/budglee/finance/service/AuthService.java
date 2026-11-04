@@ -44,7 +44,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
-
     private static final Set<Role> SELF_SERVICE_ROLES = Set.of(Role.INDIVIDUAL_USER, Role.FAMILY_MEMBER);
 
     private final UserRepository userRepository;

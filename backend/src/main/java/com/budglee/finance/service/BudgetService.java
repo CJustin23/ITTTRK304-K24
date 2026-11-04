@@ -42,7 +42,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class BudgetService {
-
     private static final BigDecimal DEFAULT_ALERT_THRESHOLD = new BigDecimal("80.00");
 
     private final BudgetRepository budgetRepository;
@@ -128,8 +127,7 @@ public class BudgetService {
         }
 
         for (Budget budget : budgets) {
-            BigDecimal spent = budget.getCategory() == null
-                    ? spentTotal
+            BigDecimal spent = budget.getCategory() == null ? spentTotal
                     : spentByCategory.getOrDefault(budget.getCategory().getId(), BigDecimal.ZERO);
             budget.setSpentAmount(spent);
             if (!"OK".equals(budget.getAlertLevel())) {
