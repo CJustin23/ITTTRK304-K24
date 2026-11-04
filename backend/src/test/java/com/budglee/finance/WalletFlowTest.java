@@ -3,6 +3,7 @@ package com.budglee.finance;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.budglee.finance.entity.Wallet;
+import com.budglee.finance.entity.WalletType;
 import com.budglee.finance.repository.WalletRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,12 +22,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * DUAN-48 — tạo ví qua DTO: chặn chiếm quyền sở hữu bằng "id" gửi từ body và chặn số thẻ đầy đủ.
+ * DUAN-48 — CRUD ví. Tạo qua DTO chặn chiếm quyền sở hữu bằng "id" trong body và chặn số thẻ đầy đủ;
+ * sửa/xoá chặn người không phải chủ ví, và PUT không được phép tự đặt số dư.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -184,5 +188,137 @@ class WalletFlowTest {
 
         assertThat(json(transaction).at("/data/balanceAfter").decimalValue())
                 .isEqualByComparingTo(new BigDecimal("180000"));
+    }
+
+    @Test
+    void ownerCanRenameWalletButCannotBuyHisOwnBalance() throws Exception {
+        String token = loginNewUser();
+        long walletId = json(createWallet(token, Map.of(
+                "walletName", "Ví cũ", "type", "CASH", "balance", "500000"))).at("/data/id").asLong();
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("walletName", "Ví đổi tên");
+        body.put("type", "BANK");
+        body.put("currency", "USD");
+        body.put("cardNumberMasked", "**** **** **** 4242");
+        body.put("balance", "999999999");
+        MvcResult result = updateWallet(token, walletId, body);
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        Wallet updated = find(walletId).orElseThrow();
+        assertThat(updated.getWalletName()).isEqualTo("Ví đổi tên");
+        assertThat(updated.getType()).isEqualTo(WalletType.BANK);
+        assertThat(updated.getCurrency()).isEqualTo("USD");
+        assertThat(updated.getCardNumberMasked()).isEqualTo("**** **** **** 4242");
+        assertThat(updated.getBalance()).isEqualByComparingTo("500000");
+    }
+
+    @Test
+    void updateRejectsFullCardNumberAndSomeoneElsesWallet() throws Exception {
+        String ownerToken = loginNewUser();
+        long ownerWalletId = json(createWallet(ownerToken, Map.of(
+                "walletName", "Ví chính chủ", "type", "CASH", "balance", "100000"))).at("/data/id").asLong();
+
+        String attackerToken = loginNewUser();
+        assertThat(updateWallet(attackerToken, ownerWalletId,
+                Map.of("walletName", "Chiếm ví", "type", "CASH")).getResponse().getStatus()).isEqualTo(404);
+        assertThat(find(ownerWalletId).orElseThrow().getWalletName()).isEqualTo("Ví chính chủ");
+
+        assertThat(updateWallet(ownerToken, ownerWalletId,
+                Map.of("walletName", "Ví chính chủ", "type", "BANK", "cardNumberMasked", "4242424242424242"))
+                .getResponse().getStatus()).isEqualTo(400);
+
+        assertThat(updateWallet(ownerToken, 999_999_999L, Map.of("walletName", "Không tồn tại", "type", "CASH"))
+                .getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    void creditCardStaysCreditCardWhileBalanceIsNegative() throws Exception {
+        String token = loginNewUser();
+        long walletId = json(createWallet(token, Map.of(
+                "walletName", "Thẻ tín dụng", "type", "CREDIT_CARD", "balance", "50000"))).at("/data/id").asLong();
+        spend(token, walletId, "80000");
+
+        assertThat(find(walletId).orElseThrow().getBalance()).isEqualByComparingTo("-30000");
+
+        assertThat(updateWallet(token, walletId, Map.of("walletName", "Thẻ tín dụng", "type", "CASH"))
+                .getResponse().getStatus()).isEqualTo(400);
+        assertThat(find(walletId).orElseThrow().getType()).isEqualTo(WalletType.CREDIT_CARD);
+
+        assertThat(updateWallet(token, walletId, Map.of("walletName", "Thẻ VISA", "type", "CREDIT_CARD"))
+                .getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void deletesEmptyWalletButRefusesToDeleteWalletWithHistory() throws Exception {
+        String token = loginNewUser();
+
+        long emptyWalletId = json(createWallet(token, Map.of(
+                "walletName", "Ví xoá được", "type", "CASH"))).at("/data/id").asLong();
+        assertThat(deleteWallet(token, emptyWalletId).getResponse().getStatus()).isEqualTo(200);
+        assertThat(find(emptyWalletId)).isEmpty();
+
+        long usedWalletId = json(createWallet(token, Map.of(
+                "walletName", "Ví đã chi", "type", "CASH", "balance", "200000"))).at("/data/id").asLong();
+        spend(token, usedWalletId, "20000");
+
+        MvcResult blocked = deleteWallet(token, usedWalletId);
+        assertThat(blocked.getResponse().getStatus()).isEqualTo(400);
+        assertThat(json(blocked).at("/message").asText()).contains("lịch sử");
+        assertThat(find(usedWalletId)).isPresent();
+    }
+
+    @Test
+    void cannotDeleteAnotherUsersWallet() throws Exception {
+        String ownerToken = loginNewUser();
+        long ownerWalletId = json(createWallet(ownerToken, Map.of(
+                "walletName", "Ví không ai được xoá", "type", "CASH"))).at("/data/id").asLong();
+
+        String attackerToken = loginNewUser();
+        assertThat(deleteWallet(attackerToken, ownerWalletId).getResponse().getStatus()).isEqualTo(404);
+        assertThat(find(ownerWalletId)).isPresent();
+    }
+
+    @Test
+    void anonymousCannotUpdateOrDeleteWallet() throws Exception {
+        String token = loginNewUser();
+        long walletId = json(createWallet(token, Map.of(
+                "walletName", "Ví của chủ", "type", "CASH"))).at("/data/id").asLong();
+
+        mvc.perform(put("/api/v1/wallets/" + walletId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(Map.of("walletName", "Đổi tráo", "type", "CASH"))))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(delete("/api/v1/wallets/" + walletId))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(find(walletId).orElseThrow().getWalletName()).isEqualTo("Ví của chủ");
+    }
+
+    private MvcResult updateWallet(String token, long walletId, Map<String, Object> payload) throws Exception {
+        return mvc.perform(put("/api/v1/wallets/" + walletId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(payload)))
+                .andReturn();
+    }
+
+    private MvcResult deleteWallet(String token, long walletId) throws Exception {
+        return mvc.perform(delete("/api/v1/wallets/" + walletId)
+                        .header("Authorization", "Bearer " + token))
+                .andReturn();
+    }
+
+    private void spend(String token, long walletId, String amount) throws Exception {
+        mvc.perform(post("/api/v1/transactions")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(Map.of(
+                                "walletId", walletId,
+                                "actionTitle", "Chi",
+                                "amount", amount,
+                                "transactionType", "EXPENSE"))))
+                .andExpect(status().isOk());
     }
 }
