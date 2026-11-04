@@ -48,15 +48,15 @@ echo "[$(date)] Starting backup: ${DB_NAME}"
 
 export MYSQL_PWD="$DB_PASSWORD"
 
-mysqldump
-    -h "$DB_HOST"
-    -P "$DB_PORT"
-    -u "$DB_USER"
-    --single-transaction
-    --quick
-    --routines
-    --triggers
-    --events
+mysqldump \
+    -h "$DB_HOST" \
+    -P "$DB_PORT" \
+    -u "$DB_USER" \
+    --single-transaction \
+    --quick \
+    --routines \
+    --triggers \
+    --events \
     "$DB_NAME" | gzip -c > "$BACKUP_FILE"
 
 unset MYSQL_PWD
@@ -75,8 +75,8 @@ echo "[$(date)] Backup successful: $BACKUP_FILE ($FILE_SIZE)"
 
 # Keep only the newest 7 backups
 mapfile -t BACKUPS < <(
-    find "$BACKUP_DIR" -maxdepth 1 -type f
-        -name 'budglee_backup_*.sql.gz'
+    find "$BACKUP_DIR" -maxdepth 1 -type f \
+        -name 'budglee_backup_*.sql.gz' \
         -printf '%T@ %p\n' |
     sort -nr |
     cut -d' ' -f2-
