@@ -28,11 +28,10 @@ class BudgleeSecurityTests {
 
     @Test
     void publicAuthEndpointShouldNotRequireAuthentication() throws Exception {
+        int responseStatus = mockMvc.perform(get("/api/v1/auth/__security_test__"))
+                .andReturn().getResponse().getStatus();
 
-        int responseStatus = mockMvc.perform(get("/api/v1/auth/__security_test__")).andReturn().getResponse().getStatus();
-
-        assertFalse(
-                Set.of(401, 403).contains(responseStatus),
+        assertFalse(Set.of(401, 403).contains(responseStatus),
                 "Endpoint auth không nên bị từ chối bởi quy tắc xác thực URL"
         );
     }

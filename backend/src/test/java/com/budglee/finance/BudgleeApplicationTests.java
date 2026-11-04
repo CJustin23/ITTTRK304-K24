@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest
 @ActiveProfiles("test")
 class BudgleeApplicationTests {
-
     @Autowired
     private Environment environment;
     @Test
