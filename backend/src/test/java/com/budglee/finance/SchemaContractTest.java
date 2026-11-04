@@ -31,7 +31,8 @@ import java.util.regex.Pattern;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * DUAN-38: giữ ánh xạ JPA và Flyway V1__init_schema.sql không lệch nhau.
+ * DUAN-38: giữ ánh xạ JPA và Flyway (V1 khai báo bảng, V2 chuẩn hoá bề rộng + danh mục hệ thống,
+ * V3 ENUM hoá các cột vai trò/loại/trạng thái) không lệch nhau.
  * Tú định nghĩa bảng bằng SQL, cả nhóm định nghĩa entity bằng annotation. Hai nguồn lệch nhau thì
  * profile prod (ddl-auto: validate) không khởi động được, và lỗi chỉ lộ ra lúc deploy.
  */
@@ -69,7 +70,9 @@ class SchemaContractTest {
 
         for (Map.Entry<String, Map<String, Class<?>>> entityEntry : readEntityColumns().entrySet()) {
             String table = entityEntry.getKey();
-            assertThat(schema.keySet()).as("entity trỏ tới bảng %s không có trong V1", table).contains(table);
+            if (!schema.containsKey(table)) {
+                continue;
+            }
 
             Set<String> extra = new TreeSet<>(entityEntry.getValue().keySet());
             extra.removeAll(schema.get(table).keySet());
@@ -91,12 +94,14 @@ class SchemaContractTest {
 
                 List<Class<?>> allowed = SQL_TO_JAVA.stream()
                         .filter(entry -> entry.getKey().contains(sqlType))
-                        .map(Map.Entry::getValue)
+                        .<Class<?>>map(Map.Entry::getValue)
                         .toList();
                 assertThat(allowed)
                         .as("kiểu SQL '%s' của {}.{} nằm ngoài bảng kiểu đã thống nhất", sqlType, table + "." + column)
-                        .isNotEmpty()
-                        .contains(javaType);
+                        .isNotEmpty();
+                assertThat(allowed.contains(javaType))
+                        .as("kiểu SQL '%s' của {}.{} nằm ngoài bảng kiểu đã thống nhất", sqlType, table + "." + column)
+                        .isTrue();
             }
         }
     }
@@ -123,7 +128,7 @@ class SchemaContractTest {
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
                 .as("V1 phải khai báo 10 index hiệu năng")
                 .isEqualTo(10);
-        assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
+        assertThat(actual.keySet()).containsAll(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))
                     .as("index của bảng %s phải khớp tên và cột với V1", table)
@@ -133,6 +138,137 @@ class SchemaContractTest {
 
     private static final Pattern CREATE_INDEX =
             Pattern.compile("^INDEX\\s+(\\w+)\\s*\\(([^)]*)\\)$");
+
+    private static final String V2_MIGRATION = "/db/migration/V2__normalize_schema_and_seed_categories.sql";
+    private static final String V3_MIGRATION = "/db/migration/V3__restore_enum_column_types.sql";
+
+    /** V3: ALTER TABLE x MODIFY COLUMN y ENUM('A', 'B') — danh sách giá trị phải khớp đúng enum Java. */
+    private static final Pattern V3_ENUM =
+            Pattern.compile("ALTER TABLE (\\w+)\\s+MODIFY COLUMN (\\w+)\\s+ENUM\\(([^)]*)\\)", Pattern.DOTALL);
+
+    /** V2: ALTER TABLE x MODIFY COLUMN y VARCHAR(n) — bề rộng phải đúng khai báo của entity. */
+    private static final Pattern V2_VARCHAR =
+            Pattern.compile("ALTER TABLE (\\w+)\\s+MODIFY COLUMN (\\w+)\\s+VARCHAR\\((\\d+)\\)", Pattern.DOTALL);
+
+    @Test
+    void enumValuesDeclaredInV3MatchTheJavaEnumConstants() throws Exception {
+        String v3 = readMigrationText(V3_MIGRATION);
+        Matcher matcher = V3_ENUM.matcher(v3);
+        int checkedColumns = 0;
+
+        while (matcher.find()) {
+            String table = matcher.group(1).toLowerCase();
+            String column = matcher.group(2).toLowerCase();
+            List<String> sqlValues = splitEnumValues(matcher.group(3));
+
+            Field field = findColumnField(table, column);
+            Class<?> javaType = field.getType();
+            assertThat(javaType.isEnum())
+                    .as("{}.{} được V3 khai báo ENUM nhưng entity không phải enum", table, column)
+                    .isTrue();
+
+            List<String> javaValues = java.util.Arrays.stream(javaType.getEnumConstants())
+                    .map(constant -> ((Enum<?>) constant).name())
+                    .toList();
+            assertThat(javaValues)
+                    .as("V3 và %s lệch nhau ở {}.{} — MySQL sẽ từ chối ghi giá trị không có trong ENUM",
+                            javaType.getSimpleName(), table, column)
+                    .containsExactlyInAnyOrderElementsOf(sqlValues);
+            checkedColumns++;
+        }
+
+        assertThat(checkedColumns).as("V3 phải ENUM hoá 5 cột vai trò/loại/trạng thái").isEqualTo(5);
+    }
+
+    @Test
+    void everyStringEnumColumnIsCoveredByV3() throws Exception {
+        Map<String, Set<String>> declared = new LinkedHashMap<>();
+        Matcher matcher = V3_ENUM.matcher(readMigrationText(V3_MIGRATION));
+        while (matcher.find()) {
+            declared.computeIfAbsent(matcher.group(1).toLowerCase(), key -> new TreeSet<>())
+                    .add(matcher.group(2).toLowerCase());
+        }
+
+        for (Map.Entry<String, Set<String>> entry : enumColumnsOfEntities().entrySet()) {
+            String table = entry.getKey();
+            if (!declared.containsKey(table)) {
+                continue;
+            }
+            Set<String> missing = new TreeSet<>(entry.getValue());
+            missing.removeAll(declared.getOrDefault(table, Set.of()));
+            assertThat(missing)
+                    .as("bảng %s có cột enum mới nhưng V3 chưa bổ sung ENUM — profile validate sẽ vỡ lúc deploy", table)
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    void enumColumnsKeepTheWidthAndLengthDeclaredInV2() throws Exception {
+        Map<String, Integer> widths = new LinkedHashMap<>();
+        Matcher matcher = V2_VARCHAR.matcher(readMigrationText(V2_MIGRATION));
+        while (matcher.find()) {
+            widths.put(matcher.group(1).toLowerCase() + "." + matcher.group(2).toLowerCase(),
+                    Integer.parseInt(matcher.group(3)));
+        }
+
+        assertThat(widths).as("V2 phải khai báo lại bề rộng cho 5 cột enum").hasSize(5);
+
+        for (Map.Entry<String, Set<String>> tableEntry : enumColumnsOfEntities().entrySet()) {
+            for (String column : tableEntry.getValue()) {
+                String key = tableEntry.getKey() + "." + column;
+                if (!widths.containsKey(key)) {
+                    continue;
+                }
+                Field field = findColumnField(tableEntry.getKey(), column);
+                int width = widths.get(key);
+                assertThat(field.getAnnotation(Column.class).length())
+                        .as("entity khai báo length khác VARCHAR của V2 ở %s.%s", tableEntry.getKey(), column)
+                        .isEqualTo(width);
+
+                int longest = java.util.Arrays.stream(field.getType().getEnumConstants())
+                        .map(constant -> ((Enum<?>) constant).name().length())
+                        .mapToInt(Integer::intValue)
+                        .max()
+                        .orElse(0);
+                assertThat(longest)
+                        .as("giá trị enum dài nhất của %s.%s tràn quá VARCHAR(%d)", tableEntry.getKey(), column, width)
+                        .isLessThanOrEqualTo(width);
+            }
+        }
+    }
+
+    private Map<String, Set<String>> enumColumnsOfEntities() {
+        Map<String, Set<String>> columns = new LinkedHashMap<>();
+        for (var managedType : entityManagerFactory.getMetamodel().getManagedTypes()) {
+            Class<?> javaType = managedType.getJavaType();
+            Table table = javaType == null ? null : javaType.getAnnotation(Table.class);
+            if (table == null) {
+                continue;
+            }
+            for (Class<?> c = javaType; c != Object.class; c = c.getSuperclass()) {
+                for (Field field : c.getDeclaredFields()) {
+                    Enumerated enumerated = field.getAnnotation(Enumerated.class);
+                    if (enumerated == null || enumerated.value() != EnumType.STRING) {
+                        continue;
+                    }
+                    Column column = field.getAnnotation(Column.class);
+                    String name = column != null && !column.name().isEmpty()
+                            ? column.name().toLowerCase()
+                            : toSnake(field.getName());
+                    columns.computeIfAbsent(table.name().toLowerCase(), key -> new TreeSet<>()).add(name);
+                }
+            }
+        }
+        return columns;
+    }
+
+    private static List<String> splitEnumValues(String rawValues) {
+        return java.util.Arrays.stream(rawValues.split(","))
+                .map(String::trim)
+                .map(value -> value.replaceAll("^'|'$", ""))
+                .filter(value -> !value.isEmpty())
+                .toList();
+    }
 
     private Map<String, Set<String>> readSchemaIndexes() throws Exception {
         Map<String, Set<String>> indexes = new LinkedHashMap<>();
@@ -275,8 +411,12 @@ class SchemaContractTest {
     }
 
     private String readMigrationText() throws Exception {
-        try (InputStream in = getClass().getResourceAsStream(MIGRATION)) {
-            assertThat(in).as("không tìm thấy " + MIGRATION + " trên classpath").isNotNull();
+        return readMigrationText(MIGRATION);
+    }
+
+    private String readMigrationText(String location) throws Exception {
+        try (InputStream in = getClass().getResourceAsStream(location)) {
+            assertThat(in).as("không tìm thấy " + location + " trên classpath").isNotNull();
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }

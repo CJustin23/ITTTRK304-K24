@@ -1,7 +1,9 @@
 package com.budglee.finance.controller;
 
 import com.budglee.finance.dto.ApiResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,6 +27,19 @@ public class ApiExceptionHandler {
         String message = exception.getReason() == null ? "Yêu cầu không hợp lệ" : exception.getReason();
         return ResponseEntity.status(exception.getStatusCode())
                 .body(ApiResponse.<Void>builder().success(false).message(message).build());
+    }
+
+    /**
+     * Body sai cú pháp khiến Jackson bắn HttpMessageNotReadableException ngay lúc đọc DTO, chưa kịp
+     * chạy @Valid. Mặc định Spring trả {timestamp, status, error, trace, path}: không có
+     * {success, message, data} như frontend đang đọc, lại còn lộ stack trace ra ngoài.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableBody(HttpMessageNotReadableException exception) {
+        return ResponseEntity.badRequest().body(ApiResponse.<Void>builder()
+                .success(false)
+                .message("Dữ liệu gửi lên không phải JSON hợp lệ")
+                .build());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

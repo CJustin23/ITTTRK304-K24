@@ -58,6 +58,21 @@ class ErrorCodeOverRealHttpTest {
         assertThat(response.getBody()).contains("\"success\":false").doesNotContain("\"path\"");
     }
 
+    @Test
+    void malformedJsonBodyStillUsesApiEnvelope() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response = rest.exchange("/api/v1/auth/register", HttpMethod.POST,
+                new HttpEntity<>("{\"fullName\": \"Thieu dau dong", headers), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody())
+                .contains("\"success\":false")
+                .doesNotContain("\"trace\"")
+                .doesNotContain("\"path\"");
+    }
+
     private ResponseEntity<String> register(String email, String password, String role) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

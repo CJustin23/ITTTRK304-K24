@@ -1,6 +1,9 @@
 package com.budglee.finance.config;
 
+import com.budglee.finance.dto.ApiResponse;
+import com.budglee.finance.entity.Role;
 import com.budglee.finance.security.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -30,6 +34,7 @@ import java.util.Collections;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -56,15 +61,16 @@ public class SecurityConfig {
                     "/swagger-ui.html",
                     "/actuator/**"
                 ).permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole(Role.SYSTEM_ADMIN.name())
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write(
-                            "{\"success\":false,\"message\":\"Cần đăng nhập để truy cập tài nguyên này\",\"data\":null}");
-                }));
+                .authenticationEntryPoint((request, response, authException) ->
+                        writeEnvelope(response, HttpServletResponse.SC_UNAUTHORIZED,
+                                "Cần đăng nhập để truy cập tài nguyên này"))
+                .accessDeniedHandler((request, response, deniedException) ->
+                        writeEnvelope(response, HttpServletResponse.SC_FORBIDDEN,
+                                "Tài khoản của bạn không có quyền thực hiện thao tác này")));
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -83,5 +89,15 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * Bộ lọc của Spring trả lời trực tiếp, không đi qua ApiExceptionHandler, nên nếu dùng sendError
+     * mặc định thì body là white-label JSON khác shape {success, message, data} mà frontend đang đọc.
+     */
+    private void writeEnvelope(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(objectMapper.writeValueAsString(ApiResponse.error(message)));
     }
 }
