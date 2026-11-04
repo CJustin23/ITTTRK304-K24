@@ -1,8 +1,11 @@
 package com.budglee.finance.service;
 
+import com.budglee.finance.dto.FamilyGroupCreateRequest;
 import com.budglee.finance.dto.RoleUpdateRequest;
+import com.budglee.finance.entity.FamilyGroup;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
+import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,8 @@ import java.util.List;
  *    chung, còn quản trị nền tảng quản lý toàn hệ thống chứ không thuộc một hộ.
  * 4. Không hạ cấp SYSTEM_ADMIN cuối cùng, vì hết người có quyền thì không tài khoản nào gán lại
  *    được vai trò này nữa.
+ * 5. Mã nhóm hộ phải tồn tại trong family_groups (V4 ràng buộc khoá ngoại) — nếu không thì MySQL
+ *    từ chối ghi và API trả 500 thay vì báo lỗi dữ liệu.
  * =========================================================================
  */
 @Service
@@ -37,6 +42,7 @@ import java.util.List;
 public class UserAdminService {
 
     private final UserRepository userRepository;
+    private final FamilyGroupRepository familyGroupRepository;
 
     @Transactional(readOnly = true)
     public List<User> listUsers() {
@@ -56,6 +62,7 @@ public class UserAdminService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Vai trò thuộc hộ gia đình phải kèm mã nhóm hộ");
             }
+            requireFamilyGroup(familyGroupId);
         } else {
             familyGroupId = null;
         }
@@ -73,6 +80,51 @@ public class UserAdminService {
         log.info("Đổi vai trò user={} email={} từ {} sang {} nhóm hộ={} bởi admin={}",
                 saved.getId(), saved.getEmail(), oldRole, newRole, familyGroupId, actor.getId());
         return saved;
+    }
+
+    /**
+     * FamilyService (DUAN-53 của Tú) chỉ cho gửi lời mời khi FAMILY_ADMIN đúng là người tạo nhóm,
+     * nên phải đổi cả vai trò lẫn mã nhóm ngay đây — nếu chỉ tạo bảng thì không tài khoản nào
+     * vượt được kiểm tra đó và tính năng hộ gia đình không chạy được.
+     */
+    @Transactional
+    public FamilyGroup createFamilyGroup(FamilyGroupCreateRequest request, UserPrincipal actor) {
+        String code = request.getId().trim();
+        User owner = userRepository.findById(request.getOwnerId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+
+        if (familyGroupRepository.existsById(code)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã nhóm hộ đã tồn tại");
+        }
+        if (owner.getRole() == Role.SYSTEM_ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Quản trị hệ thống không đứng tên một nhóm hộ");
+        }
+        if (owner.getFamilyGroupId() != null && !owner.getFamilyGroupId().isBlank()
+                && !owner.getFamilyGroupId().equals(code)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Tài khoản đang thuộc nhóm hộ khác, phải rời nhóm trước");
+        }
+
+        FamilyGroup group = familyGroupRepository.save(FamilyGroup.builder()
+                .id(code)
+                .name(request.getName().trim())
+                .createdBy(owner)
+                .build());
+
+        owner.setRole(Role.FAMILY_ADMIN);
+        owner.setFamilyGroupId(code);
+        userRepository.save(owner);
+
+        log.info("Tạo nhóm hộ {} tên={} chủ hộ={} bởi admin={}", code, group.getName(), owner.getId(), actor.getId());
+        return group;
+    }
+
+    private void requireFamilyGroup(String familyGroupId) {
+        if (!familyGroupRepository.existsById(familyGroupId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Mã nhóm hộ không tồn tại: " + familyGroupId);
+        }
     }
 
     private static String trimToNull(String value) {
