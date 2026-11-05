@@ -153,7 +153,7 @@ jobs:
             mysql -u budglee_user -D budglee_db -e \
             "SELECT installed_rank, version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
 
-          if [ "$MIGRATION_COUNT" != "9" ] || [ "$FAILED_COUNT" != "0" ]; then
+          if [ "$MIGRATION_COUNT" != "10" ] || [ "$FAILED_COUNT" != "0" ]; then
             cat migration-test.log
             echo "MySQL migration verification failed."
             exit 1
