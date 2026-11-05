@@ -5,6 +5,7 @@ import com.budglee.finance.dto.AuthResponse;
 import com.budglee.finance.dto.RegisterRequest;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
+import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.security.JwtTokenProvider;
 import com.budglee.finance.security.UserPrincipal;
@@ -36,6 +37,7 @@ import java.util.Set;
  * 4. Đăng nhập đi qua AuthenticationManager (DaoAuthenticationProvider + BCrypt),
  *    sai một trong hai thông tin đều trả cùng một thông báo 401 để không dò được email nào có thật.
  * 5. Thành công cấp JWT HS256 qua JwtTokenProvider; token này đi vừa với JwtAuthenticationFilter.
+ * 6. Mã nhóm hộ gửi lên phải có thật trong family_groups, vì V4 đã ràng buộc khoá ngoại.
  * =========================================================================
  */
 @Service
@@ -45,6 +47,7 @@ public class AuthService {
     private static final Set<Role> SELF_SERVICE_ROLES = Set.of(Role.INDIVIDUAL_USER, Role.FAMILY_MEMBER);
 
     private final UserRepository userRepository;
+    private final FamilyGroupRepository familyGroupRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
@@ -62,6 +65,12 @@ public class AuthService {
         if (role == Role.FAMILY_MEMBER && familyGroupId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Thành viên hộ gia đình phải kèm mã nhóm hộ");
+        }
+        // V4 ràng buộc users.family_group_id thành khoá ngoại sang family_groups. Chỉ chặn khi mã
+        // này thực sự được ghi xuống (FAMILY_MEMBER); INDIVIDUAL_USER thì mã bị bỏ qua nên không cần kiểm tra.
+        if (role == Role.FAMILY_MEMBER && !familyGroupRepository.existsById(familyGroupId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Mã nhóm hộ không tồn tại: " + familyGroupId);
         }
 
         if (userRepository.existsByEmail(email)) {

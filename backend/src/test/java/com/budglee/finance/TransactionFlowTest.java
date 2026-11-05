@@ -231,18 +231,116 @@ class TransactionFlowTest {
     }
 
     @Test
-    void transferBetweenWalletsIsReportedAsNotImplemented() throws Exception {
+    void transferMovesMoneyBetweenTwoWalletsAndLinksBothLegs() throws Exception {
         String token = loginNewUser();
-        long walletId = createWallet(token, "Ví chờ chuyển", "CASH", "100000");
+        long source = createWallet(token, "Ví chính", "CASH", "500000");
+        long target = createWallet(token, "Ví tiết kiệm", "CASH", "100000");
 
         MvcResult result = transaction(token, Map.of(
-                "walletId", walletId,
-                "actionTitle", "Chuyển khoản",
-                "amount", "10000",
+                "walletId", source,
+                "toWalletId", target,
+                "actionTitle", "Chuyển sang tiết kiệm",
+                "amount", "200000",
                 "transactionType", "TRANSFER"));
 
-        assertThat(result.getResponse().getStatus()).isEqualTo(501);
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        JsonNode leg = data(result);
+        assertThat(walletBalance(token, 0)).isEqualByComparingTo("300000");
+        assertThat(walletBalance(token, 1)).isEqualByComparingTo("300000");
+        assertThat(leg.at("/transactionType").asText()).isEqualTo("EXPENSE");
+        assertThat(leg.at("/balanceAfter").decimalValue()).isEqualByComparingTo("300000");
+        assertThat(leg.at("/linkedTransactionId").isNull()).isFalse();
+        assertThat(leg.at("/category").isNull()).as("chuyển ví không phải khoản chi").isTrue();
+
+        JsonNode history = history(token);
+        assertThat(history).hasSize(2);
+        long outgoingId = leg.at("/id").asLong();
+        JsonNode incoming = history.get(0).at("/id").asLong() == outgoingId ? history.get(1) : history.get(0);
+        assertThat(incoming.at("/transactionType").asText()).isEqualTo("INCOME");
+        assertThat(incoming.at("/wallet/id").asLong()).isEqualTo(target);
+        assertThat(incoming.at("/balanceAfter").decimalValue()).isEqualByComparingTo("300000");
+        assertThat(incoming.at("/linkedTransactionId").asLong()).isEqualTo(outgoingId);
+    }
+
+    @Test
+    void transferNeedsADifferentDestinationWallet() throws Exception {
+        String token = loginNewUser();
+        long wallet = createWallet(token, "Ví đơn", "CASH", "100000");
+
+        assertThat(transaction(token, Map.of(
+                "walletId", wallet, "actionTitle", "Chuyển thiếu nơi nhận",
+                "amount", "10000", "transactionType", "TRANSFER")).getResponse().getStatus()).isEqualTo(400);
+        assertThat(transaction(token, Map.of(
+                "walletId", wallet, "toWalletId", wallet, "actionTitle", "Về chính nó",
+                "amount", "10000", "transactionType", "TRANSFER")).getResponse().getStatus()).isEqualTo(400);
         assertThat(walletBalance(token, 0)).isEqualByComparingTo("100000");
+    }
+
+    @Test
+    void failedTransferLeavesBothWalletsUntouched() throws Exception {
+        String token = loginNewUser();
+        long from = createWallet(token, "Ví nguồn", "CASH", "100000");
+        long to = createWallet(token, "Ví đích", "CASH", "50000");
+
+        MvcResult result = transaction(token, Map.of(
+                "walletId", from, "toWalletId", to, "actionTitle", "Chuyển quá số dư",
+                "amount", "500000", "transactionType", "TRANSFER"));
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(walletBalance(token, 0)).isEqualByComparingTo("100000");
+        assertThat(walletBalance(token, 1)).isEqualByComparingTo("50000");
+        assertThat(history(token)).isEmpty();
+    }
+
+    @Test
+    void cannotTransferIntoAnotherUsersWallet() throws Exception {
+        String ownerToken = loginNewUser();
+        long ownerWallet = createWallet(ownerToken, "Ví người khác", "CASH", "100000");
+
+        String attackerToken = loginNewUser();
+        long attackerWallet = createWallet(attackerToken, "Ví của kẻ gian", "CASH", "300000");
+
+        MvcResult result = transaction(attackerToken, Map.of(
+                "walletId", attackerWallet, "toWalletId", ownerWallet, "actionTitle", "Nhét tiền cho người khác",
+                "amount", "50000", "transactionType", "TRANSFER"));
+
+        assertThat(result.getResponse().getStatus())
+                .as("ví đích không thuộc quyền sử dụng thì phải như không tồn tại").isEqualTo(404);
+        assertThat(walletBalance(attackerToken, 0)).isEqualByComparingTo("300000");
+        assertThat(walletBalance(ownerToken, 0)).isEqualByComparingTo("100000");
+    }
+
+    @Test
+    void transferIsNeitherIncomeNorSpendingOnDashboard() throws Exception {
+        String token = loginNewUser();
+        long from = createWallet(token, "Ví lương", "CASH", "5000000");
+        long to = createWallet(token, "Ví dự phòng", "CASH", "0");
+
+        transaction(token, Map.of(
+                "walletId", from, "toWalletId", to, "actionTitle", "Chuyển nội bộ",
+                "amount", "1500000", "transactionType", "TRANSFER"));
+
+        MvcResult summary = mvc.perform(get("/api/v1/dashboard/summary")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode body = data(summary);
+        assertThat(body.at("/monthlySpending").decimalValue()).isEqualByComparingTo("0");
+        assertThat(body.at("/monthlyIncome").decimalValue()).isEqualByComparingTo("0");
+        assertThat(body.at("/totalBalance").decimalValue()).isEqualByComparingTo("5000000");
+    }
+
+    private JsonNode data(MvcResult result) throws Exception {
+        return json(result).at("/data");
+    }
+
+    private JsonNode history(String token) throws Exception {
+        MvcResult result = mvc.perform(get("/api/v1/transactions")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return json(result).at("/data/content");
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.budglee.finance;
 import com.budglee.finance.config.SystemAdminBootstrap;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
+import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +42,7 @@ class RbacAdminAccessTest {
 
     private static final String PASSWORD = "MatKhau123";
     private static final String ADMIN_API = "/api/v1/admin/users";
+    private static final String ADMIN_GROUPS = "/api/v1/admin/family-groups";
 
     @Autowired
     private MockMvc mvc;
@@ -50,6 +52,9 @@ class RbacAdminAccessTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FamilyGroupRepository familyGroupRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -192,15 +197,18 @@ class RbacAdminAccessTest {
 
     @Test
     void familyAdminCannotManageRoles() throws Exception {
-        Account familyAdmin = createAccount(Role.FAMILY_ADMIN, "HN-RBAC-" + UUID.randomUUID());
+        Account familyAdmin = createAccount(Role.FAMILY_ADMIN, newGroup("HN-RBAC-" + UUID.randomUUID()));
 
         assertThat(call("GET", ADMIN_API, familyAdmin, null).getResponse().getStatus()).isEqualTo(403);
         assertThat(assignRole(familyAdmin, 1L, Role.SYSTEM_ADMIN, null).getResponse().getStatus()).isEqualTo(403);
+        assertThat(call("POST", ADMIN_GROUPS, familyAdmin,
+                Map.of("id", "HN-TRAI-" + UUID.randomUUID(), "name", "Nhóm trái phép", "ownerId", 1L))
+                .getResponse().getStatus()).isEqualTo(403);
     }
 
     @Test
     void grantedFamilyAdminWritesOnMemberWalletWithTheOldToken() throws Exception {
-        String group = "HN-RBAC-" + UUID.randomUUID();
+        String group = newGroup("HN-RBAC-" + UUID.randomUUID());
         Account member = register(Role.FAMILY_MEMBER, group);
         long walletId = createWallet(member, "Ví hộ RBAC", "300000");
         Account newcomer = register(Role.FAMILY_MEMBER, group);
@@ -219,7 +227,7 @@ class RbacAdminAccessTest {
 
     @Test
     void revokedFamilyRoleStopsSeeingTheSharedWallets() throws Exception {
-        String group = "HN-RBAC-" + UUID.randomUUID();
+        String group = newGroup("HN-RBAC-" + UUID.randomUUID());
         Account owner = register(Role.FAMILY_MEMBER, group);
         createWallet(owner, "Ví quỹ chung", "500000");
         Account member = register(Role.FAMILY_MEMBER, group);
@@ -268,7 +276,7 @@ class RbacAdminAccessTest {
         Account admin = new Account(email, login(email));
         assertThat(call("GET", ADMIN_API, admin, null).getResponse().getStatus()).isEqualTo(200);
 
-        Account member = register(Role.FAMILY_MEMBER, "HN-RBAC-" + UUID.randomUUID());
+        Account member = register(Role.FAMILY_MEMBER, newGroup("HN-RBAC-" + UUID.randomUUID()));
         assertThat(assignRole(admin, idOf(member), Role.FAMILY_ADMIN, memberGroup(member)).getResponse().getStatus())
                 .isEqualTo(200);
     }
@@ -295,5 +303,121 @@ class RbacAdminAccessTest {
 
     private String memberGroup(Account account) {
         return userRepository.findByEmail(account.email()).orElseThrow().getFamilyGroupId();
+    }
+
+    private String newGroup(String code) {
+        FamilyGroupTestData.newGroup(familyGroupRepository, userRepository, code);
+        return code;
+    }
+
+    private MvcResult registerRaw(Map<String, Object> body) throws Exception {
+        return mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(body)))
+                .andReturn();
+    }
+
+    @Test
+    void adminCreatesFamilyGroupAndItsOwnerCanUseTheInvitationApi() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account owner = register(Role.INDIVIDUAL_USER, null);
+        Account outsider = register(Role.INDIVIDUAL_USER, null);
+        String code = "HN-GROUP-" + UUID.randomUUID();
+
+        MvcResult created = call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Hộ demo", "ownerId", idOf(owner)));
+
+        assertThat(created.getResponse().getStatus()).isEqualTo(200);
+        assertThat(data(created).at("/createdBy/role").asText()).isEqualTo("FAMILY_ADMIN");
+        assertThat(data(created).at("/createdBy/familyGroupId").asText()).isEqualTo(code);
+
+        MvcResult members = call("GET", "/api/v1/family/members", owner, null);
+        assertThat(members.getResponse().getStatus())
+                .as("FamilyService bắt chủ hộ đúng là người tạo nhóm; token cũ phải mang vai trò mới").isEqualTo(200);
+
+        assertThat(call("POST", "/api/v1/family/invitations", owner, Map.of("email", outsider.email()))
+                .getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void registrationWithUnknownFamilyGroupCodeIsRejectedBeforeTheDatabase() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("fullName", "Người đăng ký");
+        body.put("email", "rbac.group." + UUID.randomUUID() + "@budglee.dev");
+        body.put("password", PASSWORD);
+        body.put("role", Role.FAMILY_MEMBER.name());
+        body.put("familyGroupId", "KHONG-TON-TAI-" + UUID.randomUUID());
+
+        MvcResult result = registerRaw(body);
+
+        assertThat(result.getResponse().getStatus())
+                .as("V4 ràng buộc khoá ngoại nên mã lạ phải thành 400, không phải 500").isEqualTo(400);
+        assertThat(json(result).at("/message").asText()).contains("Mã nhóm hộ không tồn tại");
+    }
+
+    @Test
+    void registrationWithKnownFamilyGroupCodeSucceeds() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account owner = register(Role.INDIVIDUAL_USER, null);
+        String code = "HN-GROUP-" + UUID.randomUUID();
+        assertThat(call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Hộ để đăng ký", "ownerId", idOf(owner))).getResponse().getStatus())
+                .isEqualTo(200);
+
+        Account member = register(Role.FAMILY_MEMBER, code);
+
+        assertThat(member.token()).startsWith("eyJ");
+        assertThat(userRepository.findByEmail(member.email()).orElseThrow().getFamilyGroupId()).isEqualTo(code);
+    }
+
+    @Test
+    void familyGroupCodeCannotBeReused() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account firstOwner = register(Role.INDIVIDUAL_USER, null);
+        Account secondOwner = register(Role.INDIVIDUAL_USER, null);
+        String code = "HN-GROUP-" + UUID.randomUUID();
+
+        assertThat(call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Nhóm thứ nhất", "ownerId", idOf(firstOwner))).getResponse().getStatus())
+                .isEqualTo(200);
+
+        assertThat(call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Nhóm trùng mã", "ownerId", idOf(secondOwner))).getResponse().getStatus())
+                .isEqualTo(409);
+    }
+
+    @Test
+    void adminCannotAssignAFamilyRoleWithAnUnknownGroupCode() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account target = register(Role.INDIVIDUAL_USER, null);
+
+        MvcResult result = assignRole(systemAdmin, idOf(target), Role.FAMILY_ADMIN, "KHONG-CO-" + UUID.randomUUID());
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(userRepository.findById(idOf(target)).orElseThrow().getRole()).isEqualTo(Role.INDIVIDUAL_USER);
+    }
+
+    @Test
+    void someoneAlreadyInAGroupCannotOwnANewOne() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account owner = register(Role.INDIVIDUAL_USER, null);
+        String firstCode = "HN-GROUP-" + UUID.randomUUID();
+        call("POST", ADMIN_GROUPS, systemAdmin, Map.of("id", firstCode, "name", "Nhóm một", "ownerId", idOf(owner)));
+
+        MvcResult result = call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", "HN-GROUP-" + UUID.randomUUID(), "name", "Nhóm hai", "ownerId", idOf(owner)));
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(memberGroup(owner)).isEqualTo(firstCode);
+    }
+
+    @Test
+    void systemAdminCannotOwnAFamilyGroup() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+
+        MvcResult result = call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", "HN-GROUP-" + UUID.randomUUID(), "name", "Nhóm của admin", "ownerId", idOf(systemAdmin)));
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
     }
 }
