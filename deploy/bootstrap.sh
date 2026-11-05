@@ -5,6 +5,7 @@
 set -euo pipefail
 
 APP_DIR=/opt/budglee
+GIT_BRANCH=${GIT_BRANCH:-develop}
 ENV_FILE="$APP_DIR/deploy/.env.production"
 COMPOSE="$APP_DIR/deploy/docker-compose.vps.yml"
 
@@ -45,17 +46,18 @@ fi
 
 echo "== 4. Lay code ve $APP_DIR =="
 mkdir -p "$APP_DIR"
-if [ -f "$APP_DIR/deploy/docker-compose.vps.yml" ]; then
-  echo "File deploy da duoc day len $APP_DIR/deploy, khong clone"
+if [ -f "$COMPOSE" ] && [ -f "$APP_DIR/backend/pom.xml" ] && [ -f "$APP_DIR/frontend/package.json" ]; then
+  echo "Du code trong $APP_DIR (deploy + backend + frontend), khong clone"
 elif [ -d "$APP_DIR/.git" ]; then
-  git -C "$APP_DIR" fetch origin an
-  git -C "$APP_DIR" checkout -B deploy origin/an
+  git -C "$APP_DIR" fetch origin "$GIT_BRANCH"
+  git -C "$APP_DIR" checkout -B deploy "origin/$GIT_BRANCH"
 else
   # Repo private: can deploy key (SSH) hoac token. Neu khong co, hay day thu cong:
-  #   scp -r deploy root@server:/opt/budglee/
-  git clone --branch an git@github.com:CJustin23/ITTTRK304-K24.git "$APP_DIR"
+  #   scp -r deploy backend frontend root@server:/opt/budglee/
+  git clone --branch "$GIT_BRANCH" git@github.com:CJustin23/ITTTRK304-K24.git "$APP_DIR"
 fi
 test -f "$COMPOSE" || { echo "Thieu $COMPOSE - chay: scp -r deploy root@server:/opt/budglee/"; exit 1; }
+test -f "$APP_DIR/backend/pom.xml" || { echo "Thieu source backend de build image - phai clone ca repo, khong chi deploy/"; exit 1; }
 
 echo "== 5. Sinh biến môi trường và khoá (chi lan dau, luu root-only) =="
 if [ ! -f "$ENV_FILE" ]; then
