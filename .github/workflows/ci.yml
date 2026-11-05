@@ -136,7 +136,7 @@ jobs:
             -e MYSQL_PWD="$MYSQL_PASSWORD" \
             "$MYSQL_CONTAINER_ID" \
             mysql -u budglee_user -D budglee_db -Nse \
-            "SELECT COUNT(DISTINCT version) FROM flyway_schema_history WHERE success = 1 AND version IN ('1','2','3','4','5','6','7','8','9');")
+            "SELECT COUNT(DISTINCT version) FROM flyway_schema_history WHERE success = 1 AND version IN ('1','2','3','4','5','6','7','8','9','10');")
 
           FAILED_COUNT=$(docker exec \
             -e MYSQL_PWD="$MYSQL_PASSWORD" \
@@ -144,7 +144,7 @@ jobs:
             mysql -u budglee_user -D budglee_db -Nse \
             "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0;")
 
-          echo "Successfully applied migrations V1-V9: $MIGRATION_COUNT"
+          echo "Successfully applied migrations V1-V10: $MIGRATION_COUNT"
           echo "Failed migrations: $FAILED_COUNT"
 
           docker exec \
