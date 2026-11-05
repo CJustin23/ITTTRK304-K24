@@ -193,7 +193,70 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Validate Docker Compose Configuration
+      - name: Validate Docker Compose Configurations
         env:
           JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-        run: docker compose config
+          DB_PASSWORD: test_password
+          DB_ROOT_PASSWORD: test_root_password
+        run: |
+          docker compose config
+          docker compose -f docker-compose.prod.yml config
+          docker compose -f deploy/docker-compose.vps.yml config
+
+  # 5. Continuous Deployment to VPS (Auto-deploy on push to develop or main)
+  deploy-cd:
+    name: Deploy to VPS (AZVPS)
+    needs: [docker-ci]
+    if: (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check VPS Secrets Configuration
+        id: check_secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          if [ -n "$VPS_HOST" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "VPS_HOST is configured. Proceeding to CD deploy."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "VPS_HOST secret is not configured in GitHub Repository Settings."
+            echo "Please set VPS_HOST, VPS_USERNAME, VPS_PASSWORD under Settings -> Secrets and variables -> Actions to enable auto-deployment."
+          fi
+
+      - name: Deploy to VPS AZVPS via SSH
+        if: steps.check_secrets.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME || 'root' }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/budglee
+            BRANCH=${{ github.ref_name }}
+            echo "=========================================================="
+            echo "  Budglee CD: Automated deployment on AZVPS"
+            echo "  Branch: $BRANCH | Timestamp: $(date)"
+            echo "=========================================================="
+            if [ ! -d "$APP_DIR" ]; then
+              echo "First-time deployment: clone and bootstrap"
+              mkdir -p /opt
+              git clone https://github.com/CJustin23/ITTTRK304-K24.git "$APP_DIR"
+              cd "$APP_DIR"
+              git checkout "$BRANCH"
+              sudo bash deploy/bootstrap.sh
+            else
+              cd "$APP_DIR"
+              echo "Pulling latest changes from branch $BRANCH..."
+              git fetch origin "$BRANCH"
+              git checkout -B "$BRANCH" "origin/$BRANCH"
+              echo "Rebuilding and restarting updated containers..."
+              docker compose -f deploy/docker-compose.vps.yml --env-file deploy/.env.production up -d --build
+              echo "Pruning dangling images to save disk space on 30GB VPS..."
+              docker image prune -f
+              docker compose -f deploy/docker-compose.vps.yml ps
+            fi
+            echo "Deployment completed successfully!"

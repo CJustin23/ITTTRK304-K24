@@ -22,7 +22,7 @@ free -h
 ## 2. Lay code
 
 ```bash
-git clone git@github.com:CJustin23/ITTTRK304-K24.git ~/budglee && cd ~/budglee
+git clone https://github.com/CJustin23/ITTTRK304-K24.git ~/budglee && cd ~/budglee
 git checkout develop
 ```
 

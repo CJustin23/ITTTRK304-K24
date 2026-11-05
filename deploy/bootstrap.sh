@@ -50,11 +50,11 @@ if [ -f "$COMPOSE" ] && [ -f "$APP_DIR/backend/pom.xml" ] && [ -f "$APP_DIR/fron
   echo "Du code trong $APP_DIR (deploy + backend + frontend), khong clone"
 elif [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch origin "$GIT_BRANCH"
-  git -C "$APP_DIR" checkout -B deploy "origin/$GIT_BRANCH"
+  git -C "$APP_DIR" checkout -B "$GIT_BRANCH" "origin/$GIT_BRANCH"
 else
   # Repo private: can deploy key (SSH) hoac token. Neu khong co, hay day thu cong:
   #   scp -r deploy backend frontend root@server:/opt/budglee/
-  git clone --branch "$GIT_BRANCH" git@github.com:CJustin23/ITTTRK304-K24.git "$APP_DIR"
+  git clone --branch "$GIT_BRANCH" https://github.com/CJustin23/ITTTRK304-K24.git "$APP_DIR"
 fi
 test -f "$COMPOSE" || { echo "Thieu $COMPOSE - chay: scp -r deploy root@server:/opt/budglee/"; exit 1; }
 test -f "$APP_DIR/backend/pom.xml" || { echo "Thieu source backend de build image - phai clone ca repo, khong chi deploy/"; exit 1; }
