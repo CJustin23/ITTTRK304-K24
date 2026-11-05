@@ -45,15 +45,16 @@ jobs:
           MYSQL_DATABASE: budglee_db
           MYSQL_USER: budglee_user
           MYSQL_PASSWORD: budglee_secret
-        ports:
-          - 3306:3306
         options: >-
-          --character-set-server=utf8mb4
-          --collation-server=utf8mb4_unicode_ci
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
+        ports:
+          - 3306:3306
+        command:
+          - --character-set-server=utf8mb4
+          - --collation-server=utf8mb4_unicode_ci
 
       redis:
         image: redis:7-alpine
