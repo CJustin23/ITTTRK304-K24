@@ -9,6 +9,8 @@ services:
     container_name: budglee-mysql
     restart: unless-stopped
     command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
       - --performance-schema=OFF
       - --innodb-buffer-pool-size=128M
       - --innodb-redo-log-capacity=48M
