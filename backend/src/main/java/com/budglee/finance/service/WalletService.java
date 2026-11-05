@@ -12,6 +12,7 @@ import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -54,6 +55,7 @@ public class WalletService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public Wallet create(Long userId, WalletRequest request) {
         User user = userRepository.findById(userId)
@@ -97,6 +99,7 @@ public class WalletService {
         return new ArrayList<>(visible.values());
     }
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public Wallet update(Long walletId, WalletUpdateRequest request, UserPrincipal actor) {
         Wallet wallet = findOwned(walletId, actor);
@@ -126,6 +129,7 @@ public class WalletService {
         return saved;
     }
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public void delete(Long walletId, UserPrincipal actor) {
         Wallet wallet = findOwned(walletId, actor);
