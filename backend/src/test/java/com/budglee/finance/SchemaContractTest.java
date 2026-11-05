@@ -48,7 +48,8 @@ class SchemaContractTest {
             MIGRATION,
             "/db/migration/V4__create_family_groups.sql",
             "/db/migration/V5__create_family_invitations.sql",
-            "/db/migration/V8__link_transfer_transactions.sql");
+            "/db/migration/V8__link_transfer_transactions.sql",
+            "/db/migration/V11__add_transaction_lookup_indexes.sql");
 
     /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V8 thêm cột vào bảng đã có. */
     private static final Pattern ADD_COLUMN = Pattern.compile(
@@ -147,8 +148,8 @@ class SchemaContractTest {
 
         assertThat(expected).hasSize(7);
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
-                .as("V1 khai 10 index, V5 thêm 3 cho family_invitations, V8 thêm 1 cho linked_transaction_id")
-                .isEqualTo(14);
+                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2 index")
+                .isEqualTo(16);
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))
