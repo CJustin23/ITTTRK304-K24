@@ -17,14 +17,14 @@ const api = axios.create({
 
 // Interceptor gắn JWT token vào mỗi request
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('budglee_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
+    (config) => {
+      const token = localStorage.getItem('budglee_token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
 );
 
 export const DashboardService = {
