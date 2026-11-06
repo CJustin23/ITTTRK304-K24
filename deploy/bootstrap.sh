@@ -64,7 +64,13 @@ if [ ! -f "$ENV_FILE" ]; then
   JWT=$(openssl rand -base64 48 | tr -d '\n')
   DBPASS=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)
   ROOTPASS=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)
-  ADMINPASS=$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)
+  # Cho phep dat san mat khau demo co dinh:  APP_SECURITY_SYSTEM_ADMIN_PASSWORD=... bash deploy/bootstrap.sh
+  ADMIN_EMAIL=${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-admin@budglee.local}
+  ADMINPASS=${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
+  if [ -z "$ADMINPASS" ]; then
+    ADMINPASS=$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)
+    echo "Khong truyen APP_SECURITY_SYSTEM_ADMIN_PASSWORD -> sinh ngau nhien."
+  fi
   cat > "$ENV_FILE" <<EOF
 DB_NAME=budglee_db
 DB_USER=budglee_user
@@ -72,13 +78,13 @@ DB_PASSWORD=${DBPASS}
 DB_ROOT_PASSWORD=${ROOTPASS}
 JWT_SECRET=${JWT}
 JWT_EXPIRATION_MS=86400000
-APP_SECURITY_SYSTEM_ADMIN_EMAIL=admin@budglee.local
+APP_SECURITY_SYSTEM_ADMIN_EMAIL=${ADMIN_EMAIL}
 APP_SECURITY_SYSTEM_ADMIN_PASSWORD=${ADMINPASS}
 EOF
   chmod 600 "$ENV_FILE"
   {
     echo "# Budglee demo credentials - sinh ngay $(date), KHONG commit file nay"
-    echo "SYSTEM_ADMIN : admin@budglee.local / ${ADMINPASS}"
+    echo "SYSTEM_ADMIN : ${ADMIN_EMAIL} / ${ADMINPASS}"
     echo "FAMILY_ADMIN : seed.user@budglee.local / password   (tu migration V6)"
     echo "FAMILY_MEMBER: seed.member@budglee.local / password (tu migration V9)"
     echo "MySQL root   : ${ROOTPASS}"
@@ -106,6 +112,24 @@ docker compose -f "$COMPOSE" ps
 docker logs budglee-backend 2>&1 | grep -E "Migrating schema|Successfully applied|Started BudgleeApplication|quản trị hệ thống" | tail -12 || true
 docker stats --no-stream
 free -h
+
+# Kiem tra RBAC that: SYSTEM_ADMIN phai goi duoc /api/v1/admin/users
+ADMIN_EMAIL=$(grep '^APP_SECURITY_SYSTEM_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2-)
+ADMIN_PASS=$(grep '^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+ADMIN_TOKEN=$(curl -s -m 20 -X POST http://localhost/api/v1/auth/login -H 'Content-Type: application/json' \
+  -d "{\"email\":\"${ADMIN_EMAIL}\",\"password\":\"${ADMIN_PASS}\"}" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+ADMIN_HTTP=$(curl -s -o /dev/null -m 20 -w '%{http_code}' http://localhost/api/v1/admin/users \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}")
+echo "RBAC smoke test  : login SYSTEM_ADMIN -> ${ADMIN_TOKEN:+OK}, GET /admin/users -> HTTP ${ADMIN_HTTP} (ky vong 200)"
+
 echo
 echo "URL demo: http://$(curl -s -m 5 ifconfig.me || hostname -I | awk '{print $1}')/swagger-ui.html"
-echo "Tai khoan demo: cat /root/budglee-demo-credentials.txt"
+# Chi in mat khau khi chay tu ban phim: CD log tren GitHub Actions se lo secret neu in o day.
+if [ -t 1 ]; then
+  echo "Tai khoan demo   : cat /root/budglee-demo-credentials.txt"
+  echo "  SYSTEM_ADMIN   : ${ADMIN_EMAIL} / ${ADMIN_PASS}"
+  echo "  FAMILY_ADMIN   : seed.user@budglee.local / password"
+  echo "  FAMILY_MEMBER  : seed.member@budglee.local / password"
+else
+  echo "Tai khoan demo nam trong /root/budglee-demo-credentials.txt (khong in ra vi khong phai TTY)"
+fi
