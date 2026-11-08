@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 @Slf4j
@@ -33,6 +34,10 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .setSubject(userPrincipal.getEmail())
+                // iat/exp chỉ nhẵn tới giây, nên hai lần đăng nhập trong cùng một giây cho ra
+                // token giống hệt nhau từng byte. Không có jti thì đăng xuất xong đăng nhập lại
+                // ngay sẽ nhận đúng token vừa bị thu hồi và bị chặn tới 24 giờ.
+                .setId(UUID.randomUUID().toString())
                 .claim("userId", userPrincipal.getId())
                 .claim("fullName", userPrincipal.getFullName())
                 .setIssuedAt(now)
@@ -72,15 +77,12 @@ public class JwtTokenProvider {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
             return true;
-        } catch (SecurityException | MalformedJwtException e) {
-            log.error("Invalid JWT signature: {}", e.getMessage());
-        } catch (ExpiredJwtException e) {
-            log.error("Expired JWT token: {}", e.getMessage());
-        } catch (UnsupportedJwtException e) {
-            log.error("Unsupported JWT token: {}", e.getMessage());
-        } catch (IllegalArgumentException e) {
-            log.error("JWT claims string is empty: {}", e.getMessage());
+        } catch (JwtException | IllegalArgumentException exception) {
+            // JwtException là cha của mọi lỗi parse, gồm cả SignatureException. Bắt
+            // "SecurityException" trần thì trúng java.lang.SecurityException chứ không phải
+            // io.jsonwebtoken.security.SecurityException, nên token sai chữ ký lọt ra ngoài.
+            log.error("JWT không hợp lệ: {}", exception.getMessage());
+            return false;
         }
-        return false;
     }
 }
