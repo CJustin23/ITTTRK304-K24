@@ -1,6 +1,7 @@
 package com.budglee.finance.controller;
 
 import com.budglee.finance.dto.ApiResponse;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -21,6 +22,19 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    /**
+     * Số dư ví có khoa phiên bản (V12). Hai request cùng ghi trên một ví thì bên đến sau bị
+     * Hibernate từ chối lúc commit; nếu không có handler này Spring trả 500 trắng và frontend
+     * không biết là phải thử lại.
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(OptimisticLockingFailureException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.<Void>builder()
+                .success(false)
+                .message("Số dư vừa thay đổi vì một giao dịch khác chạy song song, vui lòng thử lại")
+                .build());
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiResponse<Void>> handleResponseStatus(ResponseStatusException exception) {

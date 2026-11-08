@@ -23,6 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
+    private final TokenBlocklist tokenBlocklist;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -31,15 +32,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            // Token chữ ký hợp lệ chưa đủ: đăng xuất đã ghi nó vào blocklist và quản trị có thể
+            // tắt tài khoản, nên mỗi request phải kiểm tra cả hai.
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt) && !tokenBlocklist.isBlocked(jwt)) {
                 String email = tokenProvider.getEmailFromToken(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
 
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                if (userDetails.isEnabled()) {
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                } else {
+                    log.warn("Từ chối token của tài khoản đã bị khoá email={}", email);
+                }
             }
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);

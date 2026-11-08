@@ -7,9 +7,11 @@ import com.budglee.finance.dto.RegisterRequest;
 import com.budglee.finance.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,8 +31,42 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Đăng nhập bằng Email và Password")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest request) {
-        AuthResponse response = authService.login(request);
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody AuthRequest request,
+                                                           HttpServletRequest servletRequest) {
+        AuthResponse response = authService.login(request, clientIpOf(servletRequest));
         return ResponseEntity.ok(ApiResponse.ok(response, "Đăng nhập thành công"));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Thu hồi token đang dùng; token đó chết ngay thay vì chờ hết hạn")
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest servletRequest) {
+        authService.logout(bearerTokenOf(servletRequest));
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Đăng xuất thành công")
+                .build());
+    }
+
+    private static String bearerTokenOf(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    /**
+     * Backend chạy sau nginx (deploy/docker-compose.vps.yml) nên getRemoteAddr() luôn là IP của
+     * container nginx, vô dụng để chặn brute-force. nginx dùng $proxy_add_x_forwarded_for tức là
+     * NỐI thêm IP thật của peer vào cuối chuỗi, còn client gửi header giả thì chỉ đứng ở đầu —
+     * vì vậy phải lấy hop cuối cùng, không lấy hop đầu tiên.
+     */
+    private static String clientIpOf(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(forwarded)) {
+            String[] hops = forwarded.split(",");
+            return hops[hops.length - 1].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

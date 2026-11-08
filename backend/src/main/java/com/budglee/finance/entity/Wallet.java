@@ -52,6 +52,15 @@ public class Wallet {
     @Builder.Default
     private WalletType type = WalletType.CASH;
 
+    /**
+     * V12: hai giao dịch cùng ghi trên một ví thì lần ghi sau phải thất bại thay vì ghi đè
+     * số dư của lần trước (lost update).
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

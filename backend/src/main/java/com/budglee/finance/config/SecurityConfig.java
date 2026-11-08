@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,7 +26,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
@@ -35,6 +35,10 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
+
+    /** Origin được phép gọi API kèm credential; cấu hình lại theo môi trường ở application-*.yml. */
+    @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000}")
+    private String[] allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -58,8 +62,7 @@ public class SecurityConfig {
                     "/api/v1/auth/**",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/actuator/**"
+                    "/swagger-ui.html"
                 ).permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole(Role.SYSTEM_ADMIN.name())
                 .anyRequest().authenticated()
@@ -80,7 +83,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Collections.singletonList("*"));
+        // allowedOrigins + allowCredentials=true là cặp bị trình duyệt từ chối khi để "*": mọi trang
+        // web bên ngoài đều gửi request kèm cookie/Authorization của trình duyệt nạn nhân tới API này.
+        // Vì thế danh sách origin phải nêu đích danh, cấu hình theo môi trường.
+        configuration.setAllowedOrigins(Arrays.stream(allowedOrigins)
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList());
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept"));
         configuration.setAllowCredentials(true);

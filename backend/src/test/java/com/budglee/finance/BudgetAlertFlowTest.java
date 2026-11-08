@@ -1,5 +1,6 @@
 package com.budglee.finance;
 
+import com.budglee.finance.entity.Budget;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,9 @@ class BudgetAlertFlowTest {
 
     @Autowired
     private ObjectMapper om;
+
+    @Autowired
+    private com.budglee.finance.repository.BudgetRepository budgetRepository;
 
     private static String textOf(MvcResult result) {
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
@@ -204,6 +208,42 @@ class BudgetAlertFlowTest {
 
         spend(token, walletId, hobbyId, "55000");
         assertThat(budgets(token).at("/0/alertLevel").asText()).isEqualTo("WARNING");
+    }
+
+    @Test
+    void budgetListExposesTheFlatCategoryFieldsTheFrontendReads() throws Exception {
+        String token = loginNewUser();
+        long foodId = category(token, "Ăn phẳng", "EXPENSE");
+
+        setBudget(token, currentPeriod(foodId, "100000"));
+
+        JsonNode first = budgets(token).at("/0");
+        assertThat(first.at("/categoryId").asLong()).isEqualTo(foodId);
+        assertThat(first.at("/categoryName").asText()).isEqualTo("Ăn phẳng");
+        assertThat(first.at("/categoryIcon").asText()).isEqualTo("utensils");
+        assertThat(first.has("category"))
+                .as("GET phải trả shape của BudgetResponse, không phải entity lồng object category")
+                .isFalse();
+    }
+
+    /**
+     * Giao dịch chi là bản ghi thật; spent_amount trong CSDL chỉ là cột dự trữ. Trước đây
+     * getUserBudgets gán ngược số vừa tính vào entity ngay trong transaction chỉ-read: Hibernate
+     * không flush nên API vẫn đúng, nhưng ai đọc entity ở một đường khác lại nhận số cũ.
+     */
+    @Test
+    void readingBudgetsNeverWritesTheSpentColumnBack() throws Exception {
+        String token = loginNewUser();
+        long walletId = wallet(token, "Ví đọc không ghi", "1000000");
+        long foodId = category(token, "Ăn đọc không ghi", "EXPENSE");
+        long budgetId = json(setBudget(token, currentPeriod(foodId, "100000"))).at("/data/id").asLong();
+        spend(token, walletId, foodId, "30000");
+
+        assertThat(budgets(token).at("/0/spentAmount").decimalValue()).isEqualByComparingTo("30000");
+
+        Budget stored = budgetRepository.findById(budgetId).orElseThrow();
+        assertThat(stored.getSpentAmount()).isEqualByComparingTo("0");
+        assertThat(stored.getAlertLevel()).isEqualTo("OK");
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.budglee.finance.service;
 
 import com.budglee.finance.dto.FamilyGroupCreateRequest;
 import com.budglee.finance.dto.RoleUpdateRequest;
+import com.budglee.finance.dto.UserStatusRequest;
 import com.budglee.finance.entity.FamilyGroup;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
@@ -30,10 +31,13 @@ import java.util.List;
  *    nhóm hộ thì mọi truy vấn scoped-family đều trả rỗng.
  * 3. INDIVIDUAL_USER và SYSTEM_ADMIN bị xoá mã nhóm hộ: cá nhân không được nhìn thấy dữ liệu
  *    chung, còn quản trị nền tảng quản lý toàn hệ thống chứ không thuộc một hộ.
- * 4. Không hạ cấp SYSTEM_ADMIN cuối cùng, vì hết người có quyền thì không tài khoản nào gán lại
- *    được vai trò này nữa.
+ * 4. Không hạ cấp SYSTEM_ADMIN đang bật cuối cùng, vì hết người có quyền thì không tài khoản nào
+ *    gán lại được vai trò này nữa.
  * 5. Mã nhóm hộ phải tồn tại trong family_groups (V4 ràng buộc khoá ngoại) — nếu không thì MySQL
  *    từ chối ghi và API trả 500 thay vì báo lỗi dữ liệu.
+ * 6. Bật/tắt tài khoản (V13) chặn hai trường hợp: đổi sang trạng thái nó đang có, và tự tắt
+ *    chính mình — admin cuối cùng còn bật là người ra lệnh, nên bất biến "còn một admin dùng được"
+ *    tự được giữ mà không cần đếm thêm.
  * =========================================================================
  */
 @Service
@@ -67,8 +71,10 @@ public class UserAdminService {
             familyGroupId = null;
         }
 
-        if (target.getRole() == Role.SYSTEM_ADMIN && newRole != Role.SYSTEM_ADMIN
-                && userRepository.countByRole(Role.SYSTEM_ADMIN) <= 1) {
+        // Đếm theo admin CÒN BẬT: một SYSTEM_ADMIN đã tắt không gán lại vai trò cho ai được, nên
+        // hạ cấp nó không làm hệ thống mất người quản trị.
+        if (target.getRole() == Role.SYSTEM_ADMIN && newRole != Role.SYSTEM_ADMIN && isAccountEnabled(target)
+                && userRepository.countByRoleAndEnabled(Role.SYSTEM_ADMIN, Boolean.TRUE) <= 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Không thể hạ cấp quản trị viên hệ thống cuối cùng");
         }
@@ -118,6 +124,40 @@ public class UserAdminService {
 
         log.info("Tạo nhóm hộ {} tên={} chủ hộ={} bởi admin={}", code, group.getName(), owner.getId(), actor.getId());
         return group;
+    }
+
+    /**
+     * Tắt tài khoản thay vì xoá: giữ lại lịch sử giao dịch, chỉ cắt quyền truy cập. Cờ enabled
+     * được đọc lại ở mọi request (JwtAuthenticationFilter) nên token còn hạn cũng mất hiệu lực
+     * ngay, không phải chờ hết hạn 24 giờ.
+     */
+    @Transactional
+    public User updateStatus(Long userId, UserStatusRequest request, UserPrincipal actor) {
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+
+        boolean enable = Boolean.TRUE.equals(request.getEnabled());
+        if (enable == isAccountEnabled(target)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    enable ? "Tài khoản đang bật rồi" : "Tài khoản đang tắt rồi");
+        }
+        // Admin tắt nhầm tài khoản của chính mình thì màn hình quản trị đóng lại ngay và không
+        // còn ai gọi API để bật lại. Kiểm tra này tự nó đã đảm bảo luôn còn một SYSTEM_ADMIN bật
+        // được: người ra lệnh chính là người đó.
+        if (!enable && actor.getId().equals(target.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Không thể tắt chính tài khoản của bạn");
+        }
+
+        target.setEnabled(enable);
+        User saved = userRepository.save(target);
+        log.info("{} tài khoản id={} email={} bởi admin={}",
+                enable ? "Mở khoá" : "Khoá", saved.getId(), saved.getEmail(), actor.getId());
+        return saved;
+    }
+
+    private static boolean isAccountEnabled(User user) {
+        return user.getEnabled() == null || user.getEnabled();
     }
 
     private void requireFamilyGroup(String familyGroupId) {

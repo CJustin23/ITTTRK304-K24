@@ -50,6 +50,24 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 
+    /**
+     * Thu hồi một token chỉ có nghĩa trong khoảng thời gian nó còn tự sống được; hết hạn rồi thì
+     * không cần giữ bản ghi nào nữa.
+     */
+    public long getRemainingValidityMs(String token) {
+        try {
+            Date expiry = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getExpiration();
+            return expiry == null ? 0L : Math.max(0L, expiry.getTime() - System.currentTimeMillis());
+        } catch (JwtException | IllegalArgumentException exception) {
+            return 0L;
+        }
+    }
+
     public boolean validateToken(String authToken) {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);

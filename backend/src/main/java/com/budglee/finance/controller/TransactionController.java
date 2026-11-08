@@ -21,6 +21,13 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Transactions", description = "Quản lý Giao dịch thu/chi & Lịch sử hoạt động")
 public class TransactionController {
 
+    /**
+     * size đến từ query nên client gửi bao nhiêu cũng được; PageRequest.of không chặn gì cả.
+     * Không giới hạn thì một request "size=1000000" kéo toàn bộ lịch sử của người dùng về
+     * memory, và trên VPS 2GB đó là cách nhanh nhất để bị OOM.
+     */
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final TransactionService transactionService;
 
     @PostMapping
@@ -39,7 +46,7 @@ public class TransactionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Page<Transaction> result = transactionService.getUserTransactions(
-                currentUser.getId(), PageRequest.of(page, size));
+                currentUser.getId(), PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE)));
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách giao dịch thành công"));
     }
 }

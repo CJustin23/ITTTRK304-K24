@@ -2,6 +2,7 @@ package com.budglee.finance.controller;
 
 import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.RoleUpdateRequest;
+import com.budglee.finance.dto.UserStatusRequest;
 import com.budglee.finance.entity.User;
 import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.UserAdminService;
@@ -44,5 +45,17 @@ public class UserAdminController {
                                                         @Valid @RequestBody RoleUpdateRequest request) {
         User updated = userAdminService.updateRole(id, request, currentUser);
         return ResponseEntity.ok(ApiResponse.ok(updated, "Cập nhật vai trò thành công"));
+    }
+
+    @PutMapping("/{id}/status")
+    @Operation(summary = "Bật hoặc tắt một tài khoản; tài khoản tắt không đăng nhập được và token cũ cũng mất hiệu lực")
+    public ResponseEntity<ApiResponse<User>> updateStatus(@AuthenticationPrincipal UserPrincipal currentUser,
+                                                          @PathVariable Long id,
+                                                          @Valid @RequestBody UserStatusRequest request) {
+        User updated = userAdminService.updateStatus(id, request, currentUser);
+        return ResponseEntity.ok(ApiResponse.ok(updated,
+                Boolean.TRUE.equals(request.getEnabled())
+                        ? "Mở khoá tài khoản thành công"
+                        : "Khoá tài khoản thành công"));
     }
 }

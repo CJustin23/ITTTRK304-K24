@@ -47,6 +47,11 @@ public class User {
     @Column(name = "family_group_id", length = 50)
     private String familyGroupId;
 
+    /** V13: quản trị viên tắt tài khoản mà không xoá dữ liệu. */
+    @Column(name = "enabled", nullable = false)
+    @Builder.Default
+    private Boolean enabled = Boolean.TRUE;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

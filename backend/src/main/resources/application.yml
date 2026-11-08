@@ -17,6 +17,13 @@ app:
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
+  cors:
+    # Danh sách origin trình duyệt được phép gọi API kèm credential, phân cách bởi dấu phẩy.
+    # Frontend deploy ở domain nào thì thêm đúng origin đó vào biến môi trường CORS_ALLOWED_ORIGINS.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000}
+  security:
+    login-lockout:
+      enabled: ${LOGIN_LOCKOUT_ENABLED:true}
 
 # Swagger / OpenAPI
 springdoc:

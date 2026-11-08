@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * DUAN-38: giữ ánh xạ JPA và Flyway không lệch nhau trên toàn bộ migration đang có —
  * V1 (6 bảng cốt lõi), V2 (chuẩn hoá bề rộng + danh mục hệ thống), V3 (ENUM hoá cột vai trò/loại),
- * V4 (nhóm hộ), V5 (lời mời tham gia nhóm).
+ * V4 (nhóm hộ), V5 (lời mời tham gia nhóm), V12 (khoa phien ban cua vi), V13 (trang thai tai khoan).
  * Tú định nghĩa bảng bằng SQL, cả nhóm định nghĩa entity bằng annotation. Hai nguồn lệch nhau thì
  * profile prod (ddl-auto: validate) không khởi động được, và lỗi chỉ lộ ra lúc deploy.
  */
@@ -43,17 +43,22 @@ class SchemaContractTest {
 
     private static final String MIGRATION = "/db/migration/V1__init_schema.sql";
 
-    /** Các file khai cấu trúc: V1 bảng cốt lõi, V4 nhóm hộ, V5 lời mời, V8 cột liên kết chuyển ví. */
+    /**
+     * Các file khai cấu trúc: V1 bảng cốt lõi, V4 nhóm hộ, V5 lời mời, V8 cột liên kết chuyển ví,
+     * V12 khoa phien ban cua vi, V13 cot trang thai tai khoan.
+     */
     private static final List<String> SCHEMA_MIGRATIONS = List.of(
             MIGRATION,
             "/db/migration/V4__create_family_groups.sql",
             "/db/migration/V5__create_family_invitations.sql",
             "/db/migration/V8__link_transfer_transactions.sql",
-            "/db/migration/V11__add_transaction_lookup_indexes.sql");
+            "/db/migration/V11__add_transaction_lookup_indexes.sql",
+            "/db/migration/V12__add_wallet_version.sql",
+            "/db/migration/V13__add_user_enabled_flag.sql");
 
     /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V8 thêm cột vào bảng đã có. */
     private static final Pattern ADD_COLUMN = Pattern.compile(
-            "ALTER TABLE (\\w+)\\s+ADD COLUMN (\\w+)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|ENUM)\\b(\\s*\\([^)]*\\))?",
+            "ALTER TABLE (\\w+)\\s+ADD COLUMN (\\w+)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|BOOLEAN|ENUM)\\b(\\s*\\([^)]*\\))?",
             Pattern.CASE_INSENSITIVE);
 
     /** CREATE INDEX t ON x (cot) — cách V8 khai index mà vẫn chạy được trên H2. */
@@ -65,7 +70,7 @@ class SchemaContractTest {
 
     /** Chỉ dòng nào có tên cột đứng trước một kiểu SQL thật sự mới là cột; CONSTRAINT/CHECK/INDEX/REFERENCES bị loại. */
     private static final Pattern COLUMN_LINE = Pattern.compile(
-            "^([A-Za-z_][A-Za-z0-9_]*)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|ENUM)\\b(\\s*\\([^)]*\\))?",
+            "^([A-Za-z_][A-Za-z0-9_]*)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|BOOLEAN|ENUM)\\b(\\s*\\([^)]*\\))?",
             Pattern.CASE_INSENSITIVE);
 
     @Autowired
@@ -363,6 +368,7 @@ class SchemaContractTest {
             Map.entry(Set.of("INT"), Integer.class),
             Map.entry(Set.of("DECIMAL"), BigDecimal.class),
             Map.entry(Set.of("DATETIME", "TIMESTAMP"), LocalDateTime.class),
+            Map.entry(Set.of("BOOLEAN"), Boolean.class),
             Map.entry(Set.of("DATE"), LocalDate.class));
 
     private Field findColumnField(String tableName, String columnName) {

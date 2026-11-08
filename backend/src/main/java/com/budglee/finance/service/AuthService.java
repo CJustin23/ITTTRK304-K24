@@ -8,11 +8,14 @@ import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.security.JwtTokenProvider;
+import com.budglee.finance.security.LoginAttemptService;
+import com.budglee.finance.security.TokenBlocklist;
 import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -38,6 +41,10 @@ import java.util.Set;
  *    sai một trong hai thông tin đều trả cùng một thông báo 401 để không dò được email nào có thật.
  * 5. Thành công cấp JWT HS256 qua JwtTokenProvider; token này đi vừa với JwtAuthenticationFilter.
  * 6. Mã nhóm hộ gửi lên phải có thật trong family_groups, vì V4 đã ràng buộc khoá ngoại.
+ * 7. Đăng nhập sai bị đếm theo email và IP (LoginAttemptService) — vượt ngưỡng trả 429,
+ *    không cho dò mật khẩu theo từ điển.
+ * 8. Đăng xuất thu hồi token qua TokenBlocklist; tài khoản bị quản trị tắt thì cờ enabled
+ *    chặn ở cả cửa đăng nhập lẫn cửa token cũ còn hạn.
  * =========================================================================
  */
 @Service
@@ -51,6 +58,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
+    private final LoginAttemptService loginAttemptService;
+    private final TokenBlocklist tokenBlocklist;
 
     public AuthResponse register(RegisterRequest request) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
@@ -96,18 +105,27 @@ public class AuthService {
                 .build();
     }
 
-    public AuthResponse login(AuthRequest request) {
+    public AuthResponse login(AuthRequest request, String clientIp) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        loginAttemptService.rejectIfBlocked(email, clientIp);
 
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+        } catch (DisabledException exception) {
+            // DaoAuthenticationProvider kiểm tra cờ enabled trước khi so mật khẩu, nên đây là
+            // tài khoản quản trị vừa tắt — báo rõ để người dùng biết đi tìm admin, không phải dò credential.
+            log.warn("Đăng nhập bị từ chối vì tài khoản đã khoá email={}", email);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Tài khoản đã bị khoá, liên hệ quản trị viên");
         } catch (AuthenticationException exception) {
-            log.warn("Đăng nhập thất bại với email={}", email);
+            loginAttemptService.recordFailure(email, clientIp);
+            log.warn("Đăng nhập thất bại với email={} ip={}", email, clientIp);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng");
         }
 
+        loginAttemptService.reset(email, clientIp);
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         User user = userRepository.findByEmail(principal.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
@@ -121,6 +139,22 @@ public class AuthService {
                 .role(user.getRole())
                 .familyGroupId(user.getFamilyGroupId())
                 .build();
+    }
+
+    /**
+     * Đăng xuất phía JWT: server không có session để xoá, nên việc duy nhất có nghĩa là ghi token
+     * hiện tại vào blocklist cho tới khi nó hết hạn. Frontend vẫn phải tự xoá token phía nó, đây
+     * là cửa để token bị đánh mất hiệu lực ngay, thay vì chờ hết hạn 24 giờ.
+     */
+    public void logout(String token) {
+        if (token == null || token.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không có token để thu hồi");
+        }
+        if (!tokenProvider.validateToken(token)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn");
+        }
+        tokenBlocklist.block(token, tokenProvider.getRemainingValidityMs(token));
+        log.info("Thu hồi token của email={}", tokenProvider.getEmailFromToken(token));
     }
 
     private static String trimToNull(String value) {

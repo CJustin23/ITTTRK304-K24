@@ -169,7 +169,7 @@ class AuthRegistrationTest {
 
         JsonNode body = om.readTree(textOf(result));
         assertThat(body.at("/success").asBoolean()).isFalse();
-        assertThat(body.at("/message").asText()).contains("Mật khẩu phải từ 6 ký tự");
+        assertThat(body.at("/message").asText()).contains("Mật khẩu phải từ 8 đến 100 ký tự");
     }
 
     @Test

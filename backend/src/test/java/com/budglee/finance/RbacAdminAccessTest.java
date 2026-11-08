@@ -420,4 +420,86 @@ class RbacAdminAccessTest {
 
         assertThat(result.getResponse().getStatus()).isEqualTo(400);
     }
+
+    // --- DUAN-40: khoa tai khoan (V13) ---
+
+    private MvcResult setStatus(Account admin, long targetId, boolean enabled) throws Exception {
+        return call("PUT", ADMIN_API + "/" + targetId + "/status", admin, Map.of("enabled", enabled));
+    }
+
+    @Test
+    void disabledAccountLosesAccessWithTheTokenItAlreadyHolds() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account member = register(Role.INDIVIDUAL_USER, null);
+        createWallet(member, "Ví của thành viên", "100000");
+        assertThat(walletList(member)).contains("Ví của thành viên");
+
+        MvcResult disabled = setStatus(systemAdmin, idOf(member), false);
+
+        assertThat(disabled.getResponse().getStatus()).isEqualTo(200);
+        assertThat(data(disabled).at("/enabled").asBoolean()).isFalse();
+        assertThat(walletList(member))
+                .as("token còn hạn nhưng CSDL báo tài khoản đã tắt thì phải từ chối ngay")
+                .doesNotContain("Ví của thành viên");
+        assertThat(call("GET", "/api/v1/wallets", member, null).getResponse().getStatus()).isEqualTo(401);
+
+        MvcResult relogin = mvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of("email", member.email(), "password", PASSWORD)))).andReturn();
+        assertThat(relogin.getResponse().getStatus())
+                .as("tài khoản bị khoá phải nói rõ là bị khoá, không phải sai mật khẩu")
+                .isEqualTo(403);
+        assertThat(json(relogin).at("/message").asText()).contains("khoá");
+    }
+
+    @Test
+    void enabledAccountWorksAgainThroughTheSameApi() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account member = register(Role.INDIVIDUAL_USER, null);
+        long memberId = idOf(member);
+        createWallet(member, "Ví chờ mở", "50000");
+        setStatus(systemAdmin, memberId, false);
+
+        assertThat(setStatus(systemAdmin, memberId, true).getResponse().getStatus()).isEqualTo(200);
+
+        Account reopened = new Account(member.email(), login(member.email()));
+        assertThat(reopened.token()).startsWith("eyJ");
+        assertThat(walletList(reopened)).contains("Ví chờ mở");
+    }
+
+    @Test
+    void adminCannotDisableItsOwnAccount() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+
+        MvcResult result = setStatus(systemAdmin, idOf(systemAdmin), false);
+
+        assertThat(result.getResponse().getStatus())
+                .as("tắt chính mình là cách nhanh nhất để không ai mở lại được nữa").isEqualTo(400);
+        assertThat(userRepository.findById(idOf(systemAdmin)).orElseThrow().getEnabled()).isTrue();
+    }
+
+    @Test
+    void disabledAdminCanBeDemotedBecauseItNoLongerHoldsPower() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account staleAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        long staleId = idOf(staleAdmin);
+        assertThat(setStatus(systemAdmin, staleId, false).getResponse().getStatus()).isEqualTo(200);
+
+        MvcResult result = assignRole(systemAdmin, staleId, Role.INDIVIDUAL_USER, null);
+
+        assertThat(result.getResponse().getStatus())
+                .as("tài khoản đã tắt không gán vai trò lại được nên hạ cấp nó không làm mất người quản trị")
+                .isEqualTo(200);
+    }
+
+    @Test
+    void settingTheStatusItAlreadyHasIsRejected() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account member = register(Role.INDIVIDUAL_USER, null);
+
+        MvcResult result = setStatus(systemAdmin, idOf(member), true);
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(json(result).at("/message").asText()).contains("đang bật");
+    }
 }
