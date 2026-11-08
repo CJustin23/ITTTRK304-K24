@@ -17,13 +17,22 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     Page<Transaction> findByUserIdOrderByTransactionDateDesc(Long userId, Pageable pageable);
 
+    Page<Transaction> findByWalletIdInOrderByTransactionDateDesc(java.util.Collection<Long> walletIds, Pageable pageable);
+
     boolean existsByCategoryId(Long categoryId);
+
+    boolean existsByWalletId(Long walletId);
 
     List<Transaction> findByUserIdAndTransactionDateBetween(
             Long userId, LocalDateTime startDate, LocalDateTime endDate);
 
+    /**
+     * Hai bản ghi của một lần chuyển ví (linked_transaction_id không rỗng) không phải thu nhập hay
+     * chi tiêu, nên bị loại khỏi mọi con số tổng hợp.
+     */
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
            "WHERE t.user.id = :userId AND t.transactionType = :type " +
+           "AND t.linkedTransactionId IS NULL " +
            "AND t.transactionDate BETWEEN :startDate AND :endDate")
     BigDecimal getTotalAmountByTypeAndPeriod(
             @Param("userId") Long userId,
@@ -33,6 +42,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT t.category.name, SUM(t.amount) FROM Transaction t " +
            "WHERE t.user.id = :userId AND t.transactionType = 'EXPENSE' " +
+           "AND t.linkedTransactionId IS NULL " +
            "AND t.transactionDate BETWEEN :startDate AND :endDate " +
            "GROUP BY t.category.name")
     List<Object[]> getCategoryExpenseBreakdown(

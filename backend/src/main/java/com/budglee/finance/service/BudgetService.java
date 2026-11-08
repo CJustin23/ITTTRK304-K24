@@ -14,6 +14,7 @@ import com.budglee.finance.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,8 +34,8 @@ import java.util.Map;
  * 1. Một ngân sách cho bộ (người dùng, danh mục, tháng, năm); đặt lại kỳ cũ thì cập nhật
  *    hạn mức chứ không tạo bản trùng.
  * 2. categoryId = null nghĩa là hạn mức tổng của cả kỳ; chỉ danh mục loại EXPENSE mới có ngân sách.
- * 3. spent_amount tính trực tiếp từ giao dịch EXPENSE trong kỳ khi đọc, nên tiến độ không bao giờ
- *    lệch với lịch sử chi.
+ * 3. spent_amount tính trực tiếp từ giao dịch EXPENSE trong kỳ khi đọc, không tính hai bản ghi
+ *    của một lần chuyển giữa hai ví, nên tiến độ không bao giờ lệch với lịch sử chi.
  * 4. alertLevel = OK / WARNING (>= alertThreshold, mặc định 80%) / EXCEEDED (>= 100%).
  * =========================================================================
  */
@@ -42,7 +43,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class BudgetService {
-
     private static final BigDecimal DEFAULT_ALERT_THRESHOLD = new BigDecimal("80.00");
 
     private final BudgetRepository budgetRepository;
@@ -50,6 +50,7 @@ public class BudgetService {
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public Budget createOrUpdateBudget(Long userId, BudgetRequest request) {
         User user = userRepository.findById(userId)
@@ -115,7 +116,7 @@ public class BudgetService {
         List<Transaction> expenses = transactionRepository.findByUserIdAndTransactionDateBetween(
                         userId, firstDay.atStartOfDay(), firstDay.plusMonths(1).atStartOfDay())
                 .stream()
-                .filter(t -> t.getTransactionType() == TransactionType.EXPENSE)
+                .filter(t -> t.getTransactionType() == TransactionType.EXPENSE && t.getLinkedTransactionId() == null)
                 .toList();
 
         Map<Long, BigDecimal> spentByCategory = new HashMap<>();
@@ -128,8 +129,7 @@ public class BudgetService {
         }
 
         for (Budget budget : budgets) {
-            BigDecimal spent = budget.getCategory() == null
-                    ? spentTotal
+            BigDecimal spent = budget.getCategory() == null ? spentTotal
                     : spentByCategory.getOrDefault(budget.getCategory().getId(), BigDecimal.ZERO);
             budget.setSpentAmount(spent);
             if (!"OK".equals(budget.getAlertLevel())) {

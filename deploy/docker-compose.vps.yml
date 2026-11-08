@@ -1,0 +1,108 @@
+# Budglee - stack chay tren VPS 2GB (Ubuntu).
+# Dung:  docker compose -f deploy/docker-compose.vps.yml --env-file deploy/.env.production up -d --build
+# Khac voi docker-compose.yml o cho: moi service co gioi han RAM, MySQL/Redis khong mo cong ra internet,
+# va JVM duoc cap tran heap de khong lap nguon may 2GB.
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: budglee-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=128M
+      - --innodb-redo-log-capacity=48M
+      - --skip-log-bin
+      - --max-connections=40
+      - --table-open-cache=400
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-budglee_db}
+      MYSQL_USER: ${DB_USER:-budglee_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 384m
+    networks: [budglee-network]
+
+  redis:
+    image: redis:7-alpine
+    container_name: budglee-redis
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 96m
+    networks: [budglee-network]
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: budglee-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-budglee_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-budglee_user}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      APP_SECURITY_SYSTEM_ADMIN_EMAIL: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-}
+      APP_SECURITY_SYSTEM_ADMIN_PASSWORD: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:MaxMetaspaceSize=192m -Duser.timezone=Asia/Ho_Chi_Minh
+    mem_limit: 768m
+    networks: [budglee-network]
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: budglee-frontend
+    restart: unless-stopped
+    depends_on: [backend]
+    mem_limit: 64m
+    networks: [budglee-network]
+
+  nginx:
+    image: nginx:alpine
+    container_name: budglee-nginx
+    restart: unless-stopped
+    volumes:
+      - ../devops/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on: [backend, frontend]
+    mem_limit: 64m
+    networks: [budglee-network]
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  budglee-network:
+    driver: bridge

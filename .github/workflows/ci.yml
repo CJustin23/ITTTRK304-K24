@@ -2,7 +2,7 @@ name: Budglee Platform CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, tu ]
   pull_request:
     branches: [ main, develop ]
 
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  # 1. Backend Build & Test (Spring Boot 17/21)
+  # 1. Backend Build & Test
   backend-ci:
     name: Backend CI (Spring Boot)
     runs-on: ubuntu-latest
@@ -32,7 +32,136 @@ jobs:
           chmod +x mvnw
           ./mvnw --batch-mode clean test
 
-  # 2. Frontend Build & Test (React + Vite + TypeScript)
+  # 2. Migration Verification with real MySQL 8.0
+  migration-ci:
+    name: Flyway Migration CI (MySQL 8.0)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: budglee_db
+          MYSQL_USER: budglee_user
+          MYSQL_PASSWORD: budglee_secret
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+        ports:
+          - 3306:3306
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Configure MySQL database collation
+        env:
+          MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
+        run: |
+          docker exec "$MYSQL_CONTAINER_ID" mysql -uroot -proot -e "ALTER DATABASE budglee_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Build Backend
+        working-directory: ./backend
+        run: |
+          chmod +x mvnw
+          ./mvnw --batch-mode -DskipTests package
+
+      - name: Run Flyway migrations against MySQL
+        working-directory: ./backend
+        env:
+          SPRING_PROFILES_ACTIVE: dev
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/budglee_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          SPRING_DATASOURCE_USERNAME: budglee_user
+          SPRING_DATASOURCE_PASSWORD: budglee_secret
+          SPRING_DATA_REDIS_HOST: 127.0.0.1
+          SPRING_DATA_REDIS_PORT: 6379
+          JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+          JWT_EXPIRATION_MS: 86400000
+          MYSQL_CONTAINER_ID: ${{ job.services.mysql.id }}
+          MYSQL_PASSWORD: budglee_secret
+        run: |
+          set -euo pipefail
+
+          java -jar target/finance-backend-1.0.0-SNAPSHOT.jar > migration-test.log 2>&1 &
+          APP_PID=$!
+
+          trap 'kill "$APP_PID" 2>/dev/null || true; wait "$APP_PID" 2>/dev/null || true' EXIT
+
+          STARTED=false
+
+          for i in {1..90}; do
+            if grep -q "Started .* in .* seconds" migration-test.log; then
+              STARTED=true
+              break
+            fi
+
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              cat migration-test.log
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          if [ "$STARTED" != "true" ]; then
+            cat migration-test.log
+            echo "Backend did not start successfully."
+            exit 1
+          fi
+
+          echo "Checking Flyway migration history..."
+
+          MIGRATION_COUNT=$(docker exec \
+            -e MYSQL_PWD="$MYSQL_PASSWORD" \
+            "$MYSQL_CONTAINER_ID" \
+            mysql -u budglee_user -D budglee_db -Nse \
+            "SELECT COUNT(DISTINCT version) FROM flyway_schema_history WHERE success = 1 AND version IN ('1','2','3','4','5','6','7','8','9','10','11');")
+
+          FAILED_COUNT=$(docker exec \
+            -e MYSQL_PWD="$MYSQL_PASSWORD" \
+            "$MYSQL_CONTAINER_ID" \
+            mysql -u budglee_user -D budglee_db -Nse \
+            "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 0;")
+
+          echo "Successfully applied migrations V1-V11: $MIGRATION_COUNT"
+          echo "Failed migrations: $FAILED_COUNT"
+
+          docker exec \
+            -e MYSQL_PWD="$MYSQL_PASSWORD" \
+            "$MYSQL_CONTAINER_ID" \
+            mysql -u budglee_user -D budglee_db -e \
+            "SELECT installed_rank, version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+
+          if [ "$MIGRATION_COUNT" != "11" ] || [ "$FAILED_COUNT" != "0" ]; then
+            cat migration-test.log
+            echo "MySQL migration verification failed."
+            exit 1
+          fi
+
+          echo "MySQL migration verification passed."
+
+  # 3. Frontend Build & Test
   frontend-ci:
     name: Frontend CI (React / Vite)
     runs-on: ubuntu-latest
@@ -55,14 +184,79 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
-  # 3. Docker Compose Verification
+  # 4. Docker Compose Verification
   docker-ci:
     name: Docker Stack Validation
-    needs: [backend-ci, frontend-ci]
+    needs: [backend-ci, frontend-ci, migration-ci]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Validate Docker Compose Configuration
-        run: docker compose config
+      - name: Validate Docker Compose Configurations
+        env:
+          JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+          DB_PASSWORD: test_password
+          DB_ROOT_PASSWORD: test_root_password
+        run: |
+          docker compose config
+          docker compose -f docker-compose.prod.yml config
+          docker compose -f deploy/docker-compose.vps.yml config
+
+  # 5. Continuous Deployment to VPS (Auto-deploy on push to develop or main)
+  deploy-cd:
+    name: Deploy to VPS (AZVPS)
+    needs: [docker-ci]
+    if: (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check VPS Secrets Configuration
+        id: check_secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          if [ -n "$VPS_HOST" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "VPS_HOST is configured. Proceeding to CD deploy."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "VPS_HOST secret is not configured in GitHub Repository Settings."
+            echo "Please set VPS_HOST, VPS_USERNAME, VPS_PASSWORD under Settings -> Secrets and variables -> Actions to enable auto-deployment."
+          fi
+
+      - name: Deploy to VPS AZVPS via SSH
+        if: steps.check_secrets.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME || 'root' }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            APP_DIR=/opt/budglee
+            BRANCH=${{ github.ref_name }}
+            echo "=========================================================="
+            echo "  Budglee CD: Automated deployment on AZVPS"
+            echo "  Branch: $BRANCH | Timestamp: $(date)"
+            echo "=========================================================="
+            if [ ! -d "$APP_DIR" ]; then
+              echo "First-time deployment: clone and bootstrap"
+              mkdir -p /opt
+              git clone https://github.com/CJustin23/ITTTRK304-K24.git "$APP_DIR"
+              cd "$APP_DIR"
+              git checkout "$BRANCH"
+              sudo bash deploy/bootstrap.sh
+            else
+              cd "$APP_DIR"
+              echo "Pulling latest changes from branch $BRANCH..."
+              git fetch origin "$BRANCH"
+              git checkout -B "$BRANCH" "origin/$BRANCH"
+              echo "Rebuilding and restarting updated containers..."
+              docker compose -f deploy/docker-compose.vps.yml --env-file deploy/.env.production up -d --build
+              echo "Pruning dangling images to save disk space on 30GB VPS..."
+              docker image prune -f
+              docker compose -f deploy/docker-compose.vps.yml ps
+            fi
+            echo "Deployment completed successfully!"

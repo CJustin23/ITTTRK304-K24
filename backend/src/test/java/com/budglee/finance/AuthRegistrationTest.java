@@ -1,6 +1,7 @@
 package com.budglee.finance;
 
 import com.budglee.finance.entity.User;
+import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,6 +40,9 @@ class AuthRegistrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FamilyGroupRepository familyGroupRepository;
 
     private String newEmail() {
         return "register." + UUID.randomUUID() + "@budglee.dev";
@@ -114,6 +118,7 @@ class AuthRegistrationTest {
 
     @Test
     void familyMemberNeedsAFamilyGroupAndStoresIt() throws Exception {
+        FamilyGroupTestData.newGroup(familyGroupRepository, userRepository, "HN-042");
         String email = newEmail();
         Map<String, Object> missingGroup = payload("Thành viên", email, "MatKhau123");
         missingGroup.put("role", "FAMILY_MEMBER");
@@ -127,6 +132,19 @@ class AuthRegistrationTest {
         assertThat(ok.getResponse().getStatus()).isEqualTo(200);
         assertThat(data(ok).at("/role").asText()).isEqualTo("FAMILY_MEMBER");
         assertThat(data(ok).at("/familyGroupId").asText()).isEqualTo("HN-042");
+    }
+
+    @Test
+    void familyGroupMustExistBecauseV4MakesItAForeignKey() throws Exception {
+        Map<String, Object> body = payload("Thành viên", newEmail(), "MatKhau123");
+        body.put("role", "FAMILY_MEMBER");
+        body.put("familyGroupId", "HN-KHONG-TON-TAI");
+
+        MvcResult result = register(body);
+
+        assertThat(result.getResponse().getStatus())
+                .as("mã nhóm lạ phải thành 400, nếu không MySQL sẽ trả 500 vì khoá ngoại").isEqualTo(400);
+        assertThat(om.readTree(textOf(result)).at("/message").asText()).contains("Mã nhóm hộ không tồn tại");
     }
 
     @Test

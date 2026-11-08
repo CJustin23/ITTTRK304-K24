@@ -1,22 +1,20 @@
-version: '3.8'
-
 services:
   # 1. Database Service: MySQL 8.0
   mysql:
     image: mysql:8.0
     container_name: budglee-mysql
     restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret}
       MYSQL_DATABASE: ${DB_NAME:-budglee_db}
       MYSQL_USER: ${DB_USER:-budglee_user}
       MYSQL_PASSWORD: ${DB_PASSWORD:-budglee_secret}
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./devops/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -31,7 +29,7 @@ services:
     container_name: budglee-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -63,6 +61,8 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      APP_SECURITY_SYSTEM_ADMIN_EMAIL: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-}
+      APP_SECURITY_SYSTEM_ADMIN_PASSWORD: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
     ports:
       - "${SERVER_PORT:-8080}:8080"
     networks:

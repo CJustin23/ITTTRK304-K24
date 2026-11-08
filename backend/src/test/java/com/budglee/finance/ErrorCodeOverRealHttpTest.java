@@ -24,7 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 class ErrorCodeOverRealHttpTest {
-
     @Autowired
     private TestRestTemplate rest;
 
@@ -46,8 +45,7 @@ class ErrorCodeOverRealHttpTest {
         ResponseEntity<String> second = register(email, "MatKhau456");
 
         assertThat(second.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-        assertThat(second.getBody())
-                .contains("\"success\":false")
+        assertThat(second.getBody()).contains("\"success\":false")
                 .contains("Email đã được đăng ký");
     }
 
@@ -57,8 +55,22 @@ class ErrorCodeOverRealHttpTest {
                 "SYSTEM_ADMIN");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("\"success\":false").doesNotContain("\"path\"");
+    }
+
+    @Test
+    void malformedJsonBodyStillUsesApiEnvelope() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> response = rest.exchange("/api/v1/auth/register", HttpMethod.POST,
+                new HttpEntity<>("{\"fullName\": \"Thieu dau dong", headers), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("\"success\":false").doesNotContain("\"path\"");
         assertThat(response.getBody())
                 .contains("\"success\":false")
+                .doesNotContain("\"trace\"")
                 .doesNotContain("\"path\"");
     }
 

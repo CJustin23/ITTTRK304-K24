@@ -26,6 +26,9 @@ public class TransactionRequest {
     @NotNull(message = "Loại giao dịch không được để trống")
     private TransactionType transactionType;
 
+    /** Chỉ dùng cho TRANSFER: ví nhận tiền. */
+    private Long toWalletId;
+
     private LocalDateTime transactionDate;
     private String note;
 }
