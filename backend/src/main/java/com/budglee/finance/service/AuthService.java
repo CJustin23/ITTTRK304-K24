@@ -178,7 +178,7 @@ public class AuthService {
         return ForgotPasswordResponse.builder()
                 .email(email)
                 .otp(otp)
-                .message("Mã xác thực 6 ký tự đã được tạo. Vui lòng nhập mã để hoàn tất đổi mật khẩu.")
+                .message("Mã xác thực 6 chữ số đã được tạo. Vui lòng nhập mã để hoàn tất đổi mật khẩu.")
                 .expiresInSeconds(PasswordResetService.OTP_VALIDITY.toSeconds())
                 .build();
     }

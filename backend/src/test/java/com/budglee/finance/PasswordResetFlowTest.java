@@ -78,8 +78,8 @@ class PasswordResetFlowTest {
     }
 
     @Test
-    @DisplayName("Quên mật khẩu: Email hợp lệ sinh mã 6 ký tự gồm cả chữ và số")
-    void forgotPassword_validEmail_generates6CharAlphanumericOtp() throws Exception {
+    @DisplayName("Quên mật khẩu: Email hợp lệ sinh mã đúng 6 chữ số (0-9)")
+    void forgotPassword_validEmail_generates6DigitNumericOtp() throws Exception {
         User user = createTestUser("OldPass@123");
         Map<String, String> body = Map.of("email", user.getEmail());
 
@@ -93,10 +93,9 @@ class PasswordResetFlowTest {
         assertThat(json.get("success").asBoolean()).isTrue();
         String otp = json.get("data").get("otp").asText();
 
-        // Kiểm tra đúng 6 ký tự và có cả chữ và số
+        // Kiểm tra đúng 6 chữ số (0-9)
         assertThat(otp).hasSize(6);
-        assertThat(otp).matches(".*[A-Za-z].*");
-        assertThat(otp).matches(".*[0-9].*");
+        assertThat(otp).matches("^\\d{6}$");
     }
 
     @Test
@@ -107,7 +106,7 @@ class PasswordResetFlowTest {
 
         Map<String, String> body = Map.of(
                 "email", user.getEmail(),
-                "otp", "WRONG1",
+                "otp", "000000",
                 "newPassword", "NewPass@456"
         );
 
@@ -130,7 +129,7 @@ class PasswordResetFlowTest {
 
         Map<String, String> resetBody = Map.of(
                 "email", user.getEmail(),
-                "otp", otp.toLowerCase(), // Kiểm tra không phân biệt chữ hoa thường
+                "otp", otp,
                 "newPassword", "NewPass@999"
         );
 
@@ -174,7 +173,7 @@ class PasswordResetFlowTest {
 
         Map<String, String> wrongBody = Map.of(
                 "email", user.getEmail(),
-                "otp", "FAIL01",
+                "otp", "111111",
                 "newPassword", "NewPass@123"
         );
 
@@ -193,3 +192,4 @@ class PasswordResetFlowTest {
                 .andExpect(status().isTooManyRequests());
     }
 }
+

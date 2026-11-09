@@ -16,3 +16,4 @@ public class ForgotPasswordResponse {
     private String message;
     private long expiresInSeconds;
 }
+

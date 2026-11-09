@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * SERVICE: QUẢN LÝ MÃ XÁC THỰC QUÊN MẬT KHẨU (PASSWORD RESET OTP)
  *
  * Quy tắc:
- * 1. Mã xác thực gồm đúng 6 ký tự ngẫu nhiên bao gồm CẢ chữ in hoa và chữ số (Alphanumeric).
+ * 1. Mã xác thực gồm đúng 6 chữ số ngẫu nhiên (Numeric OTP, 0-9) để người dùng dễ thao tác.
  * 2. Thời hạn hiệu lực: 10 phút kể từ lúc sinh mã.
  * 3. Chống đoán mã (Brute-force): Mỗi mã chỉ được nhập sai tối đa 5 lần; quá 5 lần mã bị huỷ.
  * 4. Dùng một lần duy nhất (One-time use): Sau khi đổi mật khẩu thành công, mã lập tức bị xoá.
@@ -33,8 +33,6 @@ public class PasswordResetService {
     public static final int MAX_FAILED_ATTEMPTS = 5;
 
     private static final String DIGITS = "0123456789";
-    private static final String LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-    private static final String CHAR_POOL = DIGITS + LETTERS;
 
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, ResetCodeEntry> activeCodes = new ConcurrentHashMap<>();
@@ -55,17 +53,17 @@ public class PasswordResetService {
     }
 
     /**
-     * Sinh mã xác thực 6 ký tự gồm cả chữ và số, lưu vào bộ nhớ có TTL.
+     * Sinh mã xác thực 6 chữ số (numeric OTP), lưu vào bộ nhớ có TTL.
      */
     public String generateAndSaveCode(String email) {
         purgeExpired();
         String normalizedEmail = normalizeEmail(email);
 
-        String otp = generateAlphanumericOtp();
+        String otp = generateNumericOtp();
         Instant expiresAt = Instant.now().plus(OTP_VALIDITY);
 
         activeCodes.put(normalizedEmail, new ResetCodeEntry(otp, expiresAt));
-        log.info("Đã tạo mã xác thực quên mật khẩu cho email={} (hết hạn sau {} phút): {}",
+        log.info("Đã tạo mã xác thực quên mật khẩu (6 chữ số) cho email={} (hết hạn sau {} phút): {}",
                 normalizedEmail, OTP_VALIDITY.toMinutes(), otp);
         return otp;
     }
@@ -118,29 +116,21 @@ public class PasswordResetService {
     }
 
     /**
-     * Sinh chuỗi ngẫu nhiên 6 ký tự bảo đảm có ít nhất một chữ cái và một chữ số.
+     * Sinh chuỗi ngẫu nhiên đúng 6 chữ số (0-9).
+     */
+    public String generateNumericOtp() {
+        StringBuilder sb = new StringBuilder(OTP_LENGTH);
+        for (int i = 0; i < OTP_LENGTH; i++) {
+            sb.append(DIGITS.charAt(secureRandom.nextInt(DIGITS.length())));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Tương thích ngược: trả về mã OTP 6 chữ số.
      */
     public String generateAlphanumericOtp() {
-        while (true) {
-            StringBuilder sb = new StringBuilder(OTP_LENGTH);
-            boolean hasDigit = false;
-            boolean hasLetter = false;
-
-            for (int i = 0; i < OTP_LENGTH; i++) {
-                int index = secureRandom.nextInt(CHAR_POOL.length());
-                char c = CHAR_POOL.charAt(index);
-                sb.append(c);
-                if (Character.isDigit(c)) {
-                    hasDigit = true;
-                } else if (Character.isLetter(c)) {
-                    hasLetter = true;
-                }
-            }
-
-            if (hasDigit && hasLetter) {
-                return sb.toString();
-            }
-        }
+        return generateNumericOtp();
     }
 
     private void purgeExpired() {
@@ -152,3 +142,4 @@ public class PasswordResetService {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 }
+
