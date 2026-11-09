@@ -63,3 +63,4 @@ SET password_hash = '$2a$10$JqFiRa0dy4QkNbGgXE3pBO8S1h65nzFgvVOANEBQUMtfn4lBF7/Q
     family_group_id = 'FAM-HANHPHUC',
     enabled = TRUE
 WHERE email = 'thanhcon@gmail.com';
+
