@@ -63,7 +63,7 @@ class DashboardServiceTest {
                 .thenReturn(categoryBreakdown);
 
         // Tối ưu hóa Sprint 4 - Tú: Mock kết quả aggregate 4 tuần từ SQL query getWeeklyExpenseBreakdown
-        List<Object[]> weeklyBreakdown = List.of(new Object[]{
+        List<Object[]> weeklyBreakdown = Collections.singletonList(new Object[]{
                 new BigDecimal("2500000"),
                 new BigDecimal("3500000"),
                 new BigDecimal("2000000"),
