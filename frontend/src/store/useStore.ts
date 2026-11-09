@@ -11,7 +11,15 @@ import {
   Timeframe,
   NotificationItem,
   Role,
+  Category,
 } from '../types';
+import api, {
+  DashboardService,
+  TransactionService,
+  WalletService,
+  CategoryService,
+  BudgetService,
+} from '../services/api';
 
 // Dữ liệu mẫu (Rich Demo Data) dành riêng cho tài khoản Demo
 export const DEMO_WALLETS: Wallet[] = [
@@ -237,7 +245,7 @@ export const DEMO_SUMMARY: DashboardSummary = {
 export const DEMO_BOT_RECOMMENDATION: HabitRecommendation = {
   status: 'WARNING',
   primaryAdvice:
-    'Tháng này chi tiêu cho Ăn uống và Cà phê đã tăng 22% so với tháng trước. Tỷ lệ tiết kiệm hiện tại đạt 18% (mục tiêu đề xuất: 25%).',
+      'Tháng này chi tiêu cho Ăn uống và Cà phê đã tăng 22% so với tháng trước. Tỷ lệ tiết kiệm hiện tại đạt 18% (mục tiêu đề xuất: 25%).',
   actionItems: [
     'Hạn chế các bữa ăn tối tại nhà hàng cao cấp trong tuần cuối tháng.',
     'Tạm dừng các gói dịch vụ trực tuyến không sử dụng thường xuyên.',
@@ -294,17 +302,17 @@ export const DEMO_NOTIFICATIONS: NotificationItem[] = [
 
 // Helper: tính toán DashboardSummary theo dữ liệu hiện tại
 export const calculateDashboardSummary = (
-  wallets: Wallet[],
-  transactions: Transaction[],
-  budgets: Budget[]
+    wallets: Wallet[],
+    transactions: Transaction[],
+    budgets: Budget[]
 ): DashboardSummary => {
   const totalBalance = wallets.reduce((sum, w) => sum + w.balance, 0);
   const monthlyIncome = transactions
-    .filter((t) => t.transactionType === 'INCOME')
-    .reduce((sum, t) => sum + t.amount, 0);
+      .filter((t) => t.transactionType === 'INCOME')
+      .reduce((sum, t) => sum + t.amount, 0);
   const monthlySpending = transactions
-    .filter((t) => t.transactionType === 'EXPENSE')
-    .reduce((sum, t) => sum + t.amount, 0);
+      .filter((t) => t.transactionType === 'EXPENSE')
+      .reduce((sum, t) => sum + t.amount, 0);
   const leftToSpend = Math.max(0, monthlyIncome - monthlySpending);
 
   const totalLimit = budgets.reduce((sum, b) => sum + b.amountLimit, 0);
@@ -312,11 +320,11 @@ export const calculateDashboardSummary = (
 
   const categoryExpenses: Record<string, number> = {};
   transactions
-    .filter((t) => t.transactionType === 'EXPENSE')
-    .forEach((t) => {
-      const cat = t.categoryName || 'Khác';
-      categoryExpenses[cat] = (categoryExpenses[cat] || 0) + t.amount;
-    });
+      .filter((t) => t.transactionType === 'EXPENSE')
+      .forEach((t) => {
+        const cat = t.categoryName || 'Khác';
+        categoryExpenses[cat] = (categoryExpenses[cat] || 0) + t.amount;
+      });
 
   const spentTrends = [
     { label: 'Thứ 2', amount: 0 },
@@ -339,11 +347,58 @@ export const calculateDashboardSummary = (
   };
 };
 
+
+// Chuẩn hoá dữ liệu entity từ Backend (BigDecimal có thể được serialize thành number hoặc string).
+const toNumber = (value: unknown): number => {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const mapWalletFromApi = (raw: any): Wallet => ({
+  id: Number(raw.id),
+  walletName: raw.walletName,
+  cardNumberMasked: raw.cardNumberMasked ?? '',
+  balance: toNumber(raw.balance),
+  currency: raw.currency ?? 'VND',
+  type: raw.type,
+  color: undefined,
+});
+
+const mapTransactionFromApi = (raw: any): Transaction => ({
+  id: Number(raw.id),
+  walletId: Number(raw.wallet?.id ?? raw.walletId),
+  walletName: raw.wallet?.walletName ?? raw.walletName ?? '',
+  categoryId: raw.category?.id ?? raw.categoryId ?? undefined,
+  categoryName: raw.category?.name ?? raw.categoryName ?? 'Khác',
+  categoryIcon: raw.category?.icon ?? raw.categoryIcon,
+  actionTitle: raw.actionTitle,
+  amount: toNumber(raw.amount),
+  transactionType: raw.transactionType,
+  balanceAfter: toNumber(raw.balanceAfter),
+  transactionDate: raw.transactionDate ?? '',
+  note: raw.note ?? undefined,
+});
+
+const mapBudgetFromApi = (raw: any): Budget => ({
+  id: Number(raw.id),
+  categoryId: raw.category?.id ?? raw.categoryId ?? undefined,
+  categoryName: raw.category?.name ?? raw.categoryName ?? 'Ngân sách chung',
+  categoryIcon: raw.category?.icon ?? raw.categoryIcon,
+  amountLimit: toNumber(raw.amountLimit),
+  spentAmount: toNumber(raw.spentAmount),
+  periodMonth: Number(raw.periodMonth),
+  periodYear: Number(raw.periodYear),
+  alertThreshold: toNumber(raw.alertThreshold ?? 80),
+});
+
+const getApiData = <T,>(response: any): T => response?.data?.data ?? response?.data;
+
 interface AppState {
   currentUser: User | null;
   token: string | null;
 
   wallets: Wallet[];
+  categories: Category[];
   recentTransactions: Transaction[];
   budgets: Budget[];
   savingGoals: SavingGoal[];
@@ -364,14 +419,15 @@ interface AppState {
 
   // Actions
   setAuth: (
-    user: User,
-    token: string,
-    isNewRegistration?: boolean,
-    initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
+      user: User,
+      token: string,
+      isNewRegistration?: boolean,
+      initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
   ) => void;
   logout: () => void;
   updateProfile: (data: Partial<User>) => void;
   setActiveTimeframe: (timeframe: Timeframe) => void;
+  loadApiData: () => Promise<void>;
 
   // Notification actions
   markNotificationAsRead: (id: string) => void;
@@ -401,8 +457,8 @@ interface AppState {
   removeFamilyMember: (id: number) => void;
   updateMemberRole: (id: number, role: Role) => void;
   upgradeToFamilyAdmin: (
-    familyGroupName: string,
-    initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
+      familyGroupName: string,
+      initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
   ) => void;
 
   // Modal actions
@@ -420,6 +476,7 @@ export const useStore = create<AppState>((set, get) => ({
   activeTimeframe: 'Monthly',
 
   wallets: [],
+  categories: [],
   recentTransactions: [],
   budgets: [],
   savingGoals: [],
@@ -479,6 +536,7 @@ export const useStore = create<AppState>((set, get) => ({
           dashboardSummary: saved.dashboardSummary || calculateDashboardSummary(saved.wallets || [], saved.recentTransactions || [], saved.budgets || []),
           botRecommendation: saved.botRecommendation || null,
         });
+        void get().loadApiData().catch(() => undefined);
         return;
       } catch (err) {
         console.error('Failed to parse saved user data:', err);
@@ -529,6 +587,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentUser: user,
       token,
       wallets: [],
+      categories: [],
       recentTransactions: [],
       budgets: [],
       savingGoals: [],
@@ -540,6 +599,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     set(freshState);
     localStorage.setItem(storageKey, JSON.stringify(freshState));
+    void get().loadApiData().catch(() => undefined);
   },
 
   logout: () => {
@@ -570,10 +630,62 @@ export const useStore = create<AppState>((set, get) => ({
 
   setActiveTimeframe: (activeTimeframe) => set({ activeTimeframe }),
 
+  // Đồng bộ các phân hệ đã có API sau khi đăng nhập.
+  loadApiData: async () => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    try {
+      const [walletsResponse, categoriesResponse, transactionsResponse, budgetsResponse, summary, recommendation] =
+          await Promise.all([
+            WalletService.getAll(),
+            CategoryService.getAll(),
+            TransactionService.getAll(0, 100),
+            BudgetService.getAll(month, year),
+            DashboardService.getSummary(year, month),
+            DashboardService.getRecommendations(year, month),
+          ]);
+
+      const wallets = (walletsResponse ?? []).map(mapWalletFromApi);
+      const categories = categoriesResponse ?? [];
+      const transactionRows = Array.isArray(transactionsResponse)
+          ? transactionsResponse
+          : transactionsResponse?.content ?? [];
+      const recentTransactions = transactionRows.map(mapTransactionFromApi);
+      const budgets = (budgetsResponse ?? []).map(mapBudgetFromApi);
+
+      set({
+        wallets,
+        categories,
+        recentTransactions,
+        budgets,
+        dashboardSummary: {
+          totalBalance: toNumber(summary.totalBalance),
+          monthlyIncome: toNumber(summary.monthlyIncome),
+          monthlySpending: toNumber(summary.monthlySpending),
+          leftToSpend: toNumber(summary.leftToSpend),
+          spendingPercentageOfBudget: toNumber(summary.spendingPercentageOfBudget),
+          categoryExpenses: Object.fromEntries(
+              Object.entries(summary.categoryExpenses ?? {}).map(([name, amount]) => [name, toNumber(amount)])
+          ),
+          spentTrends: (summary.spentTrends ?? []).map((point: any) => ({
+            label: point.label,
+            amount: toNumber(point.amount),
+          })),
+        },
+        botRecommendation: recommendation ?? null,
+      });
+    } catch (error) {
+      console.error('Không thể tải dữ liệu từ Backend:', error);
+      throw error;
+    }
+  },
+
   markNotificationAsRead: (id) => {
     set((state) => ({
       notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
+          n.id === id ? { ...n, read: true } : n
       ),
     }));
   },
@@ -591,21 +703,30 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  addWallet: (walletData) => {
-    const newWallet: Wallet = {
-      ...walletData,
-      id: Date.now(),
-    };
-    set((state) => {
-      const updatedWallets = [...state.wallets, newWallet];
-      const updatedSummary = calculateDashboardSummary(updatedWallets, state.recentTransactions, state.budgets);
-      const newState = { wallets: updatedWallets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
-      return newState;
-    });
+  addWallet: async (walletData) => {
+    try {
+      const response = await api.post('/wallets', {
+        walletName: walletData.walletName,
+        type: walletData.type,
+        currency: walletData.currency || 'VND',
+        balance: walletData.balance,
+        cardNumberMasked: walletData.cardNumberMasked || null,
+      });
+      const created = mapWalletFromApi(getApiData<any>(response));
+      set((state) => {
+        const wallets = [...state.wallets, created];
+        return {
+          wallets,
+          dashboardSummary: state.dashboardSummary
+              ? { ...state.dashboardSummary, totalBalance: wallets.reduce((sum, wallet) => sum + wallet.balance, 0) }
+              : calculateDashboardSummary(wallets, state.recentTransactions, state.budgets),
+        };
+      });
+      await get().loadApiData();
+    } catch (error) {
+      console.error('Không thể tạo ví:', error);
+      throw error;
+    }
   },
 
   setTransactions: (recentTransactions) => {
@@ -615,37 +736,30 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  addTransaction: (txData) => {
-    const newTx: Transaction = {
-      ...txData,
-      id: Date.now(),
-    };
-    set((state) => {
-      const updatedWallets = state.wallets.map((w) => {
-        if (w.id === txData.walletId) {
-          const newBal =
-            txData.transactionType === 'INCOME'
-              ? w.balance + txData.amount
-              : w.balance - txData.amount;
-          return { ...w, balance: newBal };
-        }
-        return w;
-      });
-
-      const updatedTxs = [newTx, ...state.recentTransactions];
-      const updatedSummary = calculateDashboardSummary(updatedWallets, updatedTxs, state.budgets);
-
-      const newState = {
-        recentTransactions: updatedTxs,
-        wallets: updatedWallets,
-        dashboardSummary: updatedSummary,
+  addTransaction: async (txData) => {
+    try {
+      const category = get().categories.find((item) => item.name === txData.categoryName);
+      const payload: Record<string, unknown> = {
+        walletId: txData.walletId,
+        categoryId: category?.id ?? undefined,
+        actionTitle: txData.actionTitle,
+        amount: txData.amount,
+        transactionType: txData.transactionType,
+        note: txData.note || undefined,
       };
 
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
+      // Chỉ gửi transactionDate nếu là ISO LocalDateTime hợp lệ.
+      // UI hiện gửi chuỗi "Hôm nay ...", vì vậy Backend tự gán thời điểm hiện tại.
+      if (txData.transactionDate && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(txData.transactionDate)) {
+        payload.transactionDate = txData.transactionDate;
       }
-      return newState;
-    });
+
+      await TransactionService.create(payload as any);
+      await get().loadApiData();
+    } catch (error) {
+      console.error('Không thể tạo giao dịch:', error);
+      throw error;
+    }
   },
 
   setBudgets: (budgets) => {
@@ -655,49 +769,56 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  addBudget: (budgetData) => {
-    const newBudget: Budget = {
-      ...budgetData,
-      id: Date.now(),
-    };
-    set((state) => {
-      const updatedBudgets = [...state.budgets, newBudget];
-      const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
-      const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
+  addBudget: async (budgetData) => {
+    try {
+      const category = get().categories.find((item) => item.name === budgetData.categoryName);
+      if (budgetData.categoryName && !category && budgetData.categoryId == null) {
+        throw new Error(`Không tìm thấy danh mục Backend: ${budgetData.categoryName}`);
       }
-      return newState;
-    });
+      const now = new Date();
+      const payload = {
+        categoryId: category?.id ?? budgetData.categoryId ?? null,
+        amountLimit: budgetData.amountLimit,
+        periodMonth: now.getMonth() + 1,
+        periodYear: now.getFullYear(),
+        alertThreshold: budgetData.alertThreshold ?? 80,
+      };
+      await api.post('/budgets', payload);
+      await get().loadApiData();
+    } catch (error) {
+      console.error('Không thể tạo/cập nhật ngân sách:', error);
+      throw error;
+    }
   },
 
-  updateBudget: (id, budgetData) => {
-    set((state) => {
-      const updatedBudgets = state.budgets.map((b) =>
-        b.id === id ? { ...b, ...budgetData } : b
-      );
-      const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
-      const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
+  updateBudget: async (id, budgetData) => {
+    const existing = get().budgets.find((budget) => budget.id === id);
+    if (!existing) return;
 
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
+    try {
+      const categoryName = budgetData.categoryName ?? existing.categoryName;
+      const category = get().categories.find((item) => item.name === categoryName);
+      if (categoryName && categoryName !== 'Ngân sách chung' && !category && budgetData.categoryId == null && existing.categoryId == null) {
+        throw new Error(`Không tìm thấy danh mục Backend: ${categoryName}`);
       }
-      return newState;
-    });
+      await api.post('/budgets', {
+        categoryId: category?.id ?? budgetData.categoryId ?? existing.categoryId ?? null,
+        amountLimit: budgetData.amountLimit ?? existing.amountLimit,
+        periodMonth: budgetData.periodMonth ?? existing.periodMonth,
+        periodYear: budgetData.periodYear ?? existing.periodYear,
+        alertThreshold: budgetData.alertThreshold ?? existing.alertThreshold,
+      });
+      await get().loadApiData();
+    } catch (error) {
+      console.error('Không thể cập nhật ngân sách:', error);
+      throw error;
+    }
   },
 
   deleteBudget: (id) => {
-    set((state) => {
-      const updatedBudgets = state.budgets.filter((b) => b.id !== id);
-      const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
-      const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
-      return newState;
-    });
+    console.warn(
+        `Chưa có`
+    );
   },
 
   setSavingGoals: (savingGoals) => set({ savingGoals }),
@@ -803,7 +924,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateMemberRole: (id, role) => {
     set((state) => {
       const updated = state.familyMembers.map((m) =>
-        m.id === id ? { ...m, role } : m
+          m.id === id ? { ...m, role } : m
       );
       const newState = { familyMembers: updated };
       if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
