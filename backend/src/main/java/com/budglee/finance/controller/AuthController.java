@@ -4,6 +4,9 @@ import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.AuthRequest;
 import com.budglee.finance.dto.AuthResponse;
 import com.budglee.finance.dto.RegisterRequest;
+import com.budglee.finance.dto.ForgotPasswordRequest;
+import com.budglee.finance.dto.ForgotPasswordResponse;
+import com.budglee.finance.dto.ResetPasswordRequest;
 import com.budglee.finance.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +47,25 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
                 .message("Đăng xuất thành công")
+                .build());
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Yêu cầu mã xác thực 6 ký tự để đổi mật khẩu qua Email")
+    public ResponseEntity<ApiResponse<ForgotPasswordResponse>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        ForgotPasswordResponse response = authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Mã xác thực đã được tạo thành công"));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Xác nhận mã 6 ký tự và đổi mật khẩu mới")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Đổi mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới")
                 .build());
     }
 

@@ -3,6 +3,10 @@ package com.budglee.finance.service;
 import com.budglee.finance.dto.AuthRequest;
 import com.budglee.finance.dto.AuthResponse;
 import com.budglee.finance.dto.RegisterRequest;
+import com.budglee.finance.dto.ForgotPasswordRequest;
+import com.budglee.finance.dto.ForgotPasswordResponse;
+import com.budglee.finance.dto.ResetPasswordRequest;
+import com.budglee.finance.security.PasswordResetService;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.FamilyGroupRepository;
@@ -60,6 +64,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final LoginAttemptService loginAttemptService;
     private final TokenBlocklist tokenBlocklist;
+    private final PasswordResetService passwordResetService;
 
     public AuthResponse register(RegisterRequest request) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
@@ -155,6 +160,48 @@ public class AuthService {
         }
         tokenBlocklist.block(token, tokenProvider.getRemainingValidityMs(token));
         log.info("Thu hồi token của email={}", tokenProvider.getEmailFromToken(token));
+    }
+
+    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy tài khoản với địa chỉ email: " + email));
+
+        if (Boolean.FALSE.equals(user.getEnabled())) {
+            log.warn("Yêu cầu quên mật khẩu bị từ chối vì tài khoản đã bị khoá email={}", email);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Tài khoản đã bị khoá, liên hệ quản trị viên");
+        }
+
+        String otp = passwordResetService.generateAndSaveCode(email);
+        return ForgotPasswordResponse.builder()
+                .email(email)
+                .otp(otp)
+                .message("Mã xác thực 6 ký tự đã được tạo. Vui lòng nhập mã để hoàn tất đổi mật khẩu.")
+                .expiresInSeconds(PasswordResetService.OTP_VALIDITY.toSeconds())
+                .build();
+    }
+
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy tài khoản với địa chỉ email: " + email));
+
+        if (Boolean.FALSE.equals(user.getEnabled())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Tài khoản đã bị khoá, liên hệ quản trị viên");
+        }
+
+        // Kiểm tra và huỷ mã OTP
+        passwordResetService.verifyAndInvalidateCode(email, request.getOtp());
+
+        // Cập nhật mật khẩu mới băm BCrypt
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        log.info("Đổi mật khẩu thành công cho email={}", email);
     }
 
     private static String trimToNull(String value) {

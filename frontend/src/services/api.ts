@@ -27,6 +27,17 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+export const AuthService = {
+  forgotPassword: async (email: string): Promise<{ email: string; otp: string; message: string; expiresInSeconds: number }> => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data.data;
+  },
+  resetPassword: async (data: { email: string; otp: string; newPassword: string }): Promise<void> => {
+    const response = await api.post('/auth/reset-password', data);
+    return response.data.data;
+  },
+};
+
 export const DashboardService = {
   getSummary: async (year?: number, month?: number): Promise<DashboardSummary> => {
     const response = await api.get('/dashboard/summary', { params: { year, month } });
