@@ -154,8 +154,8 @@ class SchemaContractTest {
 
         assertThat(expected).hasSize(7);
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
-                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2 index")
-                .isEqualTo(16);
+                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2, V15 thêm 1 index")
+                .isEqualTo(17);
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))
