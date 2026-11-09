@@ -3,6 +3,7 @@ package com.budglee.finance.service;
 import com.budglee.finance.dto.FamilyInvitationRequest;
 import com.budglee.finance.dto.FamilyInvitationResponse;
 import com.budglee.finance.dto.FamilyMemberResponse;
+import com.budglee.finance.dto.FamilyUserLookupResponse;
 import com.budglee.finance.entity.*;
 import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.FamilyInvitationRepository;
@@ -430,6 +431,99 @@ public class FamilyService {
         member.setRole(Role.INDIVIDUAL_USER);
 
         userRepository.save(member);
+    }
+
+    /**
+     * Kiểm tra tính hợp lệ của tài khoản trước khi thêm vào nhóm gia đình.
+     */
+    @Transactional(readOnly = true)
+    public FamilyUserLookupResponse checkUserForFamily(Long currentUserId, String email) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+        if (email == null || email.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không được để trống");
+        }
+
+        String targetEmail = email.trim().toLowerCase(java.util.Locale.ROOT);
+        User currentUser = getCurrentUser(currentUserId);
+
+        if (currentUser.getEmail().equalsIgnoreCase(targetEmail)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Bạn không thể tự thêm chính mình vào nhóm gia đình"
+            );
+        }
+
+        User targetUser = userRepository.findByEmail(targetEmail)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tài khoản với email này chưa tồn tại trong hệ thống. Vui lòng kiểm tra lại email hoặc yêu cầu thành viên đăng ký trước!"
+                ));
+
+        if (targetUser.getFamilyGroupId() != null && !targetUser.getFamilyGroupId().isBlank()) {
+            if (targetUser.getFamilyGroupId().equals(familyGroup.getId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Tài khoản này đã là thành viên trong nhóm gia đình của bạn"
+                );
+            } else {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Tài khoản này đã thuộc một nhóm gia đình khác"
+                );
+            }
+        }
+
+        return FamilyUserLookupResponse.builder()
+                .id(targetUser.getId())
+                .fullName(targetUser.getFullName())
+                .email(targetUser.getEmail())
+                .avatarUrl(targetUser.getAvatarUrl())
+                .role(targetUser.getRole())
+                .exists(true)
+                .message("Tài khoản hợp lệ")
+                .build();
+    }
+
+    /**
+     * Thêm trực tiếp một thành viên vào nhóm gia đình bằng email.
+     */
+    public FamilyMemberResponse addDirectMember(Long currentUserId, FamilyInvitationRequest request) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+        String targetEmail = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        User currentUser = getCurrentUser(currentUserId);
+
+        if (currentUser.getEmail().equalsIgnoreCase(targetEmail)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Bạn không thể tự thêm chính mình vào nhóm gia đình"
+            );
+        }
+
+        User targetUser = userRepository.findByEmail(targetEmail)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Tài khoản với email này chưa tồn tại trong hệ thống. Vui lòng kiểm tra lại email hoặc yêu cầu thành viên đăng ký trước!"
+                ));
+
+        if (targetUser.getFamilyGroupId() != null && !targetUser.getFamilyGroupId().isBlank()) {
+            if (targetUser.getFamilyGroupId().equals(familyGroup.getId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Tài khoản này đã là thành viên trong nhóm gia đình của bạn"
+                );
+            } else {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Tài khoản này đã thuộc một nhóm gia đình khác"
+                );
+            }
+        }
+
+        targetUser.setFamilyGroupId(familyGroup.getId());
+        targetUser.setRole(Role.FAMILY_MEMBER);
+        User savedUser = userRepository.save(targetUser);
+
+        return toMemberResponse(savedUser);
     }
 
 }

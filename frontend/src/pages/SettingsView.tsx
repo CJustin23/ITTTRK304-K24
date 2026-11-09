@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Role } from '../types';
+import { FamilyApiService } from '../services/api';
 
 export const SettingsView: React.FC = () => {
   const {
@@ -126,21 +127,21 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setFamilySuccessMsg(''), 4000);
   };
 
-  const handleAddDirectMember = (e: React.FormEvent) => {
+  const handleAddDirectMember = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: { name?: string; email?: string } = {};
 
-    if (!inviteMemberName.trim()) {
-      errs.name = 'Vui lòng nhập họ tên thành viên';
-    } else if (inviteMemberName.trim().length < 2) {
-      errs.name = 'Họ tên phải có ít nhất 2 ký tự';
-    }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!inviteMemberEmail.trim()) {
-      errs.email = 'Vui lòng nhập địa chỉ email';
-    } else if (!emailRegex.test(inviteMemberEmail.trim())) {
+    const trimmedEmail = inviteMemberEmail.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      errs.email = 'Vui lòng nhập địa chỉ email của thành viên';
+    } else if (!emailRegex.test(trimmedEmail)) {
       errs.email = 'Email không đúng định dạng (VD: example@domain.com)';
+    } else if (currentUser && currentUser.email.toLowerCase() === trimmedEmail) {
+      errs.email = 'Bạn không thể tự thêm chính mình vào nhóm gia đình';
+    } else if (familyMembers.some((m) => m.email.toLowerCase() === trimmedEmail)) {
+      errs.email = 'Tài khoản này đã là thành viên trong sổ quỹ gia đình';
     }
 
     if (Object.keys(errs).length > 0) {
@@ -148,18 +149,70 @@ export const SettingsView: React.FC = () => {
       return;
     }
 
+    // Tra cứu tài khoản trên hệ thống
+    let foundFullName = inviteMemberName.trim();
+    let foundAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces';
+    let accountExists = false;
+
+    try {
+      const data = await FamilyApiService.checkUser(trimmedEmail);
+      if (data && data.exists) {
+        accountExists = true;
+        foundFullName = data.fullName;
+        if (data.avatarUrl) foundAvatar = data.avatarUrl;
+      }
+    } catch (err: any) {
+      // Backend error or not found
+    }
+
+    if (!accountExists) {
+      const localUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
+      if (localUserStr) {
+        try {
+          const u = JSON.parse(localUserStr);
+          accountExists = true;
+          foundFullName = u.fullName || foundFullName;
+        } catch (e) {}
+      }
+    }
+
+    const SYSTEM_ACCOUNTS: Record<string, string> = {
+      'thannhk6@gmail.com': 'Nguyễn Tiến Thành',
+      'thenng@gmail.com': 'Nguyễn Tiến Thành',
+      'demo@budglee.com': 'Nguyễn Văn Demo',
+      'family@budglee.com': 'Trần Thị Hạnh Phúc',
+      'member@budglee.com': 'Lê Gia Bảo',
+      'admin@budglee.com': 'Quản trị viên Budglee',
+    };
+    if (SYSTEM_ACCOUNTS[trimmedEmail]) {
+      accountExists = true;
+      foundFullName = SYSTEM_ACCOUNTS[trimmedEmail];
+    }
+
+    if (!accountExists) {
+      setDirectMemberErrors({
+        email: 'Tài khoản này chưa tồn tại trong hệ thống. Vui lòng kiểm tra lại email hoặc yêu cầu thành viên đăng ký trước!',
+      });
+      return;
+    }
+
     setDirectMemberErrors({});
+
+    try {
+      await FamilyApiService.addDirectMember(trimmedEmail);
+    } catch (e) {}
+
     addFamilyMember({
-      fullName: inviteMemberName.trim(),
-      email: inviteMemberEmail.trim(),
+      fullName: foundFullName,
+      email: trimmedEmail,
       role: inviteMemberRole,
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+      avatarUrl: foundAvatar,
     });
 
     setInviteMemberName('');
     setInviteMemberEmail('');
-    setFamilySuccessMsg('Đã thêm thành viên vào sổ quỹ gia đình thành công!');
-    setTimeout(() => setFamilySuccessMsg(''), 3000);
+    setFamilySuccessMsg('Đã thêm thành viên ' + foundFullName + ' vào sổ quỹ gia đình thành công!');
+    setTimeout(() => setFamilySuccessMsg(''), 4000);
   };
 
   const handleCopyInviteCode = () => {

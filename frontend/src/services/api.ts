@@ -81,4 +81,37 @@ export const BudgetService = {
   },
 };
 
+export interface FamilyUserLookup {
+  id: number;
+  fullName: string;
+  email: string;
+  avatarUrl?: string;
+  role: string;
+  exists: boolean;
+  message?: string;
+}
+
+export const FamilyApiService = {
+  checkUser: async (email: string): Promise<FamilyUserLookup> => {
+    const response = await api.get('/family/check-user', { params: { email } });
+    return response.data.data;
+  },
+  sendInvitation: async (email: string): Promise<any> => {
+    const response = await api.post('/family/invitations', { email });
+    return response.data.data;
+  },
+  addDirectMember: async (email: string): Promise<any> => {
+    const response = await api.post('/family/members', { email });
+    return response.data.data;
+  },
+  getMembers: async (): Promise<any[]> => {
+    const response = await api.get('/family/members');
+    return response.data.data;
+  },
+  removeMember: async (memberId: number): Promise<void> => {
+    const response = await api.delete(`/family/members/${memberId}`);
+    return response.data.data;
+  },
+};
+
 export default api;

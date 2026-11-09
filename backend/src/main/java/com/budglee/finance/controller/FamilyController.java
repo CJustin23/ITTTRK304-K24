@@ -4,6 +4,7 @@ import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.FamilyInvitationRequest;
 import com.budglee.finance.dto.FamilyInvitationResponse;
 import com.budglee.finance.dto.FamilyMemberResponse;
+import com.budglee.finance.dto.FamilyUserLookupResponse;
 import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.FamilyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -128,6 +129,34 @@ public class FamilyController {
 
         return ResponseEntity.ok(
                 ApiResponse.ok(null, "Xóa thành viên khỏi gia đình thành công")
+        );
+    }
+
+    @GetMapping("/check-user")
+    @Operation(summary = "Kiểm tra sự tồn tại và tính hợp lệ của tài khoản trước khi thêm vào gia đình")
+    public ResponseEntity<ApiResponse<FamilyUserLookupResponse>> checkUser(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam String email
+    ) {
+        FamilyUserLookupResponse response =
+                familyService.checkUserForFamily(currentUser.getId(), email);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Tài khoản hợp lệ")
+        );
+    }
+
+    @PostMapping("/members")
+    @Operation(summary = "Thêm trực tiếp thành viên vào gia đình bằng email")
+    public ResponseEntity<ApiResponse<FamilyMemberResponse>> addDirectMember(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @Valid @RequestBody FamilyInvitationRequest request
+    ) {
+        FamilyMemberResponse response =
+                familyService.addDirectMember(currentUser.getId(), request);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Thêm thành viên vào sổ quỹ thành công")
         );
     }
 }
