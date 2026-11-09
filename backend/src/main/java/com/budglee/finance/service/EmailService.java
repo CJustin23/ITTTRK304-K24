@@ -32,7 +32,7 @@ public class EmailService {
         log.info("Chuẩn bị gửi email mã xác thực đến: {}", toEmail);
 
         if (mailSender == null || fromEmail == null || fromEmail.trim().isEmpty()) {
-            log.warn("[EMAIL CONFIG] Chưa cấu hình MAIL_USERNAME/MAIL_PASSWORD trên server. Không thể gửi SMTP thực. OTP={}", otp);
+            log.warn("[EMAIL CONFIG] Chưa cấu hình MAIL_USERNAME/MAIL_PASSWORD trên server. Không gửi được SMTP thực cho email={}", toEmail);
             return;
         }
 

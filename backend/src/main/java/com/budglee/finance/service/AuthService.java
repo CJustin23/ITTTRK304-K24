@@ -18,6 +18,7 @@ import com.budglee.finance.security.TokenBlocklist;
 import com.budglee.finance.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
@@ -50,6 +51,8 @@ import java.util.Set;
  *    không cho dò mật khẩu theo từ điển.
  * 8. Đăng xuất thu hồi token qua TokenBlocklist; tài khoản bị quản trị tắt thì cờ enabled
  *    chặn ở cả cửa đăng nhập lẫn cửa token cũ còn hạn.
+ * 9. OTP quên mật khẩu chỉ đi qua email. Trả OTP trong response (cờ expose-otp, mặc định tắt)
+ *    chỉ dùng cho demo cục bộ, vì endpoint công khai mà lộ mã thì ai cũng đổi được mật khẩu người khác.
  * =========================================================================
  */
 @Service
@@ -67,6 +70,14 @@ public class AuthService {
     private final TokenBlocklist tokenBlocklist;
     private final PasswordResetService passwordResetService;
     private final EmailService emailService;
+
+    /**
+     * Demo trên máy cần OTP ngay trong response để giao diện điền sẵn, nhưng trên server thật thì
+     * trả OTP cho người gọi là đưa chìa khoá đổi mật khẩu của bất kỳ ai: /auth/forgot-password là
+     * endpoint công khai, chỉ cần biết email nạn nhân là chiếm được tài khoản. Mặc định tắt.
+     */
+    @Value("${app.security.expose-otp:false}")
+    private boolean exposeOtp;
 
     public AuthResponse register(RegisterRequest request) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
@@ -197,7 +208,7 @@ public class AuthService {
 
         return ForgotPasswordResponse.builder()
                 .email(email)
-                .otp(otp)
+                .otp(exposeOtp ? otp : null)
                 .message("Mã xác thực 6 chữ số đã được gửi đến hộp thư " + email + ". Vui lòng kiểm tra email của bạn!")
                 .expiresInSeconds(PasswordResetService.OTP_VALIDITY.toSeconds())
                 .build();

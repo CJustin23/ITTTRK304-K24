@@ -77,8 +77,9 @@ public class PasswordResetService {
         Instant expiresAt = Instant.now().plus(OTP_VALIDITY);
 
         activeCodes.put(normalizedEmail, new ResetCodeEntry(otp, expiresAt));
-        log.info("Đã tạo mã xác thực quên mật khẩu (6 chữ số) cho email={} (hết hạn sau {} phút): {}",
-                normalizedEmail, OTP_VALIDITY.toMinutes(), otp);
+        // Không ghi mã vào log: log trên server là bên thứ ba đọc được, và mã này đổi được mật khẩu.
+        log.info("Đã tạo mã xác thực quên mật khẩu (6 chữ số) cho email={} (hết hạn sau {} phút)",
+                normalizedEmail, OTP_VALIDITY.toMinutes());
         return otp;
     }
 

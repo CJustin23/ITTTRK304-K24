@@ -27,3 +27,8 @@ logging:
     com.budglee.finance: DEBUG
     org.springframework.security: INFO
     org.hibernate.SQL: DEBUG
+
+# Demo cuc bo: tra OTP trong response de giao dien dien san. Production mac dinh tat.
+app:
+  security:
+    expose-otp: true

@@ -32,3 +32,5 @@ app:
   security:
     login-lockout:
       enabled: false
+    # Demo cuc bo: tra OTP trong response de giao dien dien san. Production mac dinh tat.
+    expose-otp: true
