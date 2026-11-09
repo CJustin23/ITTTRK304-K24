@@ -59,7 +59,7 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     ],
   };
 
-  const isDemo = currentUser?.email.toLowerCase() === 'demo@budglee.com';
+  const isDemo = ['thanhcanhan@gmail.com', 'thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com', 'demo@budglee.com'].includes(currentUser?.email.toLowerCase() || '');
   const hasExpenses = recentTransactions.some((t) => t.transactionType === 'EXPENSE');
 
   // Tài khoản Demo hiển thị dữ liệu demo; tài khoản thường nếu chưa có chi tiêu thì để 0

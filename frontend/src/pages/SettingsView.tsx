@@ -190,6 +190,10 @@ export const SettingsView: React.FC = () => {
     }
 
     const SYSTEM_ACCOUNTS: Record<string, string> = {
+      'thanhcanhan@gmail.com': 'Nguyễn Tiến Thành (Cá nhân)',
+      'thanhba@gmail.com': 'Nguyễn Tiến Ba (Ba)',
+      'thanhme@gmail.com': 'Trần Thị Mẹ (Mẹ)',
+      'thanhcon@gmail.com': 'Nguyễn Tiến Con (Con)',
       'thannhk6@gmail.com': 'Nguyễn Tiến Thành',
       'thenng@gmail.com': 'Nguyễn Tiến Thành',
       'demo@budglee.com': 'Nguyễn Văn Demo',

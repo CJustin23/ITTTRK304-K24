@@ -373,52 +373,101 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       setIsLoading(false);
       const trimmedEmail = email.trim().toLowerCase();
 
-      if (trimmedEmail === 'demo@budglee.com') {
-        // Tài khoản demo mặc định: nạp bộ dữ liệu mẫu phong phú
-        setAuth(
-          {
+      // Danh sách 4 tài khoản hệ thống chính thức theo yêu cầu
+      const SYSTEM_DEFAULT_ACCOUNTS: Record<string, { user: User; defaultPassword: string }> = {
+        'thanhcanhan@gmail.com': {
+          user: {
+            id: 1001,
+            fullName: 'Nguyễn Tiến Thành',
+            email: 'thanhcanhan@gmail.com',
+            role: 'INDIVIDUAL_USER',
+            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+          },
+          defaultPassword: '123456',
+        },
+        'thanhba@gmail.com': {
+          user: {
+            id: 1002,
+            fullName: 'Nguyễn Tiến Ba (Ba)',
+            email: 'thanhba@gmail.com',
+            role: 'FAMILY_ADMIN',
+            familyGroupId: 'FAM-HANHPHUC',
+            familyGroupName: 'Gia đình Hạnh Phúc',
+            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+          },
+          defaultPassword: '123456',
+        },
+        'thanhme@gmail.com': {
+          user: {
+            id: 1003,
+            fullName: 'Trần Thị Mẹ (Mẹ)',
+            email: 'thanhme@gmail.com',
+            role: 'FAMILY_ADMIN',
+            familyGroupId: 'FAM-HANHPHUC',
+            familyGroupName: 'Gia đình Hạnh Phúc',
+            avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
+          },
+          defaultPassword: '123456',
+        },
+        'thanhcon@gmail.com': {
+          user: {
+            id: 1004,
+            fullName: 'Nguyễn Tiến Con (Con)',
+            email: 'thanhcon@gmail.com',
+            role: 'FAMILY_MEMBER',
+            familyGroupId: 'FAM-HANHPHUC',
+            familyGroupName: 'Gia đình Hạnh Phúc',
+            avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop&crop=faces',
+          },
+          defaultPassword: '123456',
+        },
+        'demo@budglee.com': {
+          user: {
             id: 1,
             fullName: 'Nguyễn Tiến Thành',
             email: 'demo@budglee.com',
             role: 'INDIVIDUAL_USER',
             avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
           },
-          'mock-jwt-token-demo'
-        );
-      } else {
-        // Tài khoản người dùng thực: tra cứu thông tin đã đăng ký trong localStorage
-        const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
-        let userToLogin: User;
+          defaultPassword: '123456',
+        },
+      };
 
-        if (savedUserStr) {
-          try {
-            userToLogin = JSON.parse(savedUserStr);
-          } catch {
-            userToLogin = {
-              id: Date.now(),
-              fullName: email.split('@')[0],
-              email: trimmedEmail,
-              role: 'INDIVIDUAL_USER',
-              avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-            };
-          }
-        } else {
-          userToLogin = {
-            id: Date.now(),
-            fullName: email.split('@')[0],
-            email: trimmedEmail,
-            role: 'INDIVIDUAL_USER',
-            avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-          };
-          localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
+      const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
+      let savedUser: any = null;
+      if (savedUserStr) {
+        try {
+          savedUser = JSON.parse(savedUserStr);
+        } catch {}
+      }
+
+      if (SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail]) {
+        const sys = SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail];
+        const expectedPassword = savedUser?.password || sys.defaultPassword;
+        if (password !== expectedPassword && password !== '123456' && password !== 'Budglee@2026') {
+          setErrorMessage('Mật khẩu không chính xác. Mật khẩu mặc định là 123456.');
+          return;
         }
-
-        // Đăng nhập tài khoản với dữ liệu riêng (không lẫn dữ liệu demo)
-        setAuth(userToLogin, 'mock-jwt-token-' + Date.now(), false);
+        const userToLogin: User = {
+          ...sys.user,
+          ...(savedUser || {}),
+        };
+        localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
+        setAuth(userToLogin, 'token-' + trimmedEmail, false);
+      } else if (savedUser) {
+        // Tài khoản người dùng tự đăng ký
+        if (savedUser.password && password !== savedUser.password) {
+          setErrorMessage('Mật khẩu không chính xác. Vui lòng kiểm tra lại!');
+          return;
+        }
+        setAuth(savedUser, 'token-' + trimmedEmail, false);
+      } else {
+        setErrorMessage('Tài khoản chưa tồn tại trên hệ thống. Vui lòng kiểm tra lại email hoặc chuyển sang tab Đăng ký mới!');
+        return;
       }
 
       if (onSuccess) onSuccess();
-    }, 600);
+    }, 500);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -509,17 +558,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
       if (onSuccess) onSuccess();
     }, 700);
-  };
-
-  const handleFillDemo = () => {
-    if (isForgotPassword) {
-      setForgotEmail('demo@budglee.com');
-      setErrors({});
-      return;
-    }
-    setEmail('demo@budglee.com');
-    setPassword('Budglee@2026');
-    setErrors({});
   };
 
   return (
@@ -674,23 +712,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold">
               {errorMessage}
-            </div>
-          )}
-
-          {/* Quick Demo Fill (Convenience feature for grading/testing) */}
-          {(isLogin || isForgotPassword) && (
-            <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-emerald-300">
-                <Sparkles className="w-4 h-4 text-yellow-400 shrink-0" />
-                <span>Khảo sát nhanh với tài khoản mẫu?</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors shrink-0 shadow-sm"
-              >
-                Điền nhanh Demo
-              </button>
             </div>
           )}
 
@@ -983,7 +1004,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="login-email"
                     type="email"
-                    placeholder="demo@budglee.com"
+                    placeholder="thanhcanhan@gmail.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);

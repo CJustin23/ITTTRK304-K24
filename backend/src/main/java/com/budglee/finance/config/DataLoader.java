@@ -90,6 +90,62 @@ public class DataLoader implements CommandLineRunner {
                         .build())
         );
 
+        // 5. Khởi tạo 4 tài khoản hệ thống theo yêu cầu: mật khẩu 123456
+        // 5.1. Tài khoản cá nhân thanhcanhan@gmail.com
+        userRepository.findByEmail("thanhcanhan@gmail.com").orElseGet(() ->
+                userRepository.save(User.builder()
+                        .fullName("Nguyễn Tiến Thành")
+                        .email("thanhcanhan@gmail.com")
+                        .passwordHash(passwordEncoder.encode("123456"))
+                        .role(Role.INDIVIDUAL_USER)
+                        .enabled(true)
+                        .build())
+        );
+
+        // 5.2. Nhóm gia đình FAM-HANHPHUC
+        User thanhBa = userRepository.findByEmail("thanhba@gmail.com").orElseGet(() ->
+                userRepository.save(User.builder()
+                        .fullName("Nguyễn Tiến Ba (Ba)")
+                        .email("thanhba@gmail.com")
+                        .passwordHash(passwordEncoder.encode("123456"))
+                        .role(Role.FAMILY_ADMIN)
+                        .familyGroupId("FAM-HANHPHUC")
+                        .enabled(true)
+                        .build())
+        );
+
+        familyGroupRepository.findById("FAM-HANHPHUC").orElseGet(() ->
+                familyGroupRepository.save(FamilyGroup.builder()
+                        .id("FAM-HANHPHUC")
+                        .name("Gia đình Hạnh Phúc")
+                        .createdBy(thanhBa)
+                        .build())
+        );
+
+        // 5.3. Tài khoản Mẹ
+        userRepository.findByEmail("thanhme@gmail.com").orElseGet(() ->
+                userRepository.save(User.builder()
+                        .fullName("Trần Thị Mẹ (Mẹ)")
+                        .email("thanhme@gmail.com")
+                        .passwordHash(passwordEncoder.encode("123456"))
+                        .role(Role.FAMILY_ADMIN)
+                        .familyGroupId("FAM-HANHPHUC")
+                        .enabled(true)
+                        .build())
+        );
+
+        // 5.4. Tài khoản Con
+        userRepository.findByEmail("thanhcon@gmail.com").orElseGet(() ->
+                userRepository.save(User.builder()
+                        .fullName("Nguyễn Tiến Con (Con)")
+                        .email("thanhcon@gmail.com")
+                        .passwordHash(passwordEncoder.encode("123456"))
+                        .role(Role.FAMILY_MEMBER)
+                        .familyGroupId("FAM-HANHPHUC")
+                        .enabled(true)
+                        .build())
+        );
+
         log.info("==> Đã khởi tạo xong các tài khoản mẫu trong H2 Database");
     }
 }

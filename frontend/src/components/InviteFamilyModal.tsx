@@ -61,6 +61,10 @@ export const InviteFamilyModal: React.FC = () => {
 
     // Danh sách tài khoản mặc định của hệ thống
     const SYSTEM_ACCOUNTS: Record<string, { fullName: string; role: Role }> = {
+      'thanhcanhan@gmail.com': { fullName: 'Nguyễn Tiến Thành (Cá nhân)', role: 'INDIVIDUAL_USER' },
+      'thanhba@gmail.com': { fullName: 'Nguyễn Tiến Ba (Ba)', role: 'FAMILY_ADMIN' },
+      'thanhme@gmail.com': { fullName: 'Trần Thị Mẹ (Mẹ)', role: 'FAMILY_ADMIN' },
+      'thanhcon@gmail.com': { fullName: 'Nguyễn Tiến Con (Con)', role: 'FAMILY_MEMBER' },
       'thannhk6@gmail.com': { fullName: 'Nguyễn Tiến Thành', role: 'FAMILY_MEMBER' },
       'thenng@gmail.com': { fullName: 'Nguyễn Tiến Thành', role: 'FAMILY_MEMBER' },
       'demo@budglee.com': { fullName: 'Nguyễn Văn Demo', role: 'INDIVIDUAL_USER' },

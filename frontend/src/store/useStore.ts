@@ -15,215 +15,683 @@ import {
 } from '../types';
 import { FamilyApiService } from '../services/api';
 
-// Dữ liệu mẫu (Rich Demo Data) dành riêng cho tài khoản Demo
-export const DEMO_WALLETS: Wallet[] = [
-  { id: 1, walletName: 'Techcombank Primary', cardNumberMasked: '**** 4892', balance: 45200000, currency: 'VND', type: 'BANK', color: 'from-slate-900 to-indigo-950' },
-  { id: 2, walletName: 'Visa Signature Card', cardNumberMasked: '**** 9012', balance: 18500000, currency: 'VND', type: 'CREDIT_CARD', color: 'from-emerald-900 to-teal-950' },
-  { id: 3, walletName: 'Ví tiền mặt (Cash)', cardNumberMasked: '', balance: 3450000, currency: 'VND', type: 'CASH', color: 'from-amber-900 to-orange-950' },
-];
+// ============================================================================
+// DỮ LIỆU MẪU: 1 TÀI KHOẢN CÁ NHÂN (thanhcanhan@gmail.com) - 10-20 DỮ LIỆU MỖI CHỨC NĂNG
+// ============================================================================
+export const THANHCANHAN_DATA: {
+  wallets: Wallet[];
+  recentTransactions: Transaction[];
+  budgets: Budget[];
+  savingGoals: SavingGoal[];
+  notifications: NotificationItem[];
+  botRecommendation: HabitRecommendation;
+} = {
+  wallets: [
+    { id: 1, walletName: 'Techcombank Lương', cardNumberMasked: '**** 4892', balance: 45200000, currency: 'VND', type: 'BANK', color: 'from-slate-900 to-indigo-950' },
+    { id: 2, walletName: 'Visa Platinum Debit', cardNumberMasked: '**** 9012', balance: 18500000, currency: 'VND', type: 'CREDIT_CARD', color: 'from-emerald-900 to-teal-950' },
+    { id: 3, walletName: 'Ví MoMo Pay', cardNumberMasked: '0987***283', balance: 5800000, currency: 'VND', type: 'CASH', color: 'from-pink-900 to-rose-950' },
+    { id: 4, walletName: 'Ví Tiền mặt (Cash)', cardNumberMasked: '', balance: 3450000, currency: 'VND', type: 'CASH', color: 'from-amber-900 to-orange-950' },
+  ],
+  recentTransactions: [
+    {
+      id: 101,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Nhận lương tháng 10/2026',
+      amount: 35000000,
+      transactionType: 'INCOME',
+      balanceAfter: 45200000,
+      transactionDate: '2026-10-25 09:30',
+      note: 'Lương chuyển khoản công ty Budglee',
+    },
+    {
+      id: 102,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Thưởng hoàn thành dự án Sprint 2',
+      amount: 10000000,
+      transactionType: 'INCOME',
+      balanceAfter: 55200000,
+      transactionDate: '2026-10-27 16:00',
+      note: 'Thưởng dự án xuất sắc',
+    },
+    {
+      id: 103,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Thu nhập khác',
+      categoryIcon: 'TrendingUp',
+      actionTitle: 'Tiền làm thêm Freelance Web',
+      amount: 6500000,
+      transactionType: 'INCOME',
+      balanceAfter: 25000000,
+      transactionDate: '2026-10-28 11:20',
+      note: 'Thiết kế giao diện landing page',
+    },
+    {
+      id: 104,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Ăn tối Pizza 4P’s cùng bạn bè',
+      amount: 850000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 24150000,
+      transactionDate: '2026-10-28 19:45',
+      note: 'Gặp gỡ bạn bè cuối tuần',
+    },
+    {
+      id: 105,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Coffee',
+      actionTitle: 'Highlands Coffee làm việc sáng',
+      amount: 85000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 5715000,
+      transactionDate: '2026-10-29 08:30',
+      note: 'Freeze trà xanh size L',
+    },
+    {
+      id: 106,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Ăn trưa cơm văn phòng',
+      amount: 55000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 5660000,
+      transactionDate: '2026-10-29 12:15',
+      note: 'Cơm sườn bì chả',
+    },
+    {
+      id: 107,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Hóa đơn & Tiện ích',
+      categoryIcon: 'Receipt',
+      actionTitle: 'Thanh toán tiền điện sinh hoạt EVN',
+      amount: 1250000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 53950000,
+      transactionDate: '2026-10-29 14:00',
+      note: 'Hóa đơn tiền điện tháng 10',
+    },
+    {
+      id: 108,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Hóa đơn & Tiện ích',
+      categoryIcon: 'Receipt',
+      actionTitle: 'Cước cáp quang Internet VNPT',
+      amount: 330000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 53620000,
+      transactionDate: '2026-10-29 14:30',
+      note: 'Gói Home Net 200Mbps',
+    },
+    {
+      id: 109,
+      walletId: 4,
+      walletName: 'Ví Tiền mặt (Cash)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Đổ xăng xe máy Shell FuelSave',
+      amount: 110000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 3340000,
+      transactionDate: '2026-10-30 07:45',
+      note: 'Xăng RON 95-V',
+    },
+    {
+      id: 110,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Mua sắm cá nhân',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mua bàn phím cơ Keychron K3 Pro',
+      amount: 1450000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 22700000,
+      transactionDate: '2026-10-30 15:20',
+      note: 'Phục vụ lập trình code',
+    },
+    {
+      id: 111,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Mua sắm cá nhân',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mua sắm tạp hóa siêu thị WinMart',
+      amount: 480000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 5180000,
+      transactionDate: '2026-10-31 18:30',
+      note: 'Sữa tươi, bánh mì, trái cây',
+    },
+    {
+      id: 112,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Giải trí & Du lịch',
+      categoryIcon: 'Film',
+      actionTitle: 'Vé xem phim CGV cuối tuần',
+      amount: 240000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 4940000,
+      transactionDate: '2026-11-01 20:00',
+      note: '2 vé phim IMAX 3D',
+    },
+    {
+      id: 113,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Học tập & Phát triển',
+      categoryIcon: 'BookOpen',
+      actionTitle: 'Mua sách công nghệ chuyên sâu Tiki',
+      amount: 350000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 22350000,
+      transactionDate: '2026-11-02 10:15',
+      note: 'Sách Thiết kế kiến trúc Microservices',
+    },
+    {
+      id: 114,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Giải trí & Du lịch',
+      categoryIcon: 'Music',
+      actionTitle: 'Gia hạn gói Spotify Premium cá nhân',
+      amount: 59000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 22291000,
+      transactionDate: '2026-11-03 09:00',
+      note: 'Tự động trừ thẻ hàng tháng',
+    },
+    {
+      id: 115,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Sức khỏe & Thể thao',
+      categoryIcon: 'Activity',
+      actionTitle: 'Đóng phí thẻ tập Gym California',
+      amount: 600000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 53020000,
+      transactionDate: '2026-11-04 17:30',
+      note: 'Gói thành viên Fitness 1 tháng',
+    },
+    {
+      id: 116,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Coffee',
+      actionTitle: 'Cà phê họp nhóm Phúc Long Tea',
+      amount: 95000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 4845000,
+      transactionDate: '2026-11-05 15:00',
+      note: 'Trà sữa Oolong hạt sen',
+    },
+    {
+      id: 117,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Tiết kiệm & Đầu tư',
+      categoryIcon: 'PiggyBank',
+      actionTitle: 'Trích quỹ tiết kiệm định kỳ tháng 11',
+      amount: 5000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 48020000,
+      transactionDate: '2026-11-06 08:30',
+      note: 'Nạp vào Mục tiêu mua xe SH',
+    },
+    {
+      id: 118,
+      walletId: 4,
+      walletName: 'Ví Tiền mặt (Cash)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Bảo dưỡng thay dầu máy Motul',
+      amount: 280000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 3060000,
+      transactionDate: '2026-11-07 10:00',
+      note: 'Thay dầu lap và dầu máy định kỳ',
+    },
+  ],
+  budgets: [
+    { id: 1, categoryId: 1, categoryName: 'Ăn uống & Cà phê', categoryIcon: 'Utensils', amountLimit: 5000000, spentAmount: 1085000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 2, categoryId: 2, categoryName: 'Mua sắm cá nhân', categoryIcon: 'ShoppingBag', amountLimit: 3500000, spentAmount: 1930000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 3, categoryId: 4, categoryName: 'Hóa đơn & Tiện ích', categoryIcon: 'Receipt', amountLimit: 2000000, spentAmount: 1580000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 4, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 1500000, spentAmount: 390000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 5, categoryId: 5, categoryName: 'Giải trí & Du lịch', categoryIcon: 'Plane', amountLimit: 1500000, spentAmount: 299000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 6, categoryId: 6, categoryName: 'Học tập & Phát triển', categoryIcon: 'BookOpen', amountLimit: 1000000, spentAmount: 350000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+  ],
+  savingGoals: [
+    { id: 1, goalName: 'Mua xe Honda SH 160i ABS', targetAmount: 110000000, currentAmount: 75000000, deadline: '2026-12-31', status: 'IN_PROGRESS', color: 'emerald' },
+    { id: 2, goalName: 'Quỹ dự phòng khẩn cấp 6 tháng', targetAmount: 60000000, currentAmount: 60000000, deadline: '2026-10-31', status: 'COMPLETED', color: 'blue' },
+    { id: 3, goalName: 'Du lịch Nhật Bản ngắm hoa anh đào', targetAmount: 45000000, currentAmount: 18000000, deadline: '2027-04-15', status: 'IN_PROGRESS', color: 'teal' },
+    { id: 4, goalName: 'Nâng cấp Laptop MacBook Pro M3', targetAmount: 35000000, currentAmount: 22000000, deadline: '2027-01-20', status: 'IN_PROGRESS', color: 'amber' },
+  ],
+  notifications: [
+    {
+      id: 'notif-1',
+      title: 'Lương tháng 10/2026 đã về',
+      message: '+35.000.000 ₫ từ Công ty Công nghệ Budglee đã ghi nhận vào ví Techcombank.',
+      time: 'Hôm qua',
+      type: 'INFO',
+      read: false,
+    },
+    {
+      id: 'notif-2',
+      title: 'Cảnh báo ngân sách Tiện ích',
+      message: 'Danh mục "Hóa đơn & Tiện ích" đã đạt 79% hạn mức chi tiêu tháng 11.',
+      time: '2 ngày trước',
+      type: 'WARNING',
+      read: false,
+    },
+    {
+      id: 'notif-3',
+      title: 'Mục tiêu hoàn thành xuất sắc!',
+      message: 'Chúc mừng bạn đã hoàn thành 100% mục tiêu "Quỹ dự phòng khẩn cấp 6 tháng"!',
+      time: 'Tuần trước',
+      type: 'SUCCESS',
+      read: true,
+    },
+    {
+      id: 'notif-4',
+      title: 'Báo cáo tài chính tuần',
+      message: 'Tuần qua bạn đã tiết kiệm được 32% thu nhập, đạt tỷ lệ tối ưu theo quy tắc 50/30/20.',
+      time: 'Tuần trước',
+      type: 'INFO',
+      read: true,
+    },
+    {
+      id: 'notif-5',
+      title: 'Gợi ý từ Trợ lý AI',
+      message: 'Bạn có khoản thưởng 10.000.000 ₫ chưa phân bổ. Hãy nạp thêm vào mục tiêu xe SH!',
+      time: 'Tuần trước',
+      type: 'INFO',
+      read: true,
+    },
+  ],
+  botRecommendation: {
+    status: 'ON_TRACK',
+    primaryAdvice:
+      'Tỷ lệ tiết kiệm tháng này đạt 32%, vượt mục tiêu đề xuất 20%. Bạn đang cân đối ngân sách cá nhân rất tốt.',
+    actionItems: [
+      'Duy trì hạn mức chi tiêu ăn uống dưới 5.000.000 ₫ trong tháng.',
+      'Chuyển thêm 3.000.000 ₫ vào Mục tiêu mua xe Honda SH để đạt kế hoạch trước Tết.',
+      'Kiểm tra lại hóa đơn điện nước để tối ưu chi phí sinh hoạt cá nhân.',
+    ],
+    categoryWarnings: [
+      {
+        categoryName: 'Hóa đơn & Tiện ích',
+        increasePercentage: 12.5,
+        recommendation: 'Chi phí điện nước đang ở mức 79% hạn mức. Nên tắt thiết bị khi không dùng.',
+      },
+    ],
+  },
+};
 
-export const DEMO_TRANSACTIONS: Transaction[] = [
-  {
-    id: 101,
-    walletId: 1,
-    walletName: 'Techcombank Primary',
-    categoryName: 'Lương & Thưởng',
-    categoryIcon: 'BadgeDollarSign',
-    actionTitle: 'Nhận lương tháng 10',
-    amount: 32000000,
-    transactionType: 'INCOME',
-    balanceAfter: 67150000,
-    transactionDate: '2026-10-25 09:30',
-    note: 'Lương chuyển khoản tháng 10/2026',
+// ============================================================================
+// DỮ LIỆU MẪU: 3 TÀI KHOẢN CHI TIÊU GIA ĐÌNH (thanhba, thanhme, thanhcon)
+// Nhóm: "Gia đình Hạnh Phúc" (FAM-HANHPHUC)
+// ============================================================================
+export const FAMILY_SHARED_DATA: {
+  wallets: Wallet[];
+  recentTransactions: Transaction[];
+  budgets: Budget[];
+  savingGoals: SavingGoal[];
+  familyMembers: FamilyMember[];
+  notifications: NotificationItem[];
+  botRecommendation: HabitRecommendation;
+} = {
+  wallets: [
+    { id: 201, walletName: 'Quỹ chung Gia đình (Vietcombank)', cardNumberMasked: '**** 8866', balance: 125000000, currency: 'VND', type: 'BANK', color: 'from-slate-900 to-indigo-950' },
+    { id: 202, walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)', cardNumberMasked: '**** 6622', balance: 38400000, currency: 'VND', type: 'BANK', color: 'from-emerald-900 to-teal-950' },
+    { id: 203, walletName: 'Két sắt tiền mặt gia đình', cardNumberMasked: '', balance: 12500000, currency: 'VND', type: 'CASH', color: 'from-amber-900 to-orange-950' },
+  ],
+  recentTransactions: [
+    {
+      id: 301,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Ba đóng góp quỹ chung gia đình tháng 11',
+      amount: 40000000,
+      transactionType: 'INCOME',
+      balanceAfter: 125000000,
+      transactionDate: '2026-11-01 08:30',
+      note: 'Đóng góp hàng tháng từ thu nhập của Ba',
+    },
+    {
+      id: 302,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Mẹ đóng góp quỹ chung gia đình tháng 11',
+      amount: 25000000,
+      transactionType: 'INCOME',
+      balanceAfter: 150000000,
+      transactionDate: '2026-11-01 09:00',
+      note: 'Đóng góp hàng tháng từ lương của Mẹ',
+    },
+    {
+      id: 303,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Đóng học phí học kỳ I năm học mới cho Con',
+      amount: 8500000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 141500000,
+      transactionDate: '2026-11-02 10:00',
+      note: 'Chuyển khoản trường THPT / Đại học',
+    },
+    {
+      id: 304,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Đóng tiền học thêm tiếng Anh IELTS cho Con',
+      amount: 3200000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 35200000,
+      transactionDate: '2026-11-02 15:30',
+      note: 'Khóa luyện thi chứng chỉ quý 4',
+    },
+    {
+      id: 305,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mẹ đi siêu thị Co.opmart mua thực phẩm tuần',
+      amount: 2450000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 32750000,
+      transactionDate: '2026-11-03 17:30',
+      note: 'Thịt bò, hải sản, rau củ quả cho cả tuần',
+    },
+    {
+      id: 306,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Home',
+      actionTitle: 'Phí dịch vụ quản lý tòa nhà & gửi xe chung cư',
+      amount: 1850000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 30900000,
+      transactionDate: '2026-11-03 19:00',
+      note: 'Phí dịch vụ căn hộ 3 phòng ngủ',
+    },
+    {
+      id: 307,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Receipt',
+      actionTitle: 'Thanh toán tiền điện EVN gia đình tháng 10',
+      amount: 2150000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 28750000,
+      transactionDate: '2026-11-04 11:15',
+      note: 'Tiền điện 3 điều hòa và máy giặt sấy',
+    },
+    {
+      id: 308,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Droplet',
+      actionTitle: 'Thanh toán tiền nước sinh hoạt gia đình',
+      amount: 380000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 28370000,
+      transactionDate: '2026-11-04 11:30',
+      note: 'Nước sinh hoạt gia đình',
+    },
+    {
+      id: 309,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Mua sắm & Gia đình',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mua sắm nồi chiên không dầu Philips gia đình',
+      amount: 1950000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 26420000,
+      transactionDate: '2026-11-05 14:00',
+      note: 'Thay thế nồi chiên cũ bị hỏng',
+    },
+    {
+      id: 310,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Y tế & Bảo hiểm',
+      categoryIcon: 'HeartPulse',
+      actionTitle: 'Đóng bảo hiểm nhân thọ gia đình Dai-ichi Life',
+      amount: 6500000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 135000000,
+      transactionDate: '2026-11-05 16:30',
+      note: 'Phí bảo hiểm quý 4/2026 cho 3 người',
+    },
+    {
+      id: 311,
+      walletId: 203,
+      walletName: 'Két sắt tiền mặt gia đình',
+      categoryName: 'Y tế & Bảo hiểm',
+      categoryIcon: 'HeartPulse',
+      actionTitle: 'Mua thuốc cảm cúm & vitamin bổ sung cho nhà',
+      amount: 450000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 12050000,
+      transactionDate: '2026-11-06 09:30',
+      note: 'Nhà thuốc Long Châu',
+    },
+    {
+      id: 312,
+      walletId: 203,
+      walletName: 'Két sắt tiền mặt gia đình',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Phát tiền ăn trưa & đồ dùng học tập cho Con',
+      amount: 350000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 11700000,
+      transactionDate: '2026-11-06 12:00',
+      note: 'Tiền sinh hoạt tuần của con',
+    },
+    {
+      id: 313,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Ba bảo dưỡng xe ô tô gia đình tại xưởng',
+      amount: 3200000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 131800000,
+      transactionDate: '2026-11-07 10:00',
+      note: 'Bảo dưỡng định kỳ 20.000 km',
+    },
+    {
+      id: 314,
+      walletId: 203,
+      walletName: 'Két sắt tiền mặt gia đình',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Đi chợ đầu mối mua hải sản tươi cuối tuần',
+      amount: 1250000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 10450000,
+      transactionDate: '2026-11-07 17:00',
+      note: 'Tôm cua cá làm lẩu đãi ông bà',
+    },
+    {
+      id: 315,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Cả nhà ăn tối liên hoan sum họp gia đình',
+      amount: 1680000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 24740000,
+      transactionDate: '2026-11-08 19:30',
+      note: 'Bữa tối Chủ nhật đầm ấm',
+    },
+    {
+      id: 316,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Tiết kiệm & Đầu tư',
+      categoryIcon: 'PiggyBank',
+      actionTitle: 'Trích gửi tiết kiệm Quỹ đổi xe ô tô mới',
+      amount: 10000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 121800000,
+      transactionDate: '2026-11-09 08:00',
+      note: 'Chuyển vào Mục tiêu VinFast VF7',
+    },
+  ],
+  budgets: [
+    { id: 201, categoryId: 1, categoryName: 'Ăn uống & Đi chợ gia đình', categoryIcon: 'Utensils', amountLimit: 15000000, spentAmount: 5380000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 202, categoryId: 6, categoryName: 'Học tập & Giáo dục con cái', categoryIcon: 'GraduationCap', amountLimit: 15000000, spentAmount: 12050000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 203, categoryId: 4, categoryName: 'Hóa đơn & Nhà ở', categoryIcon: 'Home', amountLimit: 6000000, spentAmount: 4380000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 204, categoryId: 7, categoryName: 'Y tế & Bảo hiểm', categoryIcon: 'HeartPulse', amountLimit: 8000000, spentAmount: 6950000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 205, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 5000000, spentAmount: 3200000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+  ],
+  savingGoals: [
+    { id: 201, goalName: 'Đổi ô tô VinFast VF7 gia đình', targetAmount: 850000000, currentAmount: 420000000, deadline: '2027-12-31', status: 'IN_PROGRESS', color: 'emerald' },
+    { id: 202, goalName: 'Quỹ học Đại học tương lai cho Con', targetAmount: 300000000, currentAmount: 185000000, deadline: '2029-06-30', status: 'IN_PROGRESS', color: 'blue' },
+    { id: 203, goalName: 'Du lịch hè Phú Quốc cả gia đình', targetAmount: 35000000, currentAmount: 35000000, deadline: '2026-07-30', status: 'COMPLETED', color: 'teal' },
+  ],
+  familyMembers: [
+    {
+      id: 1002,
+      fullName: 'Nguyễn Tiến Ba (Ba)',
+      email: 'thanhba@gmail.com',
+      role: 'FAMILY_ADMIN',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+      joinedDate: '01/10/2026',
+      isOwner: true,
+    },
+    {
+      id: 1003,
+      fullName: 'Trần Thị Mẹ (Mẹ)',
+      email: 'thanhme@gmail.com',
+      role: 'FAMILY_ADMIN',
+      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
+      joinedDate: '01/10/2026',
+      isOwner: false,
+    },
+    {
+      id: 1004,
+      fullName: 'Nguyễn Tiến Con (Con)',
+      email: 'thanhcon@gmail.com',
+      role: 'FAMILY_MEMBER',
+      avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop&crop=faces',
+      joinedDate: '01/10/2026',
+      isOwner: false,
+    },
+  ],
+  notifications: [
+    {
+      id: 'fam-notif-1',
+      title: 'Ba đã nộp quỹ chung tháng 11',
+      message: '+40.000.000 ₫ đã được chuyển vào Quỹ chung gia đình Vietcombank.',
+      time: 'Hôm nay',
+      type: 'SUCCESS',
+      read: false,
+    },
+    {
+      id: 'fam-notif-2',
+      title: 'Mẹ đã nộp quỹ chung tháng 11',
+      message: '+25.000.000 ₫ đã được chuyển vào Quỹ chung gia đình Vietcombank.',
+      time: 'Hôm nay',
+      type: 'SUCCESS',
+      read: false,
+    },
+    {
+      id: 'fam-notif-3',
+      title: 'Học phí kỳ I của Con đã đóng',
+      message: 'Thanh toán 8.500.000 ₫ tiền học phí cho trường THPT thành công.',
+      time: 'Hôm qua',
+      type: 'INFO',
+      read: true,
+    },
+    {
+      id: 'fam-notif-4',
+      title: 'Cảnh báo ngân sách Giáo dục',
+      message: 'Ngân sách Học tập & Giáo dục con cái đã đạt 80.3% (12.050.000 ₫ / 15.000.000 ₫).',
+      time: '2 ngày trước',
+      type: 'WARNING',
+      read: false,
+    },
+    {
+      id: 'fam-notif-5',
+      title: 'Mục tiêu hoàn thành!',
+      message: 'Mục tiêu "Du lịch hè Phú Quốc cả gia đình" đã hoàn thành 100% với số tiền 35.000.000 ₫!',
+      time: 'Tuần trước',
+      type: 'SUCCESS',
+      read: true,
+    },
+  ],
+  botRecommendation: {
+    status: 'WARNING',
+    primaryAdvice:
+      'Ngân sách Giáo dục của Con tháng này đã dùng hơn 80% do đóng học phí kỳ I và khóa IELTS. Quỹ sinh hoạt còn lại 26.350.000 ₫, đủ chi tiêu an toàn cho 22 ngày tới.',
+    actionItems: [
+      'Tối ưu các khoản mua sắm đồ gia dụng chưa cấp thiết trong tuần tới.',
+      'Duy trì hạn mức đi chợ gia đình dưới 2.500.000 ₫/tuần.',
+      'Trích chuyển đúng hạn 10.000.000 ₫ vào Quỹ đổi xe ô tô VinFast VF7.',
+    ],
+    categoryWarnings: [
+      {
+        categoryName: 'Học tập & Giáo dục con cái',
+        increasePercentage: 45.0,
+        recommendation: 'Đã hoàn thành các khoản học phí đầu năm, các tháng sau chi phí sẽ giảm xuống bình thường.',
+      },
+    ],
   },
-  {
-    id: 102,
-    walletId: 2,
-    walletName: 'Visa Signature Card',
-    categoryName: 'Ăn uống & Cà phê',
-    categoryIcon: 'Utensils',
-    actionTitle: 'Tiệc tối gia đình tại Pizza 4P’s',
-    amount: 1450000,
-    transactionType: 'EXPENSE',
-    balanceAfter: 65700000,
-    transactionDate: '2026-10-26 19:45',
-    note: 'Cuối tuần cùng gia đình',
-  },
-  {
-    id: 103,
-    walletId: 1,
-    walletName: 'Techcombank Primary',
-    categoryName: 'Hóa đơn & Tiện ích',
-    categoryIcon: 'Receipt',
-    actionTitle: 'Thanh toán tiền điện EVN',
-    amount: 1820000,
-    transactionType: 'EXPENSE',
-    balanceAfter: 63880000,
-    transactionDate: '2026-10-26 14:15',
-  },
-  {
-    id: 104,
-    walletId: 2,
-    walletName: 'Visa Signature Card',
-    categoryName: 'Mua sắm & Gia đình',
-    categoryIcon: 'ShoppingBag',
-    actionTitle: 'Siêu thị WinMart cuối tuần',
-    amount: 980000,
-    transactionType: 'EXPENSE',
-    balanceAfter: 62900000,
-    transactionDate: '2026-10-27 08:10',
-  },
-  {
-    id: 105,
-    walletId: 3,
-    walletName: 'Ví tiền mặt (Cash)',
-    categoryName: 'Di chuyển & Xăng xe',
-    categoryIcon: 'Car',
-    actionTitle: 'Đổ xăng xe máy Petrolimex',
-    amount: 120000,
-    transactionType: 'EXPENSE',
-    balanceAfter: 62780000,
-    transactionDate: '2026-10-27 11:30',
-  },
-];
+};
 
-export const DEMO_BUDGETS: Budget[] = [
-  {
-    id: 1,
-    categoryId: 1,
-    categoryName: 'Ăn uống & Cà phê',
-    categoryIcon: 'Utensils',
-    amountLimit: 7000000,
-    spentAmount: 5600000,
-    periodMonth: 10,
-    periodYear: 2026,
-    alertThreshold: 80,
-  },
-  {
-    id: 2,
-    categoryId: 2,
-    categoryName: 'Mua sắm & Gia đình',
-    categoryIcon: 'ShoppingBag',
-    amountLimit: 4000000,
-    spentAmount: 3450000,
-    periodMonth: 10,
-    periodYear: 2026,
-    alertThreshold: 80,
-  },
-  {
-    id: 3,
-    categoryId: 3,
-    categoryName: 'Di chuyển & Xăng xe',
-    categoryIcon: 'Car',
-    amountLimit: 2500000,
-    spentAmount: 1800000,
-    periodMonth: 10,
-    periodYear: 2026,
-    alertThreshold: 80,
-  },
-  {
-    id: 4,
-    categoryId: 4,
-    categoryName: 'Hóa đơn & Tiện ích',
-    categoryIcon: 'Receipt',
-    amountLimit: 3000000,
-    spentAmount: 2400000,
-    periodMonth: 10,
-    periodYear: 2026,
-    alertThreshold: 80,
-  },
-  {
-    id: 5,
-    categoryId: 5,
-    categoryName: 'Giải trí & Du lịch',
-    categoryIcon: 'Plane',
-    amountLimit: 1500000,
-    spentAmount: 1000000,
-    periodMonth: 10,
-    periodYear: 2026,
-    alertThreshold: 80,
-  },
-];
-
-export const DEMO_GOALS: SavingGoal[] = [
-  {
-    id: 1,
-    goalName: 'Mua xe Honda SH 160i',
-    targetAmount: 110000000,
-    currentAmount: 65000000,
-    deadline: '2026-12-31',
-    status: 'IN_PROGRESS',
-    color: 'emerald',
-  },
-  {
-    id: 2,
-    goalName: 'Du lịch gia đình Đà Nẵng',
-    targetAmount: 25000000,
-    currentAmount: 20000000,
-    deadline: '2026-11-20',
-    status: 'IN_PROGRESS',
-    color: 'teal',
-  },
-  {
-    id: 3,
-    goalName: 'Quỹ dự phòng khẩn cấp 6 tháng',
-    targetAmount: 60000000,
-    currentAmount: 60000000,
-    deadline: '2026-10-30',
-    status: 'COMPLETED',
-    color: 'blue',
-  },
-];
-
-export const DEMO_MEMBERS: FamilyMember[] = [
-  {
-    id: 1,
-    fullName: 'Nguyễn Tiến Thành (Bạn)',
-    email: 'demo@budglee.com',
-    role: 'FAMILY_MEMBER',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-    joinedDate: '20/10/2026',
-    isOwner: false,
-  },
-  {
-    id: 2,
-    fullName: 'Nguyễn Trường An (Chủ hộ)',
-    email: 'an.nt@budglee.com',
-    role: 'FAMILY_ADMIN',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
-    joinedDate: '20/10/2026',
-    isOwner: true,
-  },
-  {
-    id: 3,
-    fullName: 'Bàng Trọng Tú',
-    email: 'tu.bt@budglee.com',
-    role: 'FAMILY_MEMBER',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces',
-    joinedDate: '22/10/2026',
-  },
-  {
-    id: 4,
-    fullName: 'Lê Hoàng Xuân Vinh',
-    email: 'vinh.lhx@budglee.com',
-    role: 'FAMILY_MEMBER',
-    avatarUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&h=100&fit=crop&crop=faces',
-    joinedDate: '22/10/2026',
-  },
-];
-
+// Export backward-compatibility aliases
+export const DEMO_WALLETS = THANHCANHAN_DATA.wallets;
+export const DEMO_TRANSACTIONS = THANHCANHAN_DATA.recentTransactions;
+export const DEMO_BUDGETS = THANHCANHAN_DATA.budgets;
+export const DEMO_GOALS = THANHCANHAN_DATA.savingGoals;
+export const DEMO_MEMBERS = FAMILY_SHARED_DATA.familyMembers;
 export const DEMO_SUMMARY: DashboardSummary = {
-  totalBalance: 67150000,
-  monthlyIncome: 35000000,
-  monthlySpending: 14250000,
-  leftToSpend: 20750000,
-  spendingPercentageOfBudget: 68.5,
+  totalBalance: 72950000,
+  monthlyIncome: 51500000,
+  monthlySpending: 11234000,
+  leftToSpend: 40266000,
+  spendingPercentageOfBudget: 77.5,
   categoryExpenses: {
-    'Ăn uống & Cà phê': 5600000,
-    'Mua sắm & Gia đình': 3450000,
-    'Di chuyển & Xăng xe': 1800000,
-    'Hóa đơn & Tiện ích': 2400000,
-    'Giải trí & Du lịch': 1000000,
+    'Ăn uống & Cà phê': 1085000,
+    'Mua sắm cá nhân': 1930000,
+    'Hóa đơn & Tiện ích': 1580000,
+    'Di chuyển & Xăng xe': 390000,
+    'Giải trí & Du lịch': 299000,
+    'Học tập & Phát triển': 350000,
   },
   spentTrends: [
     { label: 'Thứ 2', amount: 1200000 },
@@ -235,64 +703,8 @@ export const DEMO_SUMMARY: DashboardSummary = {
     { label: 'Chủ nhật', amount: 1200000 },
   ],
 };
-
-export const DEMO_BOT_RECOMMENDATION: HabitRecommendation = {
-  status: 'WARNING',
-  primaryAdvice:
-    'Tháng này chi tiêu cho Ăn uống và Cà phê đã tăng 22% so với tháng trước. Tỷ lệ tiết kiệm hiện tại đạt 18% (mục tiêu đề xuất: 25%).',
-  actionItems: [
-    'Hạn chế các bữa ăn tối tại nhà hàng cao cấp trong tuần cuối tháng.',
-    'Tạm dừng các gói dịch vụ trực tuyến không sử dụng thường xuyên.',
-    'Trích lập ngay 3.000.000 ₫ sang Mục tiêu Tiết kiệm xe SH.',
-  ],
-  categoryWarnings: [
-    {
-      categoryName: 'Ăn uống & Cà phê',
-      increasePercentage: 24.8,
-      recommendation: 'Giới hạn mức tiêu tối đa 200.000 ₫/ngày trong 7 ngày tới.',
-    },
-    {
-      categoryName: 'Mua sắm & Quần áo',
-      increasePercentage: 15.2,
-      recommendation: 'Trì hoãn việc mua sắm không khẩn cấp sang tháng sau.',
-    },
-  ],
-};
-
-export const DEMO_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    title: 'Cảnh báo hạn mức ngân sách',
-    message: 'Hạng mục "Ăn uống & Cà phê" đã tiêu 5.600.000 ₫ (đạt 80.0% hạn mức 7.000.000 ₫). Hãy chú ý chi tiêu!',
-    time: '10 phút trước',
-    type: 'WARNING',
-    read: false,
-  },
-  {
-    id: 'notif-2',
-    title: 'Hạn mức chi tiêu chạm mức cao',
-    message: 'Hạng mục "Mua sắm & Gia đình" đã tiêu 3.450.000 ₫ (đạt 86.3% hạn mức 4.000.000 ₫).',
-    time: '1 giờ trước',
-    type: 'ALERT',
-    read: false,
-  },
-  {
-    id: 'notif-3',
-    title: 'Chúc mừng đạt mục tiêu!',
-    message: 'Mục tiêu "Quỹ dự phòng khẩn cấp 6 tháng" đã hoàn thành 100% với số tiền 60.000.000 ₫.',
-    time: 'Hôm qua',
-    type: 'SUCCESS',
-    read: true,
-  },
-  {
-    id: 'notif-4',
-    title: 'Không gian gia đình FAM-001',
-    message: 'Thành viên Nguyễn Trường An vừa tham gia và đồng bộ vào sổ quỹ gia đình.',
-    time: '2 ngày trước',
-    type: 'INFO',
-    read: true,
-  },
-];
+export const DEMO_BOT_RECOMMENDATION = THANHCANHAN_DATA.botRecommendation;
+export const DEMO_NOTIFICATIONS = THANHCANHAN_DATA.notifications;
 
 // Helper: tính toán DashboardSummary theo dữ liệu hiện tại
 export const calculateDashboardSummary = (
@@ -446,7 +858,8 @@ export const persistCurrentUserData = (
 ) => {
   if (!user || !user.email || typeof window === 'undefined') return;
   try {
-    const storageKey = 'budglee_data_' + user.email.toLowerCase();
+    const emailKey = user.email.toLowerCase();
+    const storageKey = 'budglee_data_' + emailKey;
     const existingStr = localStorage.getItem(storageKey);
     let existingData: any = {};
     if (existingStr) {
@@ -466,6 +879,23 @@ export const persistCurrentUserData = (
       botRecommendation: data.botRecommendation !== undefined ? data.botRecommendation : (existingData.botRecommendation ?? null),
     };
     localStorage.setItem(storageKey, JSON.stringify(payload));
+
+    // Nếu thuộc nhóm gia đình, đồng bộ thêm vào budglee_family_data_<familyGroupId>
+    const isFamilyUser = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || !!user.familyGroupId;
+    const famId = user.familyGroupId || (isFamilyUser ? 'FAM-HANHPHUC' : null);
+    if (famId) {
+      const famKey = 'budglee_family_data_' + famId;
+      localStorage.setItem(
+        famKey,
+        JSON.stringify({
+          wallets: payload.wallets,
+          recentTransactions: payload.recentTransactions,
+          budgets: payload.budgets,
+          savingGoals: payload.savingGoals,
+          familyMembers: payload.familyMembers,
+        })
+      );
+    }
   } catch (err) {
     console.error('Lỗi khi lưu dữ liệu người dùng vào localStorage:', err);
   }
@@ -513,18 +943,52 @@ const loadInitialAuthState = () => {
   try {
     const user: User = JSON.parse(storedUserStr);
     const emailKey = user.email ? user.email.toLowerCase() : 'default';
-    const isDemo = emailKey === 'demo@budglee.com';
+    const isPersonalThanh = emailKey === 'thanhcanhan@gmail.com' || emailKey === 'demo@budglee.com';
+    const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || user.familyGroupId === 'FAM-HANHPHUC';
+    const famId = user.familyGroupId || (isFamilyThanh ? 'FAM-HANHPHUC' : null);
+
     const storageKey = 'budglee_data_' + emailKey;
     const savedDataStr = localStorage.getItem(storageKey);
+    const famKey = famId ? 'budglee_family_data_' + famId : null;
+    const famDataStr = famKey ? localStorage.getItem(famKey) : null;
+
+    if (isFamilyThanh && famDataStr) {
+      const famSaved = JSON.parse(famDataStr);
+      const personalSaved = savedDataStr ? JSON.parse(savedDataStr) : {};
+      const loadedWallets = famSaved.wallets ?? FAMILY_SHARED_DATA.wallets;
+      const loadedTxs = famSaved.recentTransactions ?? FAMILY_SHARED_DATA.recentTransactions;
+      const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
+      const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
+      const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
+      const loadedNotifs = personalSaved.notifications ?? FAMILY_SHARED_DATA.notifications;
+      const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
+      const loadedBot = personalSaved.botRecommendation ?? FAMILY_SHARED_DATA.botRecommendation;
+
+      return {
+        currentUser: user,
+        token: storedToken,
+        wallets: loadedWallets,
+        recentTransactions: loadedTxs,
+        budgets: loadedBudgets,
+        savingGoals: loadedGoals,
+        familyMembers: loadedMembers,
+        notifications: loadedNotifs,
+        dashboardSummary: loadedSummary,
+        botRecommendation: loadedBot,
+        receivedInvitations: [],
+        sentInvitations: [],
+      };
+    }
 
     if (savedDataStr) {
       const saved = JSON.parse(savedDataStr);
-      const loadedWallets = saved.wallets ?? (isDemo ? DEMO_WALLETS : []);
-      const loadedTxs = saved.recentTransactions ?? (isDemo ? DEMO_TRANSACTIONS : []);
-      const loadedBudgets = saved.budgets ?? (isDemo ? DEMO_BUDGETS : []);
-      const loadedGoals = saved.savingGoals ?? (isDemo ? DEMO_GOALS : []);
-      const loadedMembers = saved.familyMembers ?? (isDemo ? DEMO_MEMBERS : []);
-      const loadedNotifs = saved.notifications ?? (isDemo ? DEMO_NOTIFICATIONS : []);
+      const defaultSet = isPersonalThanh ? THANHCANHAN_DATA : (isFamilyThanh ? FAMILY_SHARED_DATA : null);
+      const loadedWallets = saved.wallets ?? (defaultSet ? defaultSet.wallets : []);
+      const loadedTxs = saved.recentTransactions ?? (defaultSet ? defaultSet.recentTransactions : []);
+      const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
+      const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
+      const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
+      const loadedNotifs = saved.notifications ?? (defaultSet ? defaultSet.notifications : []);
       const loadedSummary = saved.dashboardSummary || calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
 
       return {
@@ -537,28 +1001,49 @@ const loadInitialAuthState = () => {
         familyMembers: loadedMembers,
         notifications: loadedNotifs,
         dashboardSummary: loadedSummary,
-        botRecommendation: saved.botRecommendation ?? (isDemo ? DEMO_BOT_RECOMMENDATION : null),
+        botRecommendation: saved.botRecommendation ?? (defaultSet ? defaultSet.botRecommendation : null),
         receivedInvitations: [],
         sentInvitations: [],
       };
     }
 
-    if (isDemo) {
-      const demoData = {
-        wallets: DEMO_WALLETS,
-        recentTransactions: DEMO_TRANSACTIONS,
-        budgets: DEMO_BUDGETS,
-        savingGoals: DEMO_GOALS,
-        familyMembers: DEMO_MEMBERS,
-        notifications: DEMO_NOTIFICATIONS,
-        dashboardSummary: DEMO_SUMMARY,
-        botRecommendation: DEMO_BOT_RECOMMENDATION,
+    if (isPersonalThanh) {
+      const initialPersonal = {
+        wallets: THANHCANHAN_DATA.wallets,
+        recentTransactions: THANHCANHAN_DATA.recentTransactions,
+        budgets: THANHCANHAN_DATA.budgets,
+        savingGoals: THANHCANHAN_DATA.savingGoals,
+        familyMembers: [],
+        notifications: THANHCANHAN_DATA.notifications,
+        dashboardSummary: calculateDashboardSummary(THANHCANHAN_DATA.wallets, THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets),
+        botRecommendation: THANHCANHAN_DATA.botRecommendation,
       };
-      persistCurrentUserData(user, demoData);
+      persistCurrentUserData(user, initialPersonal);
       return {
         currentUser: user,
         token: storedToken,
-        ...demoData,
+        ...initialPersonal,
+        receivedInvitations: [],
+        sentInvitations: [],
+      };
+    }
+
+    if (isFamilyThanh) {
+      const initialFam = {
+        wallets: FAMILY_SHARED_DATA.wallets,
+        recentTransactions: FAMILY_SHARED_DATA.recentTransactions,
+        budgets: FAMILY_SHARED_DATA.budgets,
+        savingGoals: FAMILY_SHARED_DATA.savingGoals,
+        familyMembers: FAMILY_SHARED_DATA.familyMembers,
+        notifications: FAMILY_SHARED_DATA.notifications,
+        dashboardSummary: calculateDashboardSummary(FAMILY_SHARED_DATA.wallets, FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets),
+        botRecommendation: FAMILY_SHARED_DATA.botRecommendation,
+      };
+      persistCurrentUserData(user, initialFam);
+      return {
+        currentUser: user,
+        token: storedToken,
+        ...initialFam,
         receivedInvitations: [],
         sentInvitations: [],
       };
@@ -633,20 +1118,63 @@ export const useStore = create<AppState>((set, get) => ({
     localStorage.setItem('budglee_token', token);
     localStorage.setItem('budglee_current_user', JSON.stringify(user));
 
-    const isDemo = user.email.toLowerCase() === 'demo@budglee.com';
-    const storageKey = 'budglee_data_' + user.email.toLowerCase();
-    const savedDataStr = localStorage.getItem(storageKey);
+    const emailKey = user.email.toLowerCase();
+    const isPersonalThanh = emailKey === 'thanhcanhan@gmail.com' || emailKey === 'demo@budglee.com';
+    const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || user.familyGroupId === 'FAM-HANHPHUC';
+    const famId = user.familyGroupId || (isFamilyThanh ? 'FAM-HANHPHUC' : null);
 
-    // Nếu đã có dữ liệu lưu trữ từ trước (kể cả demo hay user thực) và không phải đăng ký mới:
+    const storageKey = 'budglee_data_' + emailKey;
+    const savedDataStr = localStorage.getItem(storageKey);
+    const famKey = famId ? 'budglee_family_data_' + famId : null;
+    const famDataStr = famKey ? localStorage.getItem(famKey) : null;
+
+    // Nếu là thành viên gia đình và đã có dữ liệu gia đình dùng chung được lưu trước đó:
+    if (isFamilyThanh && famDataStr && !isNewRegistration) {
+      try {
+        const famSaved = JSON.parse(famDataStr);
+        const personalSaved = savedDataStr ? JSON.parse(savedDataStr) : {};
+        const loadedWallets = famSaved.wallets ?? FAMILY_SHARED_DATA.wallets;
+        const loadedTxs = famSaved.recentTransactions ?? FAMILY_SHARED_DATA.recentTransactions;
+        const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
+        const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
+        const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
+        const loadedNotifs = personalSaved.notifications ?? FAMILY_SHARED_DATA.notifications;
+        const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
+        const loadedBot = personalSaved.botRecommendation ?? FAMILY_SHARED_DATA.botRecommendation;
+
+        set({
+          currentUser: user,
+          token,
+          wallets: loadedWallets,
+          recentTransactions: loadedTxs,
+          budgets: loadedBudgets,
+          savingGoals: loadedGoals,
+          familyMembers: loadedMembers,
+          notifications: loadedNotifs,
+          dashboardSummary: loadedSummary,
+          botRecommendation: loadedBot,
+        });
+        setTimeout(() => {
+          get().fetchReceivedInvitations();
+          get().fetchSentInvitations();
+        }, 50);
+        return;
+      } catch (err) {
+        console.error('Failed to parse saved family data:', err);
+      }
+    }
+
+    // Nếu đã có dữ liệu lưu trữ từ trước của cá nhân và không phải đăng ký mới:
     if (savedDataStr && !isNewRegistration) {
       try {
         const saved = JSON.parse(savedDataStr);
-        const loadedWallets = saved.wallets ?? (isDemo ? DEMO_WALLETS : []);
-        const loadedTxs = saved.recentTransactions ?? (isDemo ? DEMO_TRANSACTIONS : []);
-        const loadedBudgets = saved.budgets ?? (isDemo ? DEMO_BUDGETS : []);
-        const loadedGoals = saved.savingGoals ?? (isDemo ? DEMO_GOALS : []);
-        const loadedMembers = saved.familyMembers ?? (isDemo ? DEMO_MEMBERS : []);
-        const loadedNotifs = saved.notifications ?? (isDemo ? DEMO_NOTIFICATIONS : []);
+        const defaultSet = isPersonalThanh ? THANHCANHAN_DATA : (isFamilyThanh ? FAMILY_SHARED_DATA : null);
+        const loadedWallets = saved.wallets ?? (defaultSet ? defaultSet.wallets : []);
+        const loadedTxs = saved.recentTransactions ?? (defaultSet ? defaultSet.recentTransactions : []);
+        const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
+        const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
+        const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
+        const loadedNotifs = saved.notifications ?? (defaultSet ? defaultSet.notifications : []);
         const loadedSummary = saved.dashboardSummary || calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
 
         set({
@@ -659,7 +1187,7 @@ export const useStore = create<AppState>((set, get) => ({
           familyMembers: loadedMembers,
           notifications: loadedNotifs,
           dashboardSummary: loadedSummary,
-          botRecommendation: saved.botRecommendation ?? (isDemo ? DEMO_BOT_RECOMMENDATION : null),
+          botRecommendation: saved.botRecommendation ?? (defaultSet ? defaultSet.botRecommendation : null),
         });
         setTimeout(() => {
           get().fetchReceivedInvitations();
@@ -671,24 +1199,51 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
-    if (isDemo && !isNewRegistration) {
-      // Lần đầu mở demo: nạp bộ dữ liệu mẫu phong phú
-      const demoState = {
-        wallets: DEMO_WALLETS,
-        recentTransactions: DEMO_TRANSACTIONS,
-        budgets: DEMO_BUDGETS,
-        savingGoals: DEMO_GOALS,
-        familyMembers: DEMO_MEMBERS,
-        notifications: DEMO_NOTIFICATIONS,
-        dashboardSummary: DEMO_SUMMARY,
-        botRecommendation: DEMO_BOT_RECOMMENDATION,
+    // Lần đầu đăng nhập tài khoản cá nhân: nạp bộ dữ liệu phong phú THANHCANHAN_DATA
+    if (isPersonalThanh && !isNewRegistration) {
+      const personalSummary = calculateDashboardSummary(THANHCANHAN_DATA.wallets, THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets);
+      const personalState = {
+        wallets: THANHCANHAN_DATA.wallets,
+        recentTransactions: THANHCANHAN_DATA.recentTransactions,
+        budgets: THANHCANHAN_DATA.budgets,
+        savingGoals: THANHCANHAN_DATA.savingGoals,
+        familyMembers: [],
+        notifications: THANHCANHAN_DATA.notifications,
+        dashboardSummary: personalSummary,
+        botRecommendation: THANHCANHAN_DATA.botRecommendation,
       };
       set({
         currentUser: user,
         token,
-        ...demoState,
+        ...personalState,
       });
-      persistCurrentUserData(user, demoState);
+      persistCurrentUserData(user, personalState);
+      setTimeout(() => {
+        get().fetchReceivedInvitations();
+        get().fetchSentInvitations();
+      }, 50);
+      return;
+    }
+
+    // Lần đầu đăng nhập tài khoản gia đình: nạp bộ dữ liệu mẫu FAMILY_SHARED_DATA
+    if (isFamilyThanh && !isNewRegistration) {
+      const famSummary = calculateDashboardSummary(FAMILY_SHARED_DATA.wallets, FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets);
+      const famState = {
+        wallets: FAMILY_SHARED_DATA.wallets,
+        recentTransactions: FAMILY_SHARED_DATA.recentTransactions,
+        budgets: FAMILY_SHARED_DATA.budgets,
+        savingGoals: FAMILY_SHARED_DATA.savingGoals,
+        familyMembers: FAMILY_SHARED_DATA.familyMembers,
+        notifications: FAMILY_SHARED_DATA.notifications,
+        dashboardSummary: famSummary,
+        botRecommendation: FAMILY_SHARED_DATA.botRecommendation,
+      };
+      set({
+        currentUser: user,
+        token,
+        ...famState,
+      });
+      persistCurrentUserData(user, famState);
       setTimeout(() => {
         get().fetchReceivedInvitations();
         get().fetchSentInvitations();
