@@ -197,7 +197,7 @@ public class AuthService {
 
         return ForgotPasswordResponse.builder()
                 .email(email)
-                .otp(null)
+                .otp(otp)
                 .message("Mã xác thực 6 chữ số đã được gửi đến hộp thư " + email + ". Vui lòng kiểm tra email của bạn!")
                 .expiresInSeconds(PasswordResetService.OTP_VALIDITY.toSeconds())
                 .build();

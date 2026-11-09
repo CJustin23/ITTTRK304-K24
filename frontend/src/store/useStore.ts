@@ -11,7 +11,9 @@ import {
   Timeframe,
   NotificationItem,
   Role,
+  FamilyInvitation,
 } from '../types';
+import { FamilyApiService } from '../services/api';
 
 // Dữ liệu mẫu (Rich Demo Data) dành riêng cho tài khoản Demo
 export const DEMO_WALLETS: Wallet[] = [
@@ -349,6 +351,8 @@ interface AppState {
   savingGoals: SavingGoal[];
   familyMembers: FamilyMember[];
   notifications: NotificationItem[];
+  receivedInvitations: FamilyInvitation[];
+  sentInvitations: FamilyInvitation[];
 
   dashboardSummary: DashboardSummary | null;
   botRecommendation: HabitRecommendation | null;
@@ -361,6 +365,8 @@ interface AppState {
   isBudgetModalOpen: boolean;
   isGoalModalOpen: boolean;
   isFamilyModalOpen: boolean;
+  isConfirmInviteModalOpen: boolean;
+  selectedInvitationForConfirm: FamilyInvitation | null;
 
   // Actions
   setAuth: (
@@ -405,6 +411,14 @@ interface AppState {
     initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
   ) => void;
 
+  // Family Invitation actions
+  fetchReceivedInvitations: () => Promise<void>;
+  fetchSentInvitations: () => Promise<void>;
+  sendFamilyInvitation: (email: string) => Promise<FamilyInvitation>;
+  acceptFamilyInvitation: (invitationId: number) => Promise<void>;
+  rejectFamilyInvitation: (invitationId: number) => Promise<void>;
+  cancelSentInvitation: (invitationId: number) => Promise<void>;
+
   // Modal actions
   setBotModalOpen: (open: boolean) => void;
   setTransactionModalOpen: (open: boolean) => void;
@@ -412,41 +426,125 @@ interface AppState {
   setBudgetModalOpen: (open: boolean) => void;
   setGoalModalOpen: (open: boolean) => void;
   setFamilyModalOpen: (open: boolean) => void;
+  setConfirmInviteModalOpen: (open: boolean) => void;
+  setSelectedInvitationForConfirm: (invitation: FamilyInvitation | null) => void;
 }
 
-export const useStore = create<AppState>((set, get) => ({
-  currentUser: null,
-  token: null,
-  activeTimeframe: 'Monthly',
+// Lưu trữ tập trung dữ liệu tài khoản vào localStorage
+export const persistCurrentUserData = (
+  user: User | null,
+  data: {
+    wallets?: Wallet[];
+    recentTransactions?: Transaction[];
+    budgets?: Budget[];
+    savingGoals?: SavingGoal[];
+    familyMembers?: FamilyMember[];
+    notifications?: NotificationItem[];
+    dashboardSummary?: DashboardSummary | null;
+    botRecommendation?: HabitRecommendation | null;
+  }
+) => {
+  if (!user || !user.email || typeof window === 'undefined') return;
+  try {
+    const storageKey = 'budglee_data_' + user.email.toLowerCase();
+    const existingStr = localStorage.getItem(storageKey);
+    let existingData: any = {};
+    if (existingStr) {
+      try {
+        existingData = JSON.parse(existingStr);
+      } catch {}
+    }
 
-  wallets: [],
-  recentTransactions: [],
-  budgets: [],
-  savingGoals: [],
-  familyMembers: [],
-  notifications: [],
+    const payload = {
+      wallets: data.wallets ?? existingData.wallets ?? [],
+      recentTransactions: data.recentTransactions ?? existingData.recentTransactions ?? [],
+      budgets: data.budgets ?? existingData.budgets ?? [],
+      savingGoals: data.savingGoals ?? existingData.savingGoals ?? [],
+      familyMembers: data.familyMembers ?? existingData.familyMembers ?? [],
+      notifications: data.notifications ?? existingData.notifications ?? [],
+      dashboardSummary: data.dashboardSummary !== undefined ? data.dashboardSummary : (existingData.dashboardSummary ?? null),
+      botRecommendation: data.botRecommendation !== undefined ? data.botRecommendation : (existingData.botRecommendation ?? null),
+    };
+    localStorage.setItem(storageKey, JSON.stringify(payload));
+  } catch (err) {
+    console.error('Lỗi khi lưu dữ liệu người dùng vào localStorage:', err);
+  }
+};
 
-  dashboardSummary: null,
-  botRecommendation: null,
+// Khôi phục trạng thái đăng nhập từ localStorage khi reload / F5 trang
+const loadInitialAuthState = () => {
+  if (typeof window === 'undefined') {
+    return {
+      currentUser: null,
+      token: null,
+      wallets: [],
+      recentTransactions: [],
+      budgets: [],
+      savingGoals: [],
+      familyMembers: [],
+      notifications: [],
+      dashboardSummary: null,
+      botRecommendation: null,
+      receivedInvitations: [],
+      sentInvitations: [],
+    };
+  }
 
-  isBotModalOpen: false,
-  isTransactionModalOpen: false,
-  isWalletModalOpen: false,
-  isBudgetModalOpen: false,
-  isGoalModalOpen: false,
-  isFamilyModalOpen: false,
+  const storedUserStr = localStorage.getItem('budglee_current_user');
+  const storedToken = localStorage.getItem('budglee_token');
 
-  setAuth: (user, token, isNewRegistration, initialMembers) => {
-    localStorage.setItem('budglee_token', token);
-    localStorage.setItem('budglee_current_user', JSON.stringify(user));
+  if (!storedUserStr || !storedToken) {
+    return {
+      currentUser: null,
+      token: null,
+      wallets: [],
+      recentTransactions: [],
+      budgets: [],
+      savingGoals: [],
+      familyMembers: [],
+      notifications: [],
+      dashboardSummary: null,
+      botRecommendation: null,
+      receivedInvitations: [],
+      sentInvitations: [],
+    };
+  }
 
-    const isDemo = user.email.toLowerCase() === 'demo@budglee.com';
+  try {
+    const user: User = JSON.parse(storedUserStr);
+    const emailKey = user.email ? user.email.toLowerCase() : 'default';
+    const isDemo = emailKey === 'demo@budglee.com';
+    const storageKey = 'budglee_data_' + emailKey;
+    const savedDataStr = localStorage.getItem(storageKey);
 
-    if (isDemo && !isNewRegistration) {
-      // Tài khoản demo: nạp bộ dữ liệu mẫu đa dạng
-      set({
+    if (savedDataStr) {
+      const saved = JSON.parse(savedDataStr);
+      const loadedWallets = saved.wallets ?? (isDemo ? DEMO_WALLETS : []);
+      const loadedTxs = saved.recentTransactions ?? (isDemo ? DEMO_TRANSACTIONS : []);
+      const loadedBudgets = saved.budgets ?? (isDemo ? DEMO_BUDGETS : []);
+      const loadedGoals = saved.savingGoals ?? (isDemo ? DEMO_GOALS : []);
+      const loadedMembers = saved.familyMembers ?? (isDemo ? DEMO_MEMBERS : []);
+      const loadedNotifs = saved.notifications ?? (isDemo ? DEMO_NOTIFICATIONS : []);
+      const loadedSummary = saved.dashboardSummary || calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
+
+      return {
         currentUser: user,
-        token,
+        token: storedToken,
+        wallets: loadedWallets,
+        recentTransactions: loadedTxs,
+        budgets: loadedBudgets,
+        savingGoals: loadedGoals,
+        familyMembers: loadedMembers,
+        notifications: loadedNotifs,
+        dashboardSummary: loadedSummary,
+        botRecommendation: saved.botRecommendation ?? (isDemo ? DEMO_BOT_RECOMMENDATION : null),
+        receivedInvitations: [],
+        sentInvitations: [],
+      };
+    }
+
+    if (isDemo) {
+      const demoData = {
         wallets: DEMO_WALLETS,
         recentTransactions: DEMO_TRANSACTIONS,
         budgets: DEMO_BUDGETS,
@@ -455,34 +553,147 @@ export const useStore = create<AppState>((set, get) => ({
         notifications: DEMO_NOTIFICATIONS,
         dashboardSummary: DEMO_SUMMARY,
         botRecommendation: DEMO_BOT_RECOMMENDATION,
-      });
-      return;
+      };
+      persistCurrentUserData(user, demoData);
+      return {
+        currentUser: user,
+        token: storedToken,
+        ...demoData,
+        receivedInvitations: [],
+        sentInvitations: [],
+      };
     }
 
-    // Tài khoản mới đăng ký hoặc tài khoản người dùng thực:
-    // Kiểm tra xem đã có dữ liệu lưu trước đó trong localStorage không
+    const defaultData = {
+      wallets: [],
+      recentTransactions: [],
+      budgets: [],
+      savingGoals: [],
+      familyMembers: [],
+      notifications: [],
+      dashboardSummary: calculateDashboardSummary([], [], []),
+      botRecommendation: null,
+    };
+    persistCurrentUserData(user, defaultData);
+    return {
+      currentUser: user,
+      token: storedToken,
+      ...defaultData,
+      receivedInvitations: [],
+      sentInvitations: [],
+    };
+  } catch (err) {
+    console.error('Lỗi khi khôi phục phiên đăng nhập:', err);
+    return {
+      currentUser: null,
+      token: null,
+      wallets: [],
+      recentTransactions: [],
+      budgets: [],
+      savingGoals: [],
+      familyMembers: [],
+      notifications: [],
+      dashboardSummary: null,
+      botRecommendation: null,
+      receivedInvitations: [],
+      sentInvitations: [],
+    };
+  }
+};
+
+const initialAuthState = loadInitialAuthState();
+
+export const useStore = create<AppState>((set, get) => ({
+  currentUser: initialAuthState.currentUser,
+  token: initialAuthState.token,
+  activeTimeframe: 'Monthly',
+
+  wallets: initialAuthState.wallets,
+  recentTransactions: initialAuthState.recentTransactions,
+  budgets: initialAuthState.budgets,
+  savingGoals: initialAuthState.savingGoals,
+  familyMembers: initialAuthState.familyMembers,
+  notifications: initialAuthState.notifications,
+  receivedInvitations: initialAuthState.receivedInvitations,
+  sentInvitations: initialAuthState.sentInvitations,
+
+  dashboardSummary: initialAuthState.dashboardSummary,
+  botRecommendation: initialAuthState.botRecommendation,
+
+  isBotModalOpen: false,
+  isTransactionModalOpen: false,
+  isWalletModalOpen: false,
+  isBudgetModalOpen: false,
+  isGoalModalOpen: false,
+  isFamilyModalOpen: false,
+  isConfirmInviteModalOpen: false,
+  selectedInvitationForConfirm: null,
+
+  setAuth: (user, token, isNewRegistration, initialMembers) => {
+    localStorage.setItem('budglee_token', token);
+    localStorage.setItem('budglee_current_user', JSON.stringify(user));
+
+    const isDemo = user.email.toLowerCase() === 'demo@budglee.com';
     const storageKey = 'budglee_data_' + user.email.toLowerCase();
     const savedDataStr = localStorage.getItem(storageKey);
 
+    // Nếu đã có dữ liệu lưu trữ từ trước (kể cả demo hay user thực) và không phải đăng ký mới:
     if (savedDataStr && !isNewRegistration) {
       try {
         const saved = JSON.parse(savedDataStr);
+        const loadedWallets = saved.wallets ?? (isDemo ? DEMO_WALLETS : []);
+        const loadedTxs = saved.recentTransactions ?? (isDemo ? DEMO_TRANSACTIONS : []);
+        const loadedBudgets = saved.budgets ?? (isDemo ? DEMO_BUDGETS : []);
+        const loadedGoals = saved.savingGoals ?? (isDemo ? DEMO_GOALS : []);
+        const loadedMembers = saved.familyMembers ?? (isDemo ? DEMO_MEMBERS : []);
+        const loadedNotifs = saved.notifications ?? (isDemo ? DEMO_NOTIFICATIONS : []);
+        const loadedSummary = saved.dashboardSummary || calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
+
         set({
           currentUser: user,
           token,
-          wallets: saved.wallets || [],
-          recentTransactions: saved.recentTransactions || [],
-          budgets: saved.budgets || [],
-          savingGoals: saved.savingGoals || [],
-          familyMembers: saved.familyMembers || [],
-          notifications: saved.notifications || [],
-          dashboardSummary: saved.dashboardSummary || calculateDashboardSummary(saved.wallets || [], saved.recentTransactions || [], saved.budgets || []),
-          botRecommendation: saved.botRecommendation || null,
+          wallets: loadedWallets,
+          recentTransactions: loadedTxs,
+          budgets: loadedBudgets,
+          savingGoals: loadedGoals,
+          familyMembers: loadedMembers,
+          notifications: loadedNotifs,
+          dashboardSummary: loadedSummary,
+          botRecommendation: saved.botRecommendation ?? (isDemo ? DEMO_BOT_RECOMMENDATION : null),
         });
+        setTimeout(() => {
+          get().fetchReceivedInvitations();
+          get().fetchSentInvitations();
+        }, 50);
         return;
       } catch (err) {
         console.error('Failed to parse saved user data:', err);
       }
+    }
+
+    if (isDemo && !isNewRegistration) {
+      // Lần đầu mở demo: nạp bộ dữ liệu mẫu phong phú
+      const demoState = {
+        wallets: DEMO_WALLETS,
+        recentTransactions: DEMO_TRANSACTIONS,
+        budgets: DEMO_BUDGETS,
+        savingGoals: DEMO_GOALS,
+        familyMembers: DEMO_MEMBERS,
+        notifications: DEMO_NOTIFICATIONS,
+        dashboardSummary: DEMO_SUMMARY,
+        botRecommendation: DEMO_BOT_RECOMMENDATION,
+      };
+      set({
+        currentUser: user,
+        token,
+        ...demoState,
+      });
+      persistCurrentUserData(user, demoState);
+      setTimeout(() => {
+        get().fetchReceivedInvitations();
+        get().fetchSentInvitations();
+      }, 50);
+      return;
     }
 
     // KHỞI TẠO TÀI KHOẢN MỚI HOÀN TOÀN SẠCH (KHÔNG DÍNH DỮ LIỆU TÀI KHOẢN KHÁC)
@@ -526,8 +737,6 @@ export const useStore = create<AppState>((set, get) => ({
     ];
 
     const freshState = {
-      currentUser: user,
-      token,
       wallets: [],
       recentTransactions: [],
       budgets: [],
@@ -538,13 +747,22 @@ export const useStore = create<AppState>((set, get) => ({
       botRecommendation: null,
     };
 
-    set(freshState);
-    localStorage.setItem(storageKey, JSON.stringify(freshState));
+    set({
+      currentUser: user,
+      token,
+      ...freshState,
+    });
+    persistCurrentUserData(user, freshState);
+    setTimeout(() => {
+      get().fetchReceivedInvitations();
+      get().fetchSentInvitations();
+    }, 50);
   },
 
   logout: () => {
     localStorage.removeItem('budglee_token');
     localStorage.removeItem('budglee_current_user');
+    localStorage.removeItem('budglee_active_tab');
     set({
       currentUser: null,
       token: null,
@@ -554,6 +772,8 @@ export const useStore = create<AppState>((set, get) => ({
       savingGoals: [],
       familyMembers: [],
       notifications: [],
+      receivedInvitations: [],
+      sentInvitations: [],
       dashboardSummary: null,
       botRecommendation: null,
     });
@@ -564,6 +784,19 @@ export const useStore = create<AppState>((set, get) => ({
       if (!state.currentUser) return state;
       const updatedUser = { ...state.currentUser, ...data };
       localStorage.setItem('budglee_current_user', JSON.stringify(updatedUser));
+
+      if (updatedUser.email) {
+        const userKey = 'budglee_user_' + updatedUser.email.toLowerCase();
+        const existing = localStorage.getItem(userKey);
+        if (existing) {
+          try {
+            const parsed = JSON.parse(existing);
+            localStorage.setItem(userKey, JSON.stringify({ ...parsed, ...data }));
+          } catch {}
+        }
+      }
+
+      persistCurrentUserData(updatedUser, state);
       return { currentUser: updatedUser };
     });
   },
@@ -571,23 +804,31 @@ export const useStore = create<AppState>((set, get) => ({
   setActiveTimeframe: (activeTimeframe) => set({ activeTimeframe }),
 
   markNotificationAsRead: (id) => {
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
+    set((state) => {
+      const updated = state.notifications.map((n) =>
         n.id === id ? { ...n, read: true } : n
-      ),
-    }));
+      );
+      const newState = { notifications: updated };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
+    });
   },
 
   markAllNotificationsAsRead: () => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, read: true })),
-    }));
+    set((state) => {
+      const updated = state.notifications.map((n) => ({ ...n, read: true }));
+      const newState = { notifications: updated };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
+    });
   },
 
   setWallets: (wallets) => {
     set((state) => {
       const updatedSummary = calculateDashboardSummary(wallets, state.recentTransactions, state.budgets);
-      return { wallets, dashboardSummary: updatedSummary };
+      const newState = { wallets, dashboardSummary: updatedSummary };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
     });
   },
 
@@ -595,15 +836,13 @@ export const useStore = create<AppState>((set, get) => ({
     const newWallet: Wallet = {
       ...walletData,
       id: Date.now(),
+      cardNumberMasked: walletData.cardNumberMasked || '',
     };
     set((state) => {
       const updatedWallets = [...state.wallets, newWallet];
       const updatedSummary = calculateDashboardSummary(updatedWallets, state.recentTransactions, state.budgets);
       const newState = { wallets: updatedWallets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -611,7 +850,9 @@ export const useStore = create<AppState>((set, get) => ({
   setTransactions: (recentTransactions) => {
     set((state) => {
       const updatedSummary = calculateDashboardSummary(state.wallets, recentTransactions, state.budgets);
-      return { recentTransactions, dashboardSummary: updatedSummary };
+      const newState = { recentTransactions, dashboardSummary: updatedSummary };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
     });
   },
 
@@ -633,17 +874,25 @@ export const useStore = create<AppState>((set, get) => ({
       });
 
       const updatedTxs = [newTx, ...state.recentTransactions];
-      const updatedSummary = calculateDashboardSummary(updatedWallets, updatedTxs, state.budgets);
+
+      // Cập nhật số tiền đã chi tiêu của ngân sách tương ứng nếu là giao dịch CHI TIÊU
+      const updatedBudgets = state.budgets.map((b) => {
+        if (txData.transactionType === 'EXPENSE' && b.categoryName === txData.categoryName) {
+          return { ...b, spentAmount: (b.spentAmount || 0) + txData.amount };
+        }
+        return b;
+      });
+
+      const updatedSummary = calculateDashboardSummary(updatedWallets, updatedTxs, updatedBudgets);
 
       const newState = {
         recentTransactions: updatedTxs,
         wallets: updatedWallets,
+        budgets: updatedBudgets,
         dashboardSummary: updatedSummary,
       };
 
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -651,7 +900,9 @@ export const useStore = create<AppState>((set, get) => ({
   setBudgets: (budgets) => {
     set((state) => {
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, budgets);
-      return { budgets, dashboardSummary: updatedSummary };
+      const newState = { budgets, dashboardSummary: updatedSummary };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
     });
   },
 
@@ -664,10 +915,7 @@ export const useStore = create<AppState>((set, get) => ({
       const updatedBudgets = [...state.budgets, newBudget];
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
       const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -679,10 +927,7 @@ export const useStore = create<AppState>((set, get) => ({
       );
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
       const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -692,15 +937,18 @@ export const useStore = create<AppState>((set, get) => ({
       const updatedBudgets = state.budgets.filter((b) => b.id !== id);
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
       const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
-
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
 
-  setSavingGoals: (savingGoals) => set({ savingGoals }),
+  setSavingGoals: (savingGoals) => {
+    set((state) => {
+      const newState = { savingGoals };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
+    });
+  },
 
   addSavingGoal: (goalData) => {
     const newGoal: SavingGoal = {
@@ -710,9 +958,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const updatedGoals = [...state.savingGoals, newGoal];
       const newState = { savingGoals: updatedGoals };
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -766,9 +1012,7 @@ export const useStore = create<AppState>((set, get) => ({
         dashboardSummary: updatedSummary,
       };
 
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -782,9 +1026,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const updated = [...state.familyMembers, newMember];
       const newState = { familyMembers: updated };
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -793,9 +1035,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const updated = state.familyMembers.filter((m) => m.id !== id);
       const newState = { familyMembers: updated };
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -806,9 +1046,7 @@ export const useStore = create<AppState>((set, get) => ({
         m.id === id ? { ...m, role } : m
       );
       const newState = { familyMembers: updated };
-      if (state.currentUser && state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
@@ -855,9 +1093,7 @@ export const useStore = create<AppState>((set, get) => ({
         familyMembers: newMembers,
       };
 
-      if (state.currentUser.email !== 'demo@budglee.com') {
-        localStorage.setItem('budglee_data_' + state.currentUser.email.toLowerCase(), JSON.stringify({ ...state, ...newState }));
-      }
+      persistCurrentUserData(updatedUser, newState);
       return newState;
     });
   },
@@ -868,4 +1104,243 @@ export const useStore = create<AppState>((set, get) => ({
   setBudgetModalOpen: (isBudgetModalOpen) => set({ isBudgetModalOpen }),
   setGoalModalOpen: (isGoalModalOpen) => set({ isGoalModalOpen }),
   setFamilyModalOpen: (isFamilyModalOpen) => set({ isFamilyModalOpen }),
+  setConfirmInviteModalOpen: (isConfirmInviteModalOpen) => set({ isConfirmInviteModalOpen }),
+  setSelectedInvitationForConfirm: (selectedInvitationForConfirm) => set({ selectedInvitationForConfirm }),
+
+  fetchReceivedInvitations: async () => {
+    const user = get().currentUser;
+    if (!user) return;
+
+    let invites: FamilyInvitation[] = [];
+    try {
+      invites = await FamilyApiService.getReceivedInvitations();
+    } catch (e) {
+      // Backend request fallback
+    }
+
+    // Kiểm tra thêm ở hàng đợi lời mời localStorage
+    const localStr = localStorage.getItem('budglee_invitations_for_' + user.email.toLowerCase());
+    if (localStr) {
+      try {
+        const localInvites: FamilyInvitation[] = JSON.parse(localStr);
+        localInvites.forEach((li) => {
+          if (!invites.some((i) => i.id === li.id)) {
+            invites.push(li);
+          }
+        });
+      } catch (e) {}
+    }
+
+    set({ receivedInvitations: invites });
+
+    // Tự động đẩy thông báo lên chuông thông báo nếu có lời mời PENDING
+    const pendingInvites = invites.filter((i) => i.status === 'PENDING');
+    if (pendingInvites.length > 0) {
+      set((state) => {
+        const newNotifs = [...state.notifications];
+        pendingInvites.forEach((inv) => {
+          const notifId = 'invite-notif-' + inv.id;
+          if (!newNotifs.some((n) => n.id === notifId)) {
+            newNotifs.unshift({
+              id: notifId,
+              title: 'Lời mời tham gia Quỹ Gia đình',
+              message: `${inv.invitedByName || 'Chủ hộ'} (${inv.invitedByEmail || 'chủ nhóm'}) đã gửi lời mời bạn tham gia nhóm gia đình "${inv.familyGroupName}". Hãy nhấn vào đây để xem và xác nhận!`,
+              time: 'Vừa xong',
+              type: 'INFO',
+              read: false,
+              actionType: 'FAMILY_INVITATION',
+              actionData: inv,
+            });
+          }
+        });
+        return { notifications: newNotifs };
+      });
+    }
+  },
+
+  fetchSentInvitations: async () => {
+    const user = get().currentUser;
+    if (!user) return;
+
+    let invites: FamilyInvitation[] = [];
+    try {
+      invites = await FamilyApiService.getSentInvitations();
+    } catch (e) {}
+
+    const localStr = localStorage.getItem('budglee_sent_invitations_' + user.email.toLowerCase());
+    if (localStr) {
+      try {
+        const localInvites: FamilyInvitation[] = JSON.parse(localStr);
+        localInvites.forEach((li) => {
+          if (!invites.some((i) => i.id === li.id)) {
+            invites.push(li);
+          }
+        });
+      } catch (e) {}
+    }
+
+    set({ sentInvitations: invites });
+  },
+
+  sendFamilyInvitation: async (email: string) => {
+    const user = get().currentUser;
+    if (!user) throw new Error('Chưa đăng nhập');
+
+    const trimmedEmail = email.trim().toLowerCase();
+    let invitation: FamilyInvitation;
+
+    try {
+      invitation = await FamilyApiService.sendInvitation(trimmedEmail);
+    } catch (err: any) {
+      // Fallback local invitation
+      invitation = {
+        id: Date.now(),
+        familyGroupId: user.familyGroupId || 'FAM-' + user.id,
+        familyGroupName: user.familyGroupName || `Gia đình của ${user.fullName}`,
+        invitedById: user.id,
+        invitedByName: user.fullName,
+        invitedByEmail: user.email,
+        inviteeEmail: trimmedEmail,
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+      };
+    }
+
+    // Lưu vào hàng đợi local cho người nhận để test mượt trên localhost
+    try {
+      const recipientKey = 'budglee_invitations_for_' + trimmedEmail;
+      const existRecv = JSON.parse(localStorage.getItem(recipientKey) || '[]');
+      existRecv.unshift(invitation);
+      localStorage.setItem(recipientKey, JSON.stringify(existRecv));
+
+      const senderKey = 'budglee_sent_invitations_' + user.email.toLowerCase();
+      const existSent = JSON.parse(localStorage.getItem(senderKey) || '[]');
+      existSent.unshift(invitation);
+      localStorage.setItem(senderKey, JSON.stringify(existSent));
+    } catch (e) {}
+
+    set((state) => ({
+      sentInvitations: [invitation, ...state.sentInvitations.filter((i) => i.id !== invitation.id)],
+    }));
+
+    return invitation;
+  },
+
+  acceptFamilyInvitation: async (invitationId: number) => {
+    const state = get();
+    const user = state.currentUser;
+    if (!user) return;
+
+    let inv = state.receivedInvitations.find((i) => i.id === invitationId);
+    if (!inv && state.selectedInvitationForConfirm) {
+      inv = state.selectedInvitationForConfirm;
+    }
+
+    try {
+      await FamilyApiService.acceptInvitation(invitationId);
+    } catch (e) {}
+
+    const groupName = inv?.familyGroupName || 'Sổ quỹ Gia đình';
+    const groupId = inv?.familyGroupId || user.familyGroupId || 'FAM-JOINED';
+
+    const updatedUser: User = {
+      ...user,
+      role: 'FAMILY_MEMBER',
+      familyGroupId: groupId,
+      familyGroupName: groupName,
+    };
+
+    localStorage.setItem('budglee_current_user', JSON.stringify(updatedUser));
+
+    // Cập nhật trạng thái trong storage người nhận
+    const recipientKey = 'budglee_invitations_for_' + user.email.toLowerCase();
+    try {
+      const existRecv: FamilyInvitation[] = JSON.parse(localStorage.getItem(recipientKey) || '[]');
+      const updated = existRecv.map((i) => (i.id === invitationId ? { ...i, status: 'ACCEPTED' as const } : i));
+      localStorage.setItem(recipientKey, JSON.stringify(updated));
+    } catch (e) {}
+
+    // Thông báo thành công
+    const successNotif: NotificationItem = {
+      id: 'accepted-' + Date.now(),
+      title: 'Gia nhập gia đình thành công!',
+      message: `Chúc mừng bạn đã trở thành thành viên của "${groupName}". Bạn đã có thể bắt đầu xem và quản lý sổ quỹ chung!`,
+      time: 'Vừa xong',
+      type: 'SUCCESS',
+      read: false,
+    };
+
+    // Tạo member mới cho danh sách
+    const newMember: FamilyMember = {
+      id: user.id,
+      fullName: user.fullName + ' (Bạn)',
+      email: user.email,
+      role: 'FAMILY_MEMBER',
+      avatarUrl: user.avatarUrl,
+      joinedDate: 'Vừa xong',
+      isOwner: false,
+    };
+
+    set((s) => ({
+      currentUser: updatedUser,
+      receivedInvitations: s.receivedInvitations.map((i) =>
+        i.id === invitationId ? { ...i, status: 'ACCEPTED' as const } : i
+      ),
+      familyMembers: [...s.familyMembers.filter((m) => m.email.toLowerCase() !== user.email.toLowerCase()), newMember],
+      notifications: [
+        successNotif,
+        ...s.notifications.map((n) => (n.id === 'invite-notif-' + invitationId ? { ...n, read: true } : n)),
+      ],
+      isConfirmInviteModalOpen: false,
+      selectedInvitationForConfirm: null,
+    }));
+
+    persistCurrentUserData(updatedUser, get());
+  },
+
+  rejectFamilyInvitation: async (invitationId: number) => {
+    const user = get().currentUser;
+    if (!user) return;
+
+    try {
+      await FamilyApiService.rejectInvitation(invitationId);
+    } catch (e) {}
+
+    const recipientKey = 'budglee_invitations_for_' + user.email.toLowerCase();
+    try {
+      const existRecv: FamilyInvitation[] = JSON.parse(localStorage.getItem(recipientKey) || '[]');
+      const updated = existRecv.map((i) => (i.id === invitationId ? { ...i, status: 'REJECTED' as const } : i));
+      localStorage.setItem(recipientKey, JSON.stringify(updated));
+    } catch (e) {}
+
+    set((s) => ({
+      receivedInvitations: s.receivedInvitations.map((i) =>
+        i.id === invitationId ? { ...i, status: 'REJECTED' as const } : i
+      ),
+      notifications: s.notifications.map((n) => (n.id === 'invite-notif-' + invitationId ? { ...n, read: true } : n)),
+      isConfirmInviteModalOpen: false,
+      selectedInvitationForConfirm: null,
+    }));
+  },
+
+  cancelSentInvitation: async (invitationId: number) => {
+    const user = get().currentUser;
+    if (!user) return;
+
+    try {
+      await FamilyApiService.cancelInvitation(invitationId);
+    } catch (e) {}
+
+    const senderKey = 'budglee_sent_invitations_' + user.email.toLowerCase();
+    try {
+      const existSent: FamilyInvitation[] = JSON.parse(localStorage.getItem(senderKey) || '[]');
+      const updated = existSent.filter((i) => i.id !== invitationId);
+      localStorage.setItem(senderKey, JSON.stringify(updated));
+    } catch (e) {}
+
+    set((s) => ({
+      sentInvitations: s.sentInvitations.filter((i) => i.id !== invitationId),
+    }));
+  },
 }));

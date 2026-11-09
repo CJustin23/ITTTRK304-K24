@@ -138,8 +138,9 @@ public class FamilyController {
             @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestParam String email
     ) {
+        Long currentUserId = currentUser != null ? currentUser.getId() : null;
         FamilyUserLookupResponse response =
-                familyService.checkUserForFamily(currentUser.getId(), email);
+                familyService.checkUserForFamily(currentUserId, email);
 
         return ResponseEntity.ok(
                 ApiResponse.ok(response, "Tài khoản hợp lệ")

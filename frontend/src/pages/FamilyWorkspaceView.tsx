@@ -1,10 +1,23 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Shield, Copy, Check, Crown, Sparkles, ArrowRight } from 'lucide-react';
+import { Users, UserPlus, Shield, Copy, Check, Crown, Sparkles, ArrowRight, Clock } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export const FamilyWorkspaceView: React.FC = () => {
-  const { currentUser, familyMembers, setFamilyModalOpen, wallets } = useStore();
+  const {
+    currentUser,
+    familyMembers,
+    setFamilyModalOpen,
+    wallets,
+    receivedInvitations,
+    sentInvitations,
+    setConfirmInviteModalOpen,
+    setSelectedInvitationForConfirm,
+    cancelSentInvitation,
+  } = useStore();
   const [copied, setCopied] = useState(false);
+
+  const pendingReceived = (receivedInvitations || []).filter((i) => i.status === 'PENDING');
+  const pendingSent = (sentInvitations || []).filter((i) => i.status === 'PENDING');
 
   const inviteCode = currentUser?.familyGroupId || 'BUDGLEE-FAM-KS24';
 
@@ -51,6 +64,41 @@ export const FamilyWorkspaceView: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Banner lời mời đang chờ xác nhận (nếu có) */}
+      {pendingReceived.length > 0 && (
+        <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20">
+                  Lời mời mới
+                </span>
+                <span className="text-xs text-emerald-100">Cần bạn xác nhận</span>
+              </div>
+              <h4 className="text-base font-bold text-white mt-0.5">
+                Bạn nhận được lời mời tham gia nhóm "{pendingReceived[0].familyGroupName}"
+              </h4>
+              <p className="text-xs text-emerald-100">
+                Người mời: {pendingReceived[0].invitedByName} ({pendingReceived[0].invitedByEmail || 'Chủ hộ'})
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setSelectedInvitationForConfirm(pendingReceived[0]);
+              setConfirmInviteModalOpen(true);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-white text-emerald-700 hover:bg-emerald-50 font-bold text-xs shadow-lg transition-all flex items-center gap-1.5 shrink-0 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <span>Xem & Xác nhận tham gia</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {isIndividual ? (
         /* Banner for Individual users to upgrade */
@@ -175,6 +223,54 @@ export const FamilyWorkspaceView: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Danh sách lời mời đã gửi (Đang chờ phản hồi) */}
+      {!isIndividual && pendingSent.length > 0 && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <span>Lời mời đã gửi ({pendingSent.length})</span>
+              </h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Thành viên cần mở biểu tượng chuông thông báo và ấn "Xác nhận tham gia" để vào sổ quỹ
+              </p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {pendingSent.map((inv) => (
+              <div key={inv.id} className="py-3.5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 font-bold text-sm flex items-center justify-center shrink-0">
+                    {(inv.inviteeName || inv.inviteeEmail || 'M')[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">
+                      {inv.inviteeName || inv.inviteeEmail}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">{inv.inviteeEmail}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Đang chờ xác nhận</span>
+                  </span>
+                  <button
+                    onClick={() => cancelSentInvitation(inv.id)}
+                    className="text-xs text-rose-600 hover:text-rose-700 font-semibold px-3 py-1.5 rounded-xl hover:bg-rose-50 transition-colors"
+                  >
+                    Hủy lời mời
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

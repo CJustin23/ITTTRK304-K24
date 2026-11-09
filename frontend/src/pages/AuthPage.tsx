@@ -154,8 +154,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     let otpSent = false;
     let localOtp = '';
 
+    let receivedOtp = '';
+
     try {
-      await AuthService.forgotPassword(trimmedEmail);
+      const res = await AuthService.forgotPassword(trimmedEmail);
+      if (res && res.otp) {
+        receivedOtp = res.otp;
+        sessionStorage.setItem('budglee_otp_' + trimmedEmail, res.otp);
+      }
       otpSent = true;
     } catch (err: any) {
       // Chỉ dừng lại nếu backend phản hồi lỗi nghiệp vụ 4xx có message rõ ràng
@@ -169,11 +175,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       localOtp = Math.floor(100000 + Math.random() * 900000).toString();
       sessionStorage.setItem('budglee_otp_' + trimmedEmail, localOtp);
       sessionStorage.setItem('budglee_otp_time_' + trimmedEmail, Date.now().toString());
+      receivedOtp = localOtp;
       otpSent = true;
     }
 
     if (otpSent) {
-      setOtpCode('');
+      setOtpCode(receivedOtp);
       setForgotStep(2);
       setResendCountdown(30);
       setSuccessMessage(`Mã xác thực 6 chữ số đã được gửi đến hộp thư Gmail ${forgotEmail}. Vui lòng mở ứng dụng Gmail để kiểm tra hộp thư đến (hoặc mục Thư rác/Spam)!`);

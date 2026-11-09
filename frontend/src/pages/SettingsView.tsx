@@ -103,6 +103,19 @@ export const SettingsView: React.FC = () => {
     }
 
     setPasswordErrors({});
+    if (currentUser?.email) {
+      const userKey = 'budglee_user_' + currentUser.email.toLowerCase();
+      const existingUserStr = localStorage.getItem(userKey);
+      if (existingUserStr) {
+        try {
+          const userObj = JSON.parse(existingUserStr);
+          userObj.password = newPassword;
+          localStorage.setItem(userKey, JSON.stringify(userObj));
+        } catch {}
+      } else {
+        localStorage.setItem(userKey, JSON.stringify({ ...currentUser, password: newPassword }));
+      }
+    }
     setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
     setCurrentPassword('');
     setNewPassword('');

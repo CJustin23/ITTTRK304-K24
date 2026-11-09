@@ -6,6 +6,7 @@ import {
   Wallet,
   Category,
   Budget,
+  FamilyInvitation,
 } from '../types';
 
 const api = axios.create({
@@ -100,8 +101,28 @@ export const FamilyApiService = {
     const response = await api.get('/family/check-user', { params: { email } });
     return response.data.data;
   },
-  sendInvitation: async (email: string): Promise<any> => {
+  sendInvitation: async (email: string): Promise<FamilyInvitation> => {
     const response = await api.post('/family/invitations', { email });
+    return response.data.data;
+  },
+  getSentInvitations: async (): Promise<FamilyInvitation[]> => {
+    const response = await api.get('/family/invitations/sent');
+    return response.data.data;
+  },
+  getReceivedInvitations: async (): Promise<FamilyInvitation[]> => {
+    const response = await api.get('/family/invitations/received');
+    return response.data.data;
+  },
+  acceptInvitation: async (invitationId: number): Promise<FamilyInvitation> => {
+    const response = await api.post(`/family/invitations/${invitationId}/accept`);
+    return response.data.data;
+  },
+  rejectInvitation: async (invitationId: number): Promise<FamilyInvitation> => {
+    const response = await api.post(`/family/invitations/${invitationId}/reject`);
+    return response.data.data;
+  },
+  cancelInvitation: async (invitationId: number): Promise<void> => {
+    const response = await api.delete(`/family/invitations/${invitationId}`);
     return response.data.data;
   },
   addDirectMember: async (email: string): Promise<any> => {

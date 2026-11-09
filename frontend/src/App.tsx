@@ -23,12 +23,19 @@ import { NewBudgetModal } from './components/NewBudgetModal';
 import { NewGoalModal } from './components/NewGoalModal';
 import { DepositGoalModal } from './components/DepositGoalModal';
 import { InviteFamilyModal } from './components/InviteFamilyModal';
+import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
 
 import { useStore } from './store/useStore';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem('budglee_active_tab');
+    if (savedTab && savedTab !== 'auth') {
+      return savedTab;
+    }
+    return 'overview';
+  });
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -44,17 +51,32 @@ export const App: React.FC = () => {
     setWalletModalOpen,
     addTransaction,
     logout,
+    fetchReceivedInvitations,
+    fetchSentInvitations,
   } = useStore();
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab !== 'auth') {
+      localStorage.setItem('budglee_active_tab', tab);
+    }
+  };
+
   useEffect(() => {
+    (window as any).setActiveTab = (tab: string) => handleTabChange(tab);
     (window as any).toggleAuthPage = () => {
-      setActiveTab((prev) => (prev === 'auth' ? 'overview' : 'auth'));
+      handleTabChange(activeTab === 'auth' ? 'overview' : 'auth');
     };
     (window as any).handleLogout = () => {
       logout();
-      setActiveTab('overview');
+      handleTabChange('overview');
     };
-  }, [logout]);
+
+    if (currentUser) {
+      fetchReceivedInvitations();
+      fetchSentInvitations();
+    }
+  }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations]);
 
   const handleCreateTransaction = (data: {
     walletId: number;
@@ -90,14 +112,14 @@ export const App: React.FC = () => {
       <div className="relative">
         {currentUser && (
           <button
-            onClick={() => setActiveTab('overview')}
+            onClick={() => handleTabChange('overview')}
             className="fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 backdrop-blur-md shadow-xl transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Quay lại Dashboard</span>
           </button>
         )}
-        <AuthPage onSuccess={() => setActiveTab('overview')} />
+        <AuthPage onSuccess={() => handleTabChange('overview')} />
       </div>
     );
   }
@@ -187,12 +209,12 @@ export const App: React.FC = () => {
                   wallets={wallets}
                   leftToSpend={dashboardSummary?.leftToSpend ?? 0}
                   spendingPercentage={dashboardSummary?.spendingPercentageOfBudget ?? 0}
-                  onNewBudget={() => setActiveTab('budgets')}
+                  onNewBudget={() => handleTabChange('budgets')}
                   onNewWallet={() => setWalletModalOpen(true)}
                 />
                 <CategoryList
                   categories={dashboardSummary?.categoryExpenses || {}}
-                  onEdit={() => setActiveTab('budgets')}
+                  onEdit={() => handleTabChange('budgets')}
                 />
               </div>
             </div>
@@ -206,7 +228,7 @@ export const App: React.FC = () => {
       {/* 1. Sidebar */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         onOpenBot={() => setBotModalOpen(true)}
       />
 
@@ -240,6 +262,7 @@ export const App: React.FC = () => {
       <NewGoalModal />
       <DepositGoalModal />
       <InviteFamilyModal />
+      <ConfirmFamilyInviteModal />
     </div>
   );
 };

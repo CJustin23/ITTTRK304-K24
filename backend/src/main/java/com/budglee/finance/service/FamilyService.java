@@ -43,21 +43,32 @@ public class FamilyService {
     private FamilyGroup getOwnedFamilyGroup(Long userId) {
         User user = getCurrentUser(userId);
 
-        if (user.getRole() != Role.FAMILY_ADMIN
-                || user.getFamilyGroupId() == null
-                || user.getFamilyGroupId().isBlank()) {
+        if (user.getRole() != Role.FAMILY_ADMIN) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Bạn không có quyền quản lý nhóm gia đình"
             );
         }
 
-        return familyGroupRepository
-                .findByIdAndCreatedById(user.getFamilyGroupId(), userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Bạn không phải chủ sở hữu nhóm gia đình"
-                ));
+        if (user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()) {
+            var groupOpt = familyGroupRepository.findById(user.getFamilyGroupId());
+            if (groupOpt.isPresent()) {
+                return groupOpt.get();
+            }
+        }
+
+        // Tự tạo nhóm gia đình nếu chưa có cho FAMILY_ADMIN
+        String newGroupId = "FAM-" + user.getId() + "-" + (System.currentTimeMillis() % 10000);
+        String groupName = "Gia đình của " + user.getFullName();
+        FamilyGroup newGroup = familyGroupRepository.save(FamilyGroup.builder()
+                .id(newGroupId)
+                .name(groupName)
+                .createdBy(user)
+                .build());
+
+        user.setFamilyGroupId(newGroupId);
+        userRepository.save(user);
+        return newGroup;
     }
 
     /**
@@ -68,18 +79,21 @@ public class FamilyService {
     ) {
         FamilyGroup familyGroup = familyGroupRepository
                 .findById(invitation.getFamilyGroupId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Không tìm thấy nhóm gia đình"
-                ));
+                .orElse(null);
+
+        String groupName = (familyGroup != null && familyGroup.getName() != null)
+                ? familyGroup.getName()
+                : "Sổ quỹ gia đình";
 
         return FamilyInvitationResponse.builder()
                 .id(invitation.getId())
                 .familyGroupId(invitation.getFamilyGroupId())
-                .familyGroupName(familyGroup.getName())
+                .familyGroupName(groupName)
                 .invitedById(invitation.getInvitedBy().getId())
                 .invitedByName(invitation.getInvitedBy().getFullName())
+                .invitedByEmail(invitation.getInvitedBy().getEmail())
                 .inviteeEmail(invitation.getInvitee().getEmail())
+                .inviteeName(invitation.getInvitee().getFullName())
                 .status(invitation.getStatus())
                 .createdAt(invitation.getCreatedAt())
                 .expiresAt(invitation.getExpiresAt())
@@ -438,19 +452,28 @@ public class FamilyService {
      */
     @Transactional(readOnly = true)
     public FamilyUserLookupResponse checkUserForFamily(Long currentUserId, String email) {
-        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
         if (email == null || email.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email không được để trống");
         }
 
         String targetEmail = email.trim().toLowerCase(java.util.Locale.ROOT);
-        User currentUser = getCurrentUser(currentUserId);
+        FamilyGroup familyGroup = null;
 
-        if (currentUser.getEmail().equalsIgnoreCase(targetEmail)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Bạn không thể tự thêm chính mình vào nhóm gia đình"
-            );
+        if (currentUserId != null) {
+            try {
+                User currentUser = getCurrentUser(currentUserId);
+                if (currentUser.getEmail().equalsIgnoreCase(targetEmail)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Bạn không thể tự thêm chính mình vào nhóm gia đình"
+                    );
+                }
+                if (currentUser.getFamilyGroupId() != null && !currentUser.getFamilyGroupId().isBlank()) {
+                    familyGroup = familyGroupRepository.findById(currentUser.getFamilyGroupId()).orElse(null);
+                }
+            } catch (ResponseStatusException e) {
+                if (e.getStatusCode() == HttpStatus.BAD_REQUEST) throw e;
+            }
         }
 
         User targetUser = userRepository.findByEmail(targetEmail)
@@ -460,7 +483,7 @@ public class FamilyService {
                 ));
 
         if (targetUser.getFamilyGroupId() != null && !targetUser.getFamilyGroupId().isBlank()) {
-            if (targetUser.getFamilyGroupId().equals(familyGroup.getId())) {
+            if (familyGroup != null && targetUser.getFamilyGroupId().equals(familyGroup.getId())) {
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
                         "Tài khoản này đã là thành viên trong nhóm gia đình của bạn"

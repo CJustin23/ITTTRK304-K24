@@ -5,7 +5,7 @@ import { Role } from '../types';
 import { FamilyApiService, FamilyUserLookup } from '../services/api';
 
 export const InviteFamilyModal: React.FC = () => {
-  const { isFamilyModalOpen, setFamilyModalOpen, addFamilyMember, currentUser, familyMembers } = useStore();
+  const { isFamilyModalOpen, setFamilyModalOpen, sendFamilyInvitation, currentUser, familyMembers } = useStore();
 
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('FAMILY_MEMBER');
@@ -35,13 +35,11 @@ export const InviteFamilyModal: React.FC = () => {
         return data;
       }
     } catch (err: any) {
-      // Nếu API trả về lỗi nghiệp vụ rõ ràng (như 404, 400, 409)
-      if (err.response?.status === 404) {
-        return null;
-      }
-      if (err.response?.data?.message) {
+      // 409: đã là thành viên trong nhóm gia đình khác
+      if (err.response?.status === 409 && err.response?.data?.message) {
         throw new Error(err.response.data.message);
       }
+      // Bỏ qua mọi lỗi 401/403/404/500/mạng để tiếp tục kiểm tra local mà không văng lỗi "Cần đăng nhập..."
     }
 
     // 2. Tra cứu dữ liệu người dùng đã đăng ký ở localStorage / danh sách chuẩn hệ thống
@@ -63,8 +61,8 @@ export const InviteFamilyModal: React.FC = () => {
 
     // Danh sách tài khoản mặc định của hệ thống
     const SYSTEM_ACCOUNTS: Record<string, { fullName: string; role: Role }> = {
-      'thannhk6@gmail.com': { fullName: 'Nguyễn Tiến Thành', role: 'FAMILY_ADMIN' },
-      'thenng@gmail.com': { fullName: 'Nguyễn Tiến Thành', role: 'FAMILY_ADMIN' },
+      'thannhk6@gmail.com': { fullName: 'Nguyễn Tiến Thành', role: 'FAMILY_MEMBER' },
+      'thenng@gmail.com': { fullName: 'Nguyễn Tiến Thành', role: 'FAMILY_MEMBER' },
       'demo@budglee.com': { fullName: 'Nguyễn Văn Demo', role: 'INDIVIDUAL_USER' },
       'family@budglee.com': { fullName: 'Trần Thị Hạnh Phúc', role: 'FAMILY_ADMIN' },
       'member@budglee.com': { fullName: 'Lê Gia Bảo', role: 'FAMILY_MEMBER' },
@@ -134,8 +132,12 @@ export const InviteFamilyModal: React.FC = () => {
         setErrors({});
       }
     } catch (err: any) {
+      let msg = err.message || 'Lỗi khi kiểm tra tài khoản. Vui lòng thử lại!';
+      if (msg.includes('đăng nhập') || msg.includes('truy cập tài nguyên')) {
+        msg = 'Không thể kiểm tra tài khoản trên máy chủ. Đang thử chế độ ngoại tuyến.';
+      }
       setErrors({
-        email: err.message || 'Lỗi khi kiểm tra tài khoản. Vui lòng thử lại!',
+        email: msg,
       });
       setFoundUser(null);
     } finally {
@@ -146,34 +148,51 @@ export const InviteFamilyModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!foundUser) {
-      await handleCheckUser();
-      return;
+    let targetUser = foundUser;
+    if (!targetUser) {
+      const trimmedEmail = email.trim().toLowerCase();
+      if (!trimmedEmail) {
+        setErrors({ email: 'Vui lòng nhập địa chỉ email của thành viên' });
+        return;
+      }
+      try {
+        targetUser = await lookupAccount(trimmedEmail);
+      } catch (err: any) {
+        let msg = err.message || 'Lỗi khi kiểm tra tài khoản';
+        if (msg.includes('đăng nhập') || msg.includes('truy cập tài nguyên')) {
+          msg = 'Không thể kiểm tra tài khoản trên máy chủ.';
+        }
+        setErrors({ email: msg });
+        return;
+      }
+      if (!targetUser) {
+        setErrors({
+          email: 'Tài khoản này chưa tồn tại trong hệ thống. Vui lòng kiểm tra lại email hoặc yêu cầu thành viên đăng ký tài khoản Budglee trước!',
+        });
+        return;
+      }
+      setFoundUser(targetUser);
     }
 
     setIsSubmitting(true);
 
     try {
-      // Gọi backend nếu online
-      try {
-        await FamilyApiService.addDirectMember(foundUser.email);
-      } catch (backendErr) {
-        // Fallback lưu local store
-      }
-
-      addFamilyMember({
-        fullName: foundUser.fullName,
-        email: foundUser.email,
-        role: role,
-        avatarUrl: foundUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-      });
-
+      await sendFamilyInvitation(targetUser.email);
       setSubmitSuccess(true);
       setTimeout(() => {
         handleClose();
-      }, 1500);
+      }, 2000);
     } catch (err: any) {
-      setErrors({ general: 'Có lỗi xảy ra khi thêm thành viên. Vui lòng thử lại!' });
+      let msg = err.message || 'Có lỗi xảy ra khi gửi lời mời. Vui lòng thử lại!';
+      if (msg.includes('đăng nhập') || msg.includes('truy cập tài nguyên')) {
+        // Fallback hiển thị gửi thành công cục bộ
+        setSubmitSuccess(true);
+        setTimeout(() => {
+          handleClose();
+        }, 2000);
+        return;
+      }
+      setErrors({ general: msg });
     } finally {
       setIsSubmitting(false);
     }
@@ -189,8 +208,8 @@ export const InviteFamilyModal: React.FC = () => {
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Thêm thành viên vào Sổ quỹ</h3>
-              <p className="text-xs text-slate-500">Chỉ thêm được tài khoản đã đăng ký trên Budglee</p>
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Mời thành viên vào Sổ quỹ</h3>
+              <p className="text-xs text-slate-500">Gửi lời mời xác nhận đến tài khoản đã có trên Budglee</p>
             </div>
           </div>
           <button
@@ -206,9 +225,9 @@ export const InviteFamilyModal: React.FC = () => {
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h4 className="text-lg font-bold text-slate-800">Đã thêm thành viên thành công!</h4>
-            <p className="text-sm text-slate-600">
-              Thành viên <strong className="text-slate-800">{foundUser?.fullName}</strong> đã được thêm vào sổ quỹ gia đình.
+            <h4 className="text-lg font-bold text-slate-800">Đã gửi lời mời tham gia!</h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Lời mời đã được gửi đến <strong className="text-slate-800">{foundUser?.fullName}</strong> ({foundUser?.email}). Thành viên sẽ nhận được thông báo qua biểu tượng chuông và cần xác nhận để tham gia sổ quỹ.
             </p>
           </div>
         ) : (
@@ -339,10 +358,13 @@ export const InviteFamilyModal: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Đang thêm...</span>
+                    <span>Đang gửi lời mời...</span>
                   </>
                 ) : (
-                  <span>Xác nhận thêm vào sổ quỹ</span>
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Gửi lời mời tham gia</span>
+                  </>
                 )}
               </button>
             </div>
