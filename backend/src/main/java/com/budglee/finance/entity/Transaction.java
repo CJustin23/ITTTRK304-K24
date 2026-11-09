@@ -15,7 +15,9 @@ import java.time.LocalDateTime;
         @Index(name = "idx_tx_linked_transaction", columnList = "linked_transaction_id"),
         @Index(name = "idx_tx_wallet_date", columnList = "wallet_id,transaction_date"),
         @Index(name = "idx_tx_user_type_linked_date",
-                columnList = "user_id,transaction_type,linked_transaction_id,transaction_date")
+                columnList = "user_id,transaction_type,linked_transaction_id,transaction_date"),
+        @Index(name = "idx_tx_report_category",
+                columnList = "user_id,transaction_type,linked_transaction_id,category_id,transaction_date")
 })
 @Getter
 @Setter

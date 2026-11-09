@@ -54,7 +54,8 @@ class SchemaContractTest {
             "/db/migration/V8__link_transfer_transactions.sql",
             "/db/migration/V11__add_transaction_lookup_indexes.sql",
             "/db/migration/V12__add_wallet_version.sql",
-            "/db/migration/V13__add_user_enabled_flag.sql");
+            "/db/migration/V13__add_user_enabled_flag.sql",
+            "/db/migration/V15__optimize_reporting_indexes.sql");
 
     /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V8 thêm cột vào bảng đã có. */
     private static final Pattern ADD_COLUMN = Pattern.compile(

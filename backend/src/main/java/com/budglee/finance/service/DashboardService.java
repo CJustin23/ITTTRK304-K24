@@ -31,8 +31,10 @@ import java.util.*;
  * Tính năng chính:
  * 1. Thống kê tổng số dư, thu/chi tháng, tỷ lệ ngân sách và phân bổ danh mục.
  * 2. Phân tích biến động chi tiêu theo 4 tuần thực tế trong tháng từ CSDL.
- * 3. Hỗ trợ biểu đồ xu hướng dòng tiền đa kỳ (DAILY, WEEKLY, MONTHLY, YEARLY, CUSTOM).
- * 4. Tích hợp Redis Caching (@Cacheable) có TTL và cơ chế Fallback sang MySQL khi Redis lỗi.
+ * 3. Hỗ trợ biểu đồ xu hướng dòng tiền đa kỳ (DAILY, WEEKLY, MONTHLY, YEARLY,
+ * CUSTOM).
+ * 4. Tích hợp Redis Caching (@Cacheable) có TTL và cơ chế Fallback sang MySQL
+ * khi Redis lỗi.
  * 5. Cung cấp API dọn cache (@CacheEvict) khi phát sinh giao dịch mới.
  * =========================================================================
  */
@@ -64,11 +66,13 @@ public class DashboardService {
         // 2. Thống kê tổng thu nhập và tổng chi tiêu trong tháng
         BigDecimal monthlyIncome = transactionRepository.getTotalAmountByTypeAndPeriod(
                 userId, TransactionType.INCOME, startDateTime, endDateTime);
-        if (monthlyIncome == null) monthlyIncome = BigDecimal.ZERO;
+        if (monthlyIncome == null)
+            monthlyIncome = BigDecimal.ZERO;
 
         BigDecimal monthlySpending = transactionRepository.getTotalAmountByTypeAndPeriod(
                 userId, TransactionType.EXPENSE, startDateTime, endDateTime);
-        if (monthlySpending == null) monthlySpending = BigDecimal.ZERO;
+        if (monthlySpending == null)
+            monthlySpending = BigDecimal.ZERO;
 
         // 3. Phân bổ chi tiêu theo từng hạng mục (Category Breakdown)
         List<Object[]> rawCategoryBreakdown = transactionRepository.getCategoryExpenseBreakdown(
@@ -81,28 +85,22 @@ public class DashboardService {
         }
 
         // 4. Biến động chi tiêu theo 4 tuần thực tế trong tháng (Weekly Spent Trends)
-        List<Transaction> monthTransactions = transactionRepository.findByUserIdAndTransactionDateBetween(
-                userId, startDateTime, endDateTime);
-
+        // Tối ưu hóa Sprint 4 - Tú: Tính toán aggregate trực tiếp bằng SQL thay vì
+        // duyệt entity trong RAM
         BigDecimal w1 = BigDecimal.ZERO;
         BigDecimal w2 = BigDecimal.ZERO;
         BigDecimal w3 = BigDecimal.ZERO;
         BigDecimal w4 = BigDecimal.ZERO;
 
-        if (monthTransactions != null) {
-            for (Transaction t : monthTransactions) {
-                if (t.getTransactionType() == TransactionType.EXPENSE && t.getAmount() != null && t.getTransactionDate() != null) {
-                    int day = t.getTransactionDate().getDayOfMonth();
-                    if (day <= 7) {
-                        w1 = w1.add(t.getAmount());
-                    } else if (day <= 14) {
-                        w2 = w2.add(t.getAmount());
-                    } else if (day <= 21) {
-                        w3 = w3.add(t.getAmount());
-                    } else {
-                        w4 = w4.add(t.getAmount());
-                    }
-                }
+        List<Object[]> weeklyRows = transactionRepository.getWeeklyExpenseBreakdown(
+                userId, startDateTime, endDateTime);
+        if (weeklyRows != null && !weeklyRows.isEmpty()) {
+            Object[] row = weeklyRows.get(0);
+            if (row != null && row.length >= 4) {
+                w1 = row[0] != null ? (BigDecimal) row[0] : BigDecimal.ZERO;
+                w2 = row[1] != null ? (BigDecimal) row[1] : BigDecimal.ZERO;
+                w3 = row[2] != null ? (BigDecimal) row[2] : BigDecimal.ZERO;
+                w4 = row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO;
             }
         }
 
@@ -201,7 +199,7 @@ public class DashboardService {
     /**
      * Dọn dẹp cache Dashboard khi có giao dịch hoặc ví mới được tạo/sửa đổi
      */
-    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
+    @CacheEvict(value = { "dashboardSummary", "dashboardTrends" }, allEntries = true)
     public void evictDashboardCache() {
         log.info("[THÀNH - DASHBOARD] Đã dọn dẹp cache Dashboard để cập nhật số liệu mới nhất.");
     }
