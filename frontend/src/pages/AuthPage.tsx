@@ -138,18 +138,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     setIsLoading(true);
 
     try {
-      const data = await AuthService.forgotPassword(forgotEmail.trim().toLowerCase());
-      setGeneratedDemoOtp(data.otp);
-      setOtpCode(data.otp); // Tự động điền mã để thuận tiện kiểm thử
+      await AuthService.forgotPassword(forgotEmail.trim().toLowerCase());
+      setOtpCode(''); // Không điền mã trước: người dùng lấy mã từ hòm thư Gmail
       setForgotStep(2);
-      setSuccessMessage('Mã xác thực 6 chữ số đã được tạo thành công!');
+      setSuccessMessage('Mã xác thực 6 chữ số đã được gửi đến email ' + forgotEmail + '. Vui lòng kiểm tra hộp thư!');
     } catch (err: any) {
-      // Tự động sinh mã 6 chữ số dự phòng giúp kiểm thử mượt mà với mọi email
-      const fallbackOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedDemoOtp(fallbackOtp);
-      setOtpCode(fallbackOtp);
-      setForgotStep(2);
-      setSuccessMessage('Mã xác thực 6 chữ số đã được tạo thành công!');
+      const msg = err.response?.data?.message || 'Không thể gửi email xác thực. Vui lòng kiểm tra lại địa chỉ email!';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }
@@ -634,20 +629,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             ) : (
               /* Bước 2: Nhập mã 6 chữ số và đổi mật khẩu mới */
               <form onSubmit={handleResetPasswordSubmit} noValidate className="space-y-4">
-                {generatedDemoOtp && (
-                  <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-xs text-amber-300 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
-                      <div>
-                        <span>Mã xác thực của bạn: </span>
-                        <span className="font-mono font-black text-sm text-yellow-300 tracking-widest bg-amber-900/60 px-2 py-0.5 rounded-md border border-amber-600/40">
-                          {generatedDemoOtp}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-amber-400/80">(Hiệu lực 10 phút)</span>
+                <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 flex items-start gap-2.5">
+                  <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-emerald-200">
+                      Đã gửi mã xác thực tới: <span className="text-white underline">{forgotEmail}</span>
+                    </p>
+                    <p className="text-slate-400 text-[11px]">
+                      Vui lòng mở ứng dụng Gmail (kiểm tra cả mục <strong>Hộp thư đến</strong> hoặc thư mục <strong>Spam / Thư rác</strong>) để lấy mã xác thực 6 chữ số và nhập vào bên dưới.
+                    </p>
                   </div>
-                )}
+                </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">

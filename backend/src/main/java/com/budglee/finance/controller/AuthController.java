@@ -51,11 +51,11 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Yêu cầu mã xác thực 6 ký tự để đổi mật khẩu qua Email")
+    @Operation(summary = "Yêu cầu mã xác thực 6 chữ số để đổi mật khẩu qua Email")
     public ResponseEntity<ApiResponse<ForgotPasswordResponse>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request) {
         ForgotPasswordResponse response = authService.forgotPassword(request);
-        return ResponseEntity.ok(ApiResponse.ok(response, "Mã xác thực đã được tạo thành công"));
+        return ResponseEntity.ok(ApiResponse.ok(response, response.getMessage()));
     }
 
     @PostMapping("/reset-password")

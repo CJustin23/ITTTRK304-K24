@@ -65,6 +65,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final TokenBlocklist tokenBlocklist;
     private final PasswordResetService passwordResetService;
+    private final EmailService emailService;
 
     public AuthResponse register(RegisterRequest request) {
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
@@ -175,10 +176,14 @@ public class AuthService {
         }
 
         String otp = passwordResetService.generateAndSaveCode(email);
+
+        // Gửi email thực sự qua SMTP đến hòm thư người dùng
+        emailService.sendPasswordResetOtp(email, otp);
+
         return ForgotPasswordResponse.builder()
                 .email(email)
-                .otp(otp)
-                .message("Mã xác thực 6 chữ số đã được tạo. Vui lòng nhập mã để hoàn tất đổi mật khẩu.")
+                .otp(null)
+                .message("Mã xác thực 6 chữ số đã được gửi đến hộp thư " + email + ". Vui lòng kiểm tra email của bạn!")
                 .expiresInSeconds(PasswordResetService.OTP_VALIDITY.toSeconds())
                 .build();
     }

@@ -91,11 +91,12 @@ class PasswordResetFlowTest {
 
         JsonNode json = om.readTree(textOf(result));
         assertThat(json.get("success").asBoolean()).isTrue();
-        String otp = json.get("data").get("otp").asText();
+        assertThat(json.get("message").asText()).contains("Mã xác thực 6 chữ số đã được gửi");
 
-        // Kiểm tra đúng 6 chữ số (0-9)
-        assertThat(otp).hasSize(6);
-        assertThat(otp).matches("^\\d{6}$");
+        // Kiểm tra phương thức sinh mã của PasswordResetService
+        String directOtp = passwordResetService.generateNumericOtp();
+        assertThat(directOtp).hasSize(6);
+        assertThat(directOtp).matches("^\\d{6}$");
     }
 
     @Test
