@@ -6,6 +6,7 @@ import com.budglee.finance.dto.RegisterRequest;
 import com.budglee.finance.dto.ForgotPasswordRequest;
 import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
+import com.budglee.finance.dto.VerifyOtpRequest;
 import com.budglee.finance.security.PasswordResetService;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
@@ -230,6 +231,16 @@ public class AuthService {
         userRepository.save(user);
 
         log.info("Đổi mật khẩu thành công cho email={}", email);
+    }
+
+    public void verifyOtp(VerifyOtpRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy tài khoản với địa chỉ email: " + email));
+
+        passwordResetService.verifyCode(email, request.getOtp());
+        log.info("Xác thực OTP thành công (bước 2) cho email={}", email);
     }
 
     private static String trimToNull(String value) {

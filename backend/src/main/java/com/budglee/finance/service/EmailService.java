@@ -76,7 +76,7 @@ public class EmailService {
                 + otp
                 + "        </span>"
                 + "      </div>"
-                + "      <p style='margin:10px 0 0 0;font-size:12px;color:#64748b;'>Mã xác thực có hiệu lực trong <strong>10 phút</strong></p>"
+                + "      <p style='margin:10px 0 0 0;font-size:12px;color:#64748b;'>Mã xác thực có hiệu lực trong <strong>5 phút</strong> và chỉ sử dụng được <strong>1 lần</strong></p>"
                 + "    </div>"
                 + "    <p style='margin:0 0 16px 0;font-size:13px;line-height:1.6;color:#94a3b8;'>"
                 + "      Nếu bạn <strong>không</strong> yêu cầu đổi mật khẩu, vui lòng bỏ qua email này hoặc kiểm tra lại bảo mật tài khoản."

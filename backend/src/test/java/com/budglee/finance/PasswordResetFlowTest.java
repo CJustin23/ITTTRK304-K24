@@ -192,5 +192,39 @@ class PasswordResetFlowTest {
                         .content(om.writeValueAsString(wrongBody)))
                 .andExpect(status().isTooManyRequests());
     }
+
+    @Test
+    @DisplayName("Xác thực OTP: Nhập đúng mã OTP thì trả về 200 OK (Bước 2)")
+    void verifyOtp_correctOtp_returns200() throws Exception {
+        User user = createTestUser("OldPass@123");
+        String otp = passwordResetService.generateAndSaveCode(user.getEmail());
+
+        Map<String, String> body = Map.of(
+                "email", user.getEmail(),
+                "otp", otp
+        );
+
+        mvc.perform(post("/api/v1/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(body)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Xác thực OTP: Nhập sai mã OTP thì trả về 400 BAD_REQUEST")
+    void verifyOtp_wrongOtp_returns400() throws Exception {
+        User user = createTestUser("OldPass@123");
+        passwordResetService.generateAndSaveCode(user.getEmail());
+
+        Map<String, String> body = Map.of(
+                "email", user.getEmail(),
+                "otp", "999999"
+        );
+
+        mvc.perform(post("/api/v1/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
 }
 

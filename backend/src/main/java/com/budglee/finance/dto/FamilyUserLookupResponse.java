@@ -19,3 +19,4 @@ public class FamilyUserLookupResponse {
     private boolean exists;
     private String message;
 }
+

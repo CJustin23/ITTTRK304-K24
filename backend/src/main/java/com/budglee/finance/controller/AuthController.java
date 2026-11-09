@@ -7,6 +7,7 @@ import com.budglee.finance.dto.RegisterRequest;
 import com.budglee.finance.dto.ForgotPasswordRequest;
 import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
+import com.budglee.finance.dto.VerifyOtpRequest;
 import com.budglee.finance.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -56,6 +57,17 @@ public class AuthController {
             @Valid @RequestBody ForgotPasswordRequest request) {
         ForgotPasswordResponse response = authService.forgotPassword(request);
         return ResponseEntity.ok(ApiResponse.ok(response, response.getMessage()));
+    }
+
+    @PostMapping("/verify-otp")
+    @Operation(summary = "Kiểm tra mã xác thực 6 chữ số trước khi cho phép đổi mật khẩu mới")
+    public ResponseEntity<ApiResponse<Void>> verifyOtp(
+            @Valid @RequestBody VerifyOtpRequest request) {
+        authService.verifyOtp(request);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Mã xác thực hợp lệ. Bạn có thể tiến hành đổi mật khẩu mới")
+                .build());
     }
 
     @PostMapping("/reset-password")
