@@ -93,9 +93,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   const validatePassword = (val: string) => {
     if (!val) return 'Vui lòng nhập mật khẩu';
-    if (val.length < 6) return 'Mật khẩu phải có tối thiểu 6 ký tự';
+    if (val.length < 8 || val.length > 100) return 'Mật khẩu phải từ 8 đến 100 ký tự';
+    if (!/[A-Z]/.test(val) || !/\d/.test(val)) return 'Mật khẩu phải có ít nhất một chữ HOA và một chữ số';
     return '';
   };
+
+  const validateLoginPassword = (val: string) => val ? '' : 'Vui lòng nhập mật khẩu';
 
   const validateFullName = (val: string) => {
     if (!val.trim()) return 'Vui lòng nhập họ và tên của bạn';
@@ -359,7 +362,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     const errs: Record<string, string> = {};
     const emailErr = validateEmail(email);
     if (emailErr) errs.email = emailErr;
-    const passErr = validatePassword(password);
+    const passErr = validateLoginPassword(password);
     if (passErr) errs.password = passErr;
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -811,7 +814,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Mật khẩu mới (tối thiểu 6 ký tự) <span className="text-rose-500">*</span>
+                    Mật khẩu mới (8–100 ký tự, có chữ HOA và chữ số) <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />

@@ -36,7 +36,8 @@ cp deploy/.env.production.example deploy/.env.production
 openssl rand -base64 48          # dan ket qua vao JWT_SECRET
 ```
 
-Bat buoc phai co `JWT_SECRET`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`.
+Bat buoc phai co `JWT_SECRET`, `DB_PASSWORD`, `DB_ROOT_PASSWORD` va
+`MAIL_USERNAME` / `MAIL_PASSWORD` (SMTP App Password moi, sau khi thu hoi credential cu).
 Muon co tai quan tri de demo RBAC thi dien them `APP_SECURITY_SYSTEM_ADMIN_EMAIL` /
 `APP_SECURITY_SYSTEM_ADMIN_PASSWORD` — bo trong thi backend van chay, khong tao ai ca.
 
