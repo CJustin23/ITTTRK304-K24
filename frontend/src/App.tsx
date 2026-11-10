@@ -15,6 +15,7 @@ import { FamilyWorkspaceView } from './pages/FamilyWorkspaceView';
 import { InsightsView } from './pages/InsightsView';
 import { SettingsView } from './pages/SettingsView';
 import { AuthPage } from './pages/AuthPage';
+import { AdminView } from './pages/AdminView';
 
 import { BotInsightModal } from './components/BotInsightModal';
 import { NewTransactionModal } from './components/NewTransactionModal';
@@ -56,13 +57,17 @@ export const App: React.FC = () => {
   } = useStore();
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    if (tab !== 'auth') {
-      localStorage.setItem('budglee_active_tab', tab);
+    const allowedTab = tab === 'admin' && currentUser?.role !== 'SYSTEM_ADMIN' ? 'overview' : tab;
+    setActiveTab(allowedTab);
+    if (allowedTab !== 'auth') {
+      localStorage.setItem('budglee_active_tab', allowedTab);
     }
   };
 
   useEffect(() => {
+    if (activeTab === 'admin' && currentUser?.role !== 'SYSTEM_ADMIN') {
+      handleTabChange('overview');
+    }
     (window as any).setActiveTab = (tab: string) => handleTabChange(tab);
     (window as any).toggleAuthPage = () => {
       handleTabChange(activeTab === 'auth' ? 'overview' : 'auth');
@@ -141,6 +146,8 @@ export const App: React.FC = () => {
         return <FamilyWorkspaceView />;
       case 'settings':
         return <SettingsView />;
+      case 'admin':
+        return <AdminView />;
       case 'overview':
       default:
         return (

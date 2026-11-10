@@ -29,6 +29,10 @@ api.interceptors.request.use(
 );
 
 export const AuthService = {
+  login: async (email: string, password: string): Promise<{ token: string; id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data.data;
+  },
   forgotPassword: async (email: string): Promise<{ email: string; otp: string; message: string; expiresInSeconds: number }> => {
     const response = await api.post('/auth/forgot-password', { email });
     return response.data.data;
@@ -135,6 +139,35 @@ export const FamilyApiService = {
   },
   removeMember: async (memberId: number): Promise<void> => {
     const response = await api.delete(`/family/members/${memberId}`);
+    return response.data.data;
+  },
+};
+
+export interface AdminUser {
+  id: number;
+  fullName: string;
+  email: string;
+  role: 'INDIVIDUAL_USER' | 'FAMILY_ADMIN' | 'FAMILY_MEMBER' | 'SYSTEM_ADMIN';
+  familyGroupId?: string | null;
+  enabled?: boolean;
+  createdAt?: string;
+}
+
+export const AdminService = {
+  getUsers: async (): Promise<AdminUser[]> => {
+    const response = await api.get('/admin/users');
+    return response.data.data;
+  },
+  updateRole: async (id: number, role: AdminUser['role'], familyGroupId?: string): Promise<AdminUser> => {
+    const response = await api.put(`/admin/users/${id}/role`, { role, familyGroupId: familyGroupId || null });
+    return response.data.data;
+  },
+  updateStatus: async (id: number, enabled: boolean): Promise<AdminUser> => {
+    const response = await api.put(`/admin/users/${id}/status`, { enabled });
+    return response.data.data;
+  },
+  createFamilyGroup: async (data: { id: string; name: string; ownerId: number }) => {
+    const response = await api.post('/admin/family-groups', data);
     return response.data.data;
   },
 };

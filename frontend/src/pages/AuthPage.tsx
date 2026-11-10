@@ -353,7 +353,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     const errs: Record<string, string> = {};
@@ -361,115 +361,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     if (emailErr) errs.email = emailErr;
     const passErr = validatePassword(password);
     if (passErr) errs.password = passErr;
-
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
     setErrors({});
     setIsLoading(true);
-
-    setTimeout(() => {
-      setIsLoading(false);
-      const trimmedEmail = email.trim().toLowerCase();
-
-      // Danh sách 4 tài khoản hệ thống chính thức theo yêu cầu
-      const SYSTEM_DEFAULT_ACCOUNTS: Record<string, { user: User; defaultPassword: string }> = {
-        'thanhcanhan@gmail.com': {
-          user: {
-            id: 1001,
-            fullName: 'Nguyễn Tiến Thành',
-            email: 'thanhcanhan@gmail.com',
-            role: 'INDIVIDUAL_USER',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-          },
-          defaultPassword: '123456',
-        },
-        'thanhba@gmail.com': {
-          user: {
-            id: 1002,
-            fullName: 'Nguyễn Tiến Ba (Ba)',
-            email: 'thanhba@gmail.com',
-            role: 'FAMILY_ADMIN',
-            familyGroupId: 'FAM-HANHPHUC',
-            familyGroupName: 'Gia đình Hạnh Phúc',
-            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
-          },
-          defaultPassword: '123456',
-        },
-        'thanhme@gmail.com': {
-          user: {
-            id: 1003,
-            fullName: 'Trần Thị Mẹ (Mẹ)',
-            email: 'thanhme@gmail.com',
-            role: 'FAMILY_ADMIN',
-            familyGroupId: 'FAM-HANHPHUC',
-            familyGroupName: 'Gia đình Hạnh Phúc',
-            avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
-          },
-          defaultPassword: '123456',
-        },
-        'thanhcon@gmail.com': {
-          user: {
-            id: 1004,
-            fullName: 'Nguyễn Tiến Con (Con)',
-            email: 'thanhcon@gmail.com',
-            role: 'FAMILY_MEMBER',
-            familyGroupId: 'FAM-HANHPHUC',
-            familyGroupName: 'Gia đình Hạnh Phúc',
-            avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop&crop=faces',
-          },
-          defaultPassword: '123456',
-        },
-        'demo@budglee.com': {
-          user: {
-            id: 1,
-            fullName: 'Nguyễn Tiến Thành',
-            email: 'demo@budglee.com',
-            role: 'INDIVIDUAL_USER',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-          },
-          defaultPassword: '123456',
-        },
+    try {
+      const account = await AuthService.login(email.trim().toLowerCase(), password);
+      const user: User = {
+        id: account.id,
+        fullName: account.fullName,
+        email: account.email,
+        role: account.role,
+        familyGroupId: account.familyGroupId,
       };
-
-      const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
-      let savedUser: any = null;
-      if (savedUserStr) {
-        try {
-          savedUser = JSON.parse(savedUserStr);
-        } catch {}
-      }
-
-      if (SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail]) {
-        const sys = SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail];
-        const expectedPassword = savedUser?.password || sys.defaultPassword;
-        if (password !== expectedPassword && password !== '123456' && password !== 'Budglee@2026') {
-          setErrorMessage('Mật khẩu không chính xác. Mật khẩu mặc định là 123456.');
-          return;
-        }
-        const userToLogin: User = {
-          ...sys.user,
-          ...(savedUser || {}),
-        };
-        localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
-        setAuth(userToLogin, 'token-' + trimmedEmail, false);
-      } else if (savedUser) {
-        // Tài khoản người dùng tự đăng ký
-        if (savedUser.password && password !== savedUser.password) {
-          setErrorMessage('Mật khẩu không chính xác. Vui lòng kiểm tra lại!');
-          return;
-        }
-        setAuth(savedUser, 'token-' + trimmedEmail, false);
-      } else {
-        setErrorMessage('Tài khoản chưa tồn tại trên hệ thống. Vui lòng kiểm tra lại email hoặc chuyển sang tab Đăng ký mới!');
-        return;
-      }
-
+      setAuth(user, account.token, false);
       if (onSuccess) onSuccess();
-    }, 500);
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
