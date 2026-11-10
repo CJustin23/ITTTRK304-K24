@@ -154,7 +154,7 @@ export const App: React.FC = () => {
                   Xin chào, {currentUser?.fullName || 'Người dùng'} 👋
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  Đây là bức tranh tài chính tổng quan của cá nhân và quỹ gia đình tháng 10/2026.
+                  {`Đây là bức tranh tài chính tổng quan của cá nhân và quỹ gia đình tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}.`}
                 </p>
               </div>
               <div className="flex items-center gap-2">

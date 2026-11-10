@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   PieChart,
   Plus,
@@ -23,7 +23,7 @@ import { useStore } from '../store/useStore';
 import { Budget } from '../types';
 
 export const BudgetsView: React.FC = () => {
-  const { budgets, setBudgetModalOpen, updateBudget, deleteBudget } = useStore();
+  const { budgets, recentTransactions, setBudgetModalOpen, updateBudget, deleteBudget } = useStore();
 
   // State chỉnh sửa ngân sách
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
@@ -35,12 +35,52 @@ export const BudgetsView: React.FC = () => {
   // State xác nhận xóa
   const [deletingBudget, setDeletingBudget] = useState<Budget | null>(null);
 
-  const totalLimit = budgets.reduce((sum, b) => sum + b.amountLimit, 0);
-  const totalSpent = budgets.reduce((sum, b) => sum + b.spentAmount, 0);
+  // Helper: tính số tiền đã chi tiêu thực tế cho từng ngân sách từ danh sách giao dịch
+  const getBudgetActualSpent = (b: Budget): number => {
+    const bCatId = b.categoryId;
+    const catName = (b.categoryName || '').trim().toLowerCase();
+
+    const matchedTxs = recentTransactions.filter((t) => {
+      if (t.transactionType !== 'EXPENSE') return false;
+      if (bCatId && t.categoryId && t.categoryId === bCatId) return true;
+      if (!catName) return false;
+      const tCat = (t.categoryName || '').trim().toLowerCase();
+      return tCat === catName || tCat.includes(catName) || catName.includes(tCat);
+    });
+
+    if (matchedTxs.length > 0) {
+      return matchedTxs.reduce((sum, t) => sum + t.amount, 0);
+    }
+    return b.spentAmount || 0;
+  };
+
+  // Tính toán hạn mức, số tiền đã chi, cảnh báo hoàn toàn động từ dữ liệu thực tế
+  const computedBudgets = useMemo(() => {
+    return budgets.map((b) => {
+      const spent = getBudgetActualSpent(b);
+      const limit = b.amountLimit > 0 ? b.amountLimit : 1;
+      const percentage = (spent / limit) * 100;
+      const leftToSpend = b.amountLimit - spent;
+      const alertThreshold = b.alertThreshold || 80;
+      const isWarning = percentage >= alertThreshold && percentage < 100;
+      const isOverspent = percentage >= 100;
+      return {
+        ...b,
+        spentAmount: spent,
+        percentage,
+        leftToSpend,
+        isWarning,
+        isOverspent,
+      };
+    });
+  }, [budgets, recentTransactions]);
+
+  const totalLimit = computedBudgets.reduce((sum, b) => sum + b.amountLimit, 0);
+  const totalSpent = computedBudgets.reduce((sum, b) => sum + b.spentAmount, 0);
   const totalRemaining = totalLimit - totalSpent;
   const overallPercentage = totalLimit > 0 ? (totalSpent / totalLimit) * 100 : 0;
 
-  const warningBudgetsCount = budgets.filter((b) => (b.spentAmount / b.amountLimit) * 100 >= 80).length;
+  const warningBudgetsCount = computedBudgets.filter((b) => b.isWarning || b.isOverspent).length;
 
   const getCategoryIcon = (name: string) => {
     if (name.includes('Ăn uống')) return Utensils;
@@ -156,7 +196,9 @@ export const BudgetsView: React.FC = () => {
           >
             {new Intl.NumberFormat('vi-VN').format(Math.max(0, totalRemaining))} ₫
           </h3>
-          <p className="text-xs text-emerald-600 mt-2 font-medium">Hạn mức tháng hiện tại</p>
+          <p className="text-xs text-emerald-600 mt-2 font-medium">
+            Hạn mức tháng {new Date().getMonth() + 1}/{new Date().getFullYear()}
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
@@ -175,7 +217,7 @@ export const BudgetsView: React.FC = () => {
       </div>
 
       {/* Main Budget Cards Grid */}
-      {budgets.length === 0 ? (
+      {computedBudgets.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm max-w-lg mx-auto">
           <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
             <PieChart className="w-8 h-8" />
@@ -193,12 +235,9 @@ export const BudgetsView: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {budgets.map((b) => {
+          {computedBudgets.map((b) => {
             const Icon = getCategoryIcon(b.categoryName || '');
-            const percentage = (b.spentAmount / b.amountLimit) * 100;
-            const leftToSpend = b.amountLimit - b.spentAmount;
-            const isWarning = percentage >= b.alertThreshold && percentage < 100;
-            const isOverspent = percentage >= 100;
+            const { percentage, leftToSpend, isWarning, isOverspent } = b;
 
             return (
               <div

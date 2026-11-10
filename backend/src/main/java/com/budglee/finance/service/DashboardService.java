@@ -91,7 +91,7 @@ public class DashboardService {
 
         if (monthTransactions != null) {
             for (Transaction t : monthTransactions) {
-                if (t.getTransactionType() == TransactionType.EXPENSE && t.getAmount() != null && t.getTransactionDate() != null) {
+                if (t.getTransactionType() == TransactionType.EXPENSE && t.getLinkedTransactionId() == null && t.getAmount() != null && t.getTransactionDate() != null) {
                     int day = t.getTransactionDate().getDayOfMonth();
                     if (day <= 7) {
                         w1 = w1.add(t.getAmount());
@@ -169,7 +169,7 @@ public class DashboardService {
                 Map<java.time.DayOfWeek, BigDecimal> dayMap = new EnumMap<>(java.time.DayOfWeek.class);
                 if (txs != null) {
                     for (Transaction t : txs) {
-                        if (t.getTransactionType() == TransactionType.EXPENSE && t.getAmount() != null && t.getTransactionDate() != null) {
+                        if (t.getTransactionType() == TransactionType.EXPENSE && t.getLinkedTransactionId() == null && t.getAmount() != null && t.getTransactionDate() != null) {
                             dayMap.merge(t.getTransactionDate().getDayOfWeek(), t.getAmount(), BigDecimal::add);
                         }
                     }
@@ -194,7 +194,7 @@ public class DashboardService {
                 BigDecimal w4 = BigDecimal.ZERO;
                 if (txs != null) {
                     for (Transaction t : txs) {
-                        if (t.getTransactionType() == TransactionType.EXPENSE && t.getAmount() != null && t.getTransactionDate() != null) {
+                        if (t.getTransactionType() == TransactionType.EXPENSE && t.getLinkedTransactionId() == null && t.getAmount() != null && t.getTransactionDate() != null) {
                             int day = t.getTransactionDate().getDayOfMonth();
                             if (day <= 7) w1 = w1.add(t.getAmount());
                             else if (day <= 14) w2 = w2.add(t.getAmount());
