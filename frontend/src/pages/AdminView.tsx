@@ -51,7 +51,9 @@ export const AdminView: React.FC = () => {
 
   const enabledCount = users.filter((user) => user.enabled !== false).length;
   const groupCount = new Set(users.map((user) => user.familyGroupId).filter(Boolean)).size;
-  const selectableOwners = users.filter((user) => user.role !== 'SYSTEM_ADMIN' && user.familyGroupId == null);
+  const selectableOwners = users.filter((user) =>
+    user.enabled !== false && user.role !== 'SYSTEM_ADMIN' && user.familyGroupId == null
+  );
 
   const saveRole = async (user: AdminUser) => {
     const draft = roleDrafts[user.id] || { role: user.role, group: user.familyGroupId || '' };

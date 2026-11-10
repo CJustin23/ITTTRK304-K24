@@ -99,6 +99,10 @@ public class UserAdminService {
         User owner = userRepository.findById(request.getOwnerId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
 
+        if (!isAccountEnabled(owner)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Không thể tạo nhóm hộ cho tài khoản đang bị khoá");
+        }
         if (familyGroupRepository.existsById(code)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Mã nhóm hộ đã tồn tại");
         }
