@@ -29,6 +29,43 @@ api.interceptors.request.use(
 );
 
 export const AuthService = {
+  login: async (data: { email: string; password: string }): Promise<{
+    token: string;
+    type: string;
+    id: number;
+    fullName: string;
+    email: string;
+    role: string;
+    familyGroupId?: string;
+  }> => {
+    const response = await api.post('/auth/login', data);
+    return response.data.data;
+  },
+  register: async (data: {
+    fullName: string;
+    email: string;
+    password: string;
+    role?: string;
+    familyGroupId?: string;
+  }): Promise<{
+    token: string;
+    type: string;
+    id: number;
+    fullName: string;
+    email: string;
+    role: string;
+    familyGroupId?: string;
+  }> => {
+    const response = await api.post('/auth/register', data);
+    return response.data.data;
+  },
+  logout: async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore network errors on logout
+    }
+  },
   forgotPassword: async (email: string): Promise<{ email: string; otp: string; message: string; expiresInSeconds: number }> => {
     const response = await api.post('/auth/forgot-password', { email });
     return response.data.data;
@@ -48,6 +85,10 @@ export const DashboardService = {
     const response = await api.get('/dashboard/summary', { params: { year, month } });
     return response.data.data;
   },
+  getTrends: async (timeframe?: string): Promise<{ label: string; amount: number }[]> => {
+    const response = await api.get('/dashboard/trends', { params: { timeframe } });
+    return response.data.data;
+  },
   getRecommendations: async (year?: number, month?: number): Promise<HabitRecommendation> => {
     const response = await api.get('/dashboard/recommendations', { params: { year, month } });
     return response.data.data;
@@ -55,11 +96,11 @@ export const DashboardService = {
 };
 
 export const TransactionService = {
-  getAll: async (page = 0, size = 10): Promise<{ content: Transaction[]; totalElements: number }> => {
+  getAll: async (page = 0, size = 100): Promise<{ content: Transaction[]; totalElements: number }> => {
     const response = await api.get('/transactions', { params: { page, size } });
     return response.data.data;
   },
-  create: async (data: Partial<Transaction>): Promise<Transaction> => {
+  create: async (data: any): Promise<Transaction> => {
     const response = await api.post('/transactions', data);
     return response.data.data;
   },
@@ -69,6 +110,17 @@ export const WalletService = {
   getAll: async (): Promise<Wallet[]> => {
     const response = await api.get('/wallets');
     return response.data.data;
+  },
+  create: async (data: any): Promise<Wallet> => {
+    const response = await api.post('/wallets', data);
+    return response.data.data;
+  },
+  update: async (id: number, data: any): Promise<Wallet> => {
+    const response = await api.put(`/wallets/${id}`, data);
+    return response.data.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/wallets/${id}`);
   },
 };
 
@@ -82,6 +134,10 @@ export const CategoryService = {
 export const BudgetService = {
   getAll: async (month: number, year: number): Promise<Budget[]> => {
     const response = await api.get('/budgets', { params: { month, year } });
+    return response.data.data;
+  },
+  create: async (data: any): Promise<Budget> => {
+    const response = await api.post('/budgets', data);
     return response.data.data;
   },
 };
