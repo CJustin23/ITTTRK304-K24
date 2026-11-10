@@ -273,6 +273,258 @@ export const THANHCANHAN_DATA: {
       transactionDate: '2026-11-07 10:00',
       note: 'Thay dầu lap và dầu máy định kỳ',
     },
+    // === DỮ LIỆU CÁC THÁNG VÀ NĂM CŨ (Hiển thị biểu đồ Monthly & Yearly) ===
+    // Tháng 8/2026:
+    {
+      id: 120,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Nhận lương tháng 8/2026',
+      amount: 35000000,
+      transactionType: 'INCOME',
+      balanceAfter: 42000000,
+      transactionDate: '2026-08-05 09:00',
+      note: 'Lương công ty Budglee',
+    },
+    {
+      id: 121,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Ăn tối liên hoan cuối tuần tháng 8',
+      amount: 850000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 20000000,
+      transactionDate: '2026-08-08 19:30',
+      note: 'Họp mặt bạn bè',
+    },
+    {
+      id: 122,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Hóa đơn & Tiện ích',
+      categoryIcon: 'Receipt',
+      actionTitle: 'Thanh toán tiền điện sinh hoạt EVN tháng 8',
+      amount: 1150000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 40850000,
+      transactionDate: '2026-08-12 14:00',
+      note: 'Hóa đơn tiền điện mùa hè',
+    },
+    {
+      id: 123,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Mua sắm cá nhân',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mua sắm trang phục công sở Routine',
+      amount: 1250000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 18750000,
+      transactionDate: '2026-08-16 16:30',
+      note: 'Áo sơ mi & quần tây',
+    },
+    {
+      id: 124,
+      walletId: 4,
+      walletName: 'Ví Tiền mặt (Cash)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Đổ xăng xe máy Petrolimex',
+      amount: 120000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 3500000,
+      transactionDate: '2026-08-20 08:00',
+      note: 'Xăng RON 95',
+    },
+    {
+      id: 125,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Học tập & Phát triển',
+      categoryIcon: 'BookOpen',
+      actionTitle: 'Đăng ký khóa học Spring Boot & Microservices',
+      amount: 890000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 17860000,
+      transactionDate: '2026-08-25 10:00',
+      note: 'Nâng cao kỹ năng lập trình',
+    },
+    // Tháng 9/2026:
+    {
+      id: 130,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Nhận lương tháng 9/2026',
+      amount: 35000000,
+      transactionType: 'INCOME',
+      balanceAfter: 48000000,
+      transactionDate: '2026-09-05 09:00',
+      note: 'Lương chuyển khoản',
+    },
+    {
+      id: 131,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Coffee',
+      actionTitle: 'Cà phê làm việc & ăn trưa văn phòng tuần 1',
+      amount: 450000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 5200000,
+      transactionDate: '2026-09-08 12:00',
+      note: 'Cơm trưa và cà phê',
+    },
+    {
+      id: 132,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Hóa đơn & Tiện ích',
+      categoryIcon: 'Receipt',
+      actionTitle: 'Thanh toán tiền điện và cáp quang Internet tháng 9',
+      amount: 1480000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 46520000,
+      transactionDate: '2026-09-12 15:00',
+      note: 'EVN & VNPT',
+    },
+    {
+      id: 133,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Mua sắm cá nhân',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mua tai nghe chống ồn Sony WH-1000XM4',
+      amount: 2350000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 15510000,
+      transactionDate: '2026-09-17 18:30',
+      note: 'Phục vụ tập trung làm việc',
+    },
+    {
+      id: 134,
+      walletId: 4,
+      walletName: 'Ví Tiền mặt (Cash)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Bảo dưỡng xe máy định kỳ thay dầu Motul',
+      amount: 290000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 3210000,
+      transactionDate: '2026-09-22 09:30',
+      note: 'Bảo dưỡng tại trung tâm',
+    },
+    {
+      id: 135,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Ăn tối lẩu Haidilao cùng nhóm bạn thân',
+      amount: 1250000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 14260000,
+      transactionDate: '2026-09-26 19:30',
+      note: 'Cuối tuần sum họp',
+    },
+    // Đầu tháng 10/2026:
+    {
+      id: 140,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Tạm ứng thu nhập đầu tháng 10',
+      amount: 15000000,
+      transactionType: 'INCOME',
+      balanceAfter: 52000000,
+      transactionDate: '2026-10-05 09:00',
+      note: 'Tạm ứng dự án',
+    },
+    {
+      id: 141,
+      walletId: 3,
+      walletName: 'Ví MoMo Pay',
+      categoryName: 'Ăn uống & Cà phê',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Chi tiêu ăn trưa & cà phê tuần 1 tháng 10',
+      amount: 620000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 4580000,
+      transactionDate: '2026-10-08 12:30',
+      note: 'Ăn trưa công sở',
+    },
+    {
+      id: 142,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Hóa đơn & Tiện ích',
+      categoryIcon: 'Receipt',
+      actionTitle: 'Phí dịch vụ chung cư & nước sinh hoạt tháng 10',
+      amount: 1250000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 50750000,
+      transactionDate: '2026-10-12 14:00',
+      note: 'Phí căn hộ',
+    },
+    {
+      id: 143,
+      walletId: 2,
+      walletName: 'Visa Platinum Debit',
+      categoryName: 'Giải trí & Du lịch',
+      categoryIcon: 'Plane',
+      actionTitle: 'Dã ngoại cắm trại Đồng Mô cuối tuần',
+      amount: 1850000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 12410000,
+      transactionDate: '2026-10-18 17:00',
+      note: 'Thuê lều & ăn uống ngoài trời',
+    },
+    // Các năm trước (2023, 2024, 2025 cho biểu đồ Yearly):
+    {
+      id: 150,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Mua sắm cá nhân',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Chi tiêu sắm sửa trang thiết bị năm 2023',
+      amount: 28500000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 35000000,
+      transactionDate: '2023-11-20 10:00',
+      note: 'Tổng chi tiêu năm 2023',
+    },
+    {
+      id: 151,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Giải trí & Du lịch',
+      categoryIcon: 'Plane',
+      actionTitle: 'Chuyến du lịch hè Đà Nẵng - Hội An năm 2024',
+      amount: 38200000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 42000000,
+      transactionDate: '2024-07-15 14:00',
+      note: 'Tổng chi tiêu năm 2024',
+    },
+    {
+      id: 152,
+      walletId: 1,
+      walletName: 'Techcombank Lương',
+      categoryName: 'Mua sắm cá nhân',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Nâng cấp dàn PC đồ họa & làm việc năm 2025',
+      amount: 45600000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 48000000,
+      transactionDate: '2025-08-20 16:30',
+      note: 'Tổng chi tiêu năm 2025',
+    },
   ],
   budgets: [
     { id: 1, categoryId: 1, categoryName: 'Ăn uống & Cà phê', categoryIcon: 'Utensils', amountLimit: 5000000, spentAmount: 1085000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
@@ -576,6 +828,388 @@ export const FAMILY_SHARED_DATA: {
       transactionDate: '2026-11-09 08:00',
       note: 'Chuyển vào Mục tiêu VinFast VF7',
     },
+    // === DỮ LIỆU CÁC THÁNG VÀ NĂM CŨ (Hiển thị biểu đồ Monthly & Yearly quỹ gia đình) ===
+    // Tháng 8/2026:
+    {
+      id: 320,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Ba nộp quỹ chung gia đình tháng 8',
+      amount: 40000000,
+      transactionType: 'INCOME',
+      balanceAfter: 110000000,
+      transactionDate: '2026-08-01 08:30',
+      note: 'Đóng góp thu nhập tháng 8',
+    },
+    {
+      id: 321,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Mẹ nộp quỹ chung gia đình tháng 8',
+      amount: 25000000,
+      transactionType: 'INCOME',
+      balanceAfter: 135000000,
+      transactionDate: '2026-08-01 09:00',
+      note: 'Đóng góp thu nhập tháng 8',
+    },
+    {
+      id: 322,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Đi siêu thị Mega Market mua thực phẩm gia đình tháng 8',
+      amount: 4850000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 28000000,
+      transactionDate: '2026-08-06 17:30',
+      note: 'Thịt bò, hải sản, rau quả',
+    },
+    {
+      id: 323,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Home',
+      actionTitle: 'Tiền điện EVN và dịch vụ quản lý căn hộ tháng 8',
+      amount: 3950000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 24050000,
+      transactionDate: '2026-08-11 14:00',
+      note: 'Tiền điện cao điểm hè',
+    },
+    {
+      id: 324,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Mua sắm sách vở và đồng phục năm học mới cho Con',
+      amount: 3600000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 131400000,
+      transactionDate: '2026-08-16 10:00',
+      note: 'Chuẩn bị năm học 2026-2027',
+    },
+    {
+      id: 325,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Y tế & Bảo hiểm',
+      categoryIcon: 'HeartPulse',
+      actionTitle: 'Khám sức khỏe tổng quát định kỳ cho cả nhà tại BV Vinmec',
+      amount: 5500000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 125900000,
+      transactionDate: '2026-08-21 15:30',
+      note: 'Gói kiểm tra sức khỏe gia đình',
+    },
+    {
+      id: 326,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Bảo dưỡng và thay lốp xe ô tô gia đình định kỳ',
+      amount: 3500000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 122400000,
+      transactionDate: '2026-08-25 11:00',
+      note: 'Bảo dưỡng định kỳ',
+    },
+    // Tháng 9/2026:
+    {
+      id: 330,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Ba nộp quỹ chung gia đình tháng 9',
+      amount: 40000000,
+      transactionType: 'INCOME',
+      balanceAfter: 130000000,
+      transactionDate: '2026-09-01 08:30',
+      note: 'Đóng góp thu nhập tháng 9',
+    },
+    {
+      id: 331,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Mẹ nộp quỹ chung gia đình tháng 9',
+      amount: 25000000,
+      transactionType: 'INCOME',
+      balanceAfter: 155000000,
+      transactionDate: '2026-09-01 09:00',
+      note: 'Đóng góp thu nhập tháng 9',
+    },
+    {
+      id: 332,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Đóng học phí đầu năm học mới cho Con',
+      amount: 9500000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 145500000,
+      transactionDate: '2026-09-04 10:00',
+      note: 'Học phí học kỳ I',
+    },
+    {
+      id: 333,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Đi siêu thị Co.opmart mua thực phẩm sinh hoạt tháng 9',
+      amount: 5200000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 26000000,
+      transactionDate: '2026-09-09 17:00',
+      note: 'Thực phẩm dinh dưỡng cho con đi học',
+    },
+    {
+      id: 334,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Home',
+      actionTitle: 'Thanh toán tiền điện và phí gửi xe chung cư tháng 9',
+      amount: 4200000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 21800000,
+      transactionDate: '2026-09-14 14:30',
+      note: 'Điện EVN & ban quản lý',
+    },
+    {
+      id: 335,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Mua sắm & Gia đình',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Mua máy lọc không khí Sharp bảo vệ sức khỏe cả nhà',
+      amount: 4800000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 17000000,
+      transactionDate: '2026-09-19 16:00',
+      note: 'Trang bị phòng ngủ và phòng khách',
+    },
+    {
+      id: 336,
+      walletId: 203,
+      walletName: 'Két sắt tiền mặt gia đình',
+      categoryName: 'Y tế & Bảo hiểm',
+      categoryIcon: 'HeartPulse',
+      actionTitle: 'Mua thuốc bổ xương khớp và vitamin cho gia đình',
+      amount: 2100000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 11000000,
+      transactionDate: '2026-09-24 09:30',
+      note: 'Nhà thuốc Pharmacity',
+    },
+    {
+      id: 337,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Bữa tối sum họp gia đình cuối tuần tại nhà hàng',
+      amount: 1950000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 15050000,
+      transactionDate: '2026-09-28 19:30',
+      note: 'Liên hoan tháng 9',
+    },
+    // Tháng 10/2026:
+    {
+      id: 340,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Ba nộp quỹ chung gia đình tháng 10',
+      amount: 40000000,
+      transactionType: 'INCOME',
+      balanceAfter: 135000000,
+      transactionDate: '2026-10-01 08:30',
+      note: 'Đóng góp thu nhập tháng 10',
+    },
+    {
+      id: 341,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Lương & Thưởng',
+      categoryIcon: 'BadgeDollarSign',
+      actionTitle: 'Mẹ nộp quỹ chung gia đình tháng 10',
+      amount: 25000000,
+      transactionType: 'INCOME',
+      balanceAfter: 160000000,
+      transactionDate: '2026-10-01 09:00',
+      note: 'Đóng góp thu nhập tháng 10',
+    },
+    {
+      id: 342,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Đi chợ siêu thị thực phẩm tuần 1 tháng 10',
+      amount: 3600000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 28000000,
+      transactionDate: '2026-10-06 17:00',
+      note: 'Thực phẩm dinh dưỡng',
+    },
+    {
+      id: 343,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Home',
+      actionTitle: 'Thanh toán tiền điện EVN và dịch vụ internet tháng 10',
+      amount: 4350000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 23650000,
+      transactionDate: '2026-10-11 14:00',
+      note: 'Hóa đơn sinh hoạt',
+    },
+    {
+      id: 344,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Đóng tiền học thêm tiếng Anh và kỹ năng mềm cho Con',
+      amount: 4600000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 155400000,
+      transactionDate: '2026-10-15 10:30',
+      note: 'Lớp học thêm quý 4',
+    },
+    {
+      id: 345,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Y tế & Bảo hiểm',
+      categoryIcon: 'HeartPulse',
+      actionTitle: 'Đóng bảo hiểm sức khỏe gia đình Bảo Việt',
+      amount: 6200000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 149200000,
+      transactionDate: '2026-10-19 09:00',
+      note: 'Bảo hiểm thường niên',
+    },
+    {
+      id: 346,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Di chuyển & Xăng xe',
+      categoryIcon: 'Car',
+      actionTitle: 'Chi phí xăng xe và vé cầu đường cao tốc cả nhà tháng 10',
+      amount: 2900000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 146300000,
+      transactionDate: '2026-10-23 15:30',
+      note: 'Di chuyển gia đình',
+    },
+    {
+      id: 347,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Mua sắm & Gia đình',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Du lịch nghỉ dưỡng cuối tuần tại FLC Vĩnh Phúc',
+      amount: 7800000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 15850000,
+      transactionDate: '2026-10-27 19:30',
+      note: 'Nghỉ dưỡng gia đình',
+    },
+    {
+      id: 348,
+      walletId: 202,
+      walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
+      categoryName: 'Ăn uống & Đi chợ gia đình',
+      categoryIcon: 'Utensils',
+      actionTitle: 'Tiệc liên hoan sinh nhật thành viên gia đình ấm cúng',
+      amount: 2400000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 13450000,
+      transactionDate: '2026-10-31 18:30',
+      note: 'Bữa tiệc gia đình',
+    },
+    // Các năm trước (2023, 2024, 2025 cho biểu đồ Yearly quỹ gia đình):
+    {
+      id: 350,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Home',
+      actionTitle: 'Tổng chi tiêu mua sắm nội thất gia đình năm 2023',
+      amount: 78000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 85000000,
+      transactionDate: '2023-11-15 10:00',
+      note: 'Tổng hợp chi tiêu 2023',
+    },
+    {
+      id: 351,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Hóa đơn & Nhà ở',
+      categoryIcon: 'Home',
+      actionTitle: 'Chi phí sửa chữa & bảo trì căn hộ gia đình năm 2024',
+      amount: 115000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 95000000,
+      transactionDate: '2024-07-20 15:00',
+      note: 'Tổng hợp chi tiêu 2024',
+    },
+    {
+      id: 352,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Học tập & Giáo dục con cái',
+      categoryIcon: 'GraduationCap',
+      actionTitle: 'Tổng chi tiêu học tập và sinh hoạt năm 2024',
+      amount: 145000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 105000000,
+      transactionDate: '2024-12-10 11:00',
+      note: 'Tổng hợp chi tiêu 2024',
+    },
+    {
+      id: 353,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Mua sắm & Gia đình',
+      categoryIcon: 'ShoppingBag',
+      actionTitle: 'Chuyến du lịch hè xuyên Việt cả gia đình năm 2025',
+      amount: 58000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 115000000,
+      transactionDate: '2025-06-25 14:00',
+      note: 'Tổng hợp chi tiêu 2025',
+    },
+    {
+      id: 354,
+      walletId: 201,
+      walletName: 'Quỹ chung Gia đình (Vietcombank)',
+      categoryName: 'Y tế & Bảo hiểm',
+      categoryIcon: 'HeartPulse',
+      actionTitle: 'Chi phí bảo hiểm nhân thọ & sức khỏe năm 2025',
+      amount: 175000000,
+      transactionType: 'EXPENSE',
+      balanceAfter: 120000000,
+      transactionDate: '2025-11-18 16:30',
+      note: 'Tổng hợp chi tiêu 2025',
+    },
   ],
   budgets: [
     { id: 201, categoryId: 1, categoryName: 'Ăn uống & Đi chợ gia đình', categoryIcon: 'Utensils', amountLimit: 15000000, spentAmount: 5380000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
@@ -685,11 +1319,26 @@ export const calculateDashboardSummary = (
   transactions: Transaction[],
   budgets: Budget[]
 ): DashboardSummary => {
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const curYear = now.getFullYear();
+
   const totalBalance = wallets.reduce((sum, w) => sum + w.balance, 0);
-  const monthlyIncome = transactions
+
+  // Chỉ lấy các giao dịch thuộc tháng hiện tại cho Tổng thu tháng & Tổng chi tháng
+  const currentMonthTxs = transactions.filter((t) => {
+    if (!t.transactionDate) return false;
+    const normalized = t.transactionDate.includes('T') ? t.transactionDate : t.transactionDate.replace(' ', 'T');
+    const d = new Date(normalized);
+    return !isNaN(d.getTime()) && d.getMonth() + 1 === curMonth && d.getFullYear() === curYear;
+  });
+
+  const txsForMonth = currentMonthTxs.length > 0 ? currentMonthTxs : transactions;
+
+  const monthlyIncome = txsForMonth
     .filter((t) => t.transactionType === 'INCOME')
     .reduce((sum, t) => sum + t.amount, 0);
-  const monthlySpending = transactions
+  const monthlySpending = txsForMonth
     .filter((t) => t.transactionType === 'EXPENSE')
     .reduce((sum, t) => sum + t.amount, 0);
   const leftToSpend = Math.max(0, monthlyIncome - monthlySpending);
@@ -698,21 +1347,21 @@ export const calculateDashboardSummary = (
   const spendingPercentageOfBudget = totalLimit > 0 ? (monthlySpending / totalLimit) * 100 : 0;
 
   const categoryExpenses: Record<string, number> = {};
-  transactions
+  txsForMonth
     .filter((t) => t.transactionType === 'EXPENSE')
     .forEach((t) => {
       const cat = t.categoryName || 'Khác';
       categoryExpenses[cat] = (categoryExpenses[cat] || 0) + t.amount;
     });
 
-  // Biến động chi tiêu theo 4 tuần thực tế trong tháng (Weekly Spent Trends)
+  // Biến động chi tiêu theo 4 tuần thực tế trong tháng hiện tại (Weekly Spent Trends)
   const weeklyAmounts: Record<string, number> = {
     'Tuần 1': 0,
     'Tuần 2': 0,
     'Tuần 3': 0,
     'Tuần 4': 0,
   };
-  transactions
+  currentMonthTxs
     .filter((t) => t.transactionType === 'EXPENSE' && t.amount > 0 && t.transactionDate)
     .forEach((t) => {
       const normalized = t.transactionDate.includes('T') ? t.transactionDate : t.transactionDate.replace(' ', 'T');
@@ -742,6 +1391,20 @@ export const calculateDashboardSummary = (
     categoryExpenses,
     spentTrends,
   };
+};
+
+export const mergeSeedTransactions = (existing: Transaction[], seed: Transaction[]): Transaction[] => {
+  const existingMap = new Map(existing.map((t) => [t.id, t]));
+  seed.forEach((st) => {
+    if (!existingMap.has(st.id)) {
+      existingMap.set(st.id, st);
+    }
+  });
+  return Array.from(existingMap.values()).sort(
+    (a, b) =>
+      new Date(b.transactionDate.includes('T') ? b.transactionDate : b.transactionDate.replace(' ', 'T')).getTime() -
+      new Date(a.transactionDate.includes('T') ? a.transactionDate : a.transactionDate.replace(' ', 'T')).getTime()
+  );
 };
 
 interface AppState {
@@ -950,7 +1613,7 @@ const loadInitialAuthState = () => {
       const famSaved = JSON.parse(famDataStr);
       const personalSaved = savedDataStr ? JSON.parse(savedDataStr) : {};
       const loadedWallets = famSaved.wallets ?? FAMILY_SHARED_DATA.wallets;
-      const loadedTxs = famSaved.recentTransactions ?? FAMILY_SHARED_DATA.recentTransactions;
+      const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
       const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
       const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
       const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
@@ -978,12 +1641,14 @@ const loadInitialAuthState = () => {
       const saved = JSON.parse(savedDataStr);
       const defaultSet = isPersonalThanh ? THANHCANHAN_DATA : (isFamilyThanh ? FAMILY_SHARED_DATA : null);
       const loadedWallets = saved.wallets ?? (defaultSet ? defaultSet.wallets : []);
-      const loadedTxs = saved.recentTransactions ?? (defaultSet ? defaultSet.recentTransactions : []);
+      const loadedTxs = defaultSet
+        ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
+        : (saved.recentTransactions ?? []);
       const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
       const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
       const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
       const loadedNotifs = saved.notifications ?? (defaultSet ? defaultSet.notifications : []);
-      const loadedSummary = saved.dashboardSummary || calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
+      const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
 
       return {
         currentUser: user,
@@ -1128,7 +1793,7 @@ export const useStore = create<AppState>((set, get) => ({
         const famSaved = JSON.parse(famDataStr);
         const personalSaved = savedDataStr ? JSON.parse(savedDataStr) : {};
         const loadedWallets = famSaved.wallets ?? FAMILY_SHARED_DATA.wallets;
-        const loadedTxs = famSaved.recentTransactions ?? FAMILY_SHARED_DATA.recentTransactions;
+        const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
         const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
         const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
         const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
@@ -1165,12 +1830,14 @@ export const useStore = create<AppState>((set, get) => ({
         const saved = JSON.parse(savedDataStr);
         const defaultSet = isPersonalThanh ? THANHCANHAN_DATA : (isFamilyThanh ? FAMILY_SHARED_DATA : null);
         const loadedWallets = saved.wallets ?? (defaultSet ? defaultSet.wallets : []);
-        const loadedTxs = saved.recentTransactions ?? (defaultSet ? defaultSet.recentTransactions : []);
+        const loadedTxs = defaultSet
+          ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
+          : (saved.recentTransactions ?? []);
         const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
         const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
         const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
         const loadedNotifs = saved.notifications ?? (defaultSet ? defaultSet.notifications : []);
-        const loadedSummary = saved.dashboardSummary || calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
+        const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
 
         set({
           currentUser: user,
