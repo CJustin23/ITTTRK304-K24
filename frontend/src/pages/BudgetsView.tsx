@@ -42,6 +42,15 @@ export const BudgetsView: React.FC = () => {
 
     const matchedTxs = recentTransactions.filter((t) => {
       if (t.transactionType !== 'EXPENSE') return false;
+      // Khớp theo kỳ tháng/năm của ngân sách
+      if (b.periodMonth && b.periodYear && t.transactionDate) {
+        const d = new Date(t.transactionDate.includes('T') ? t.transactionDate : t.transactionDate.replace(' ', 'T'));
+        if (!isNaN(d.getTime())) {
+          if (d.getMonth() + 1 !== b.periodMonth || d.getFullYear() !== b.periodYear) {
+            return false;
+          }
+        }
+      }
       if (bCatId && t.categoryId && t.categoryId === bCatId) return true;
       if (!catName) return false;
       const tCat = (t.categoryName || '').trim().toLowerCase();

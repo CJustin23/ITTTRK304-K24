@@ -45,7 +45,15 @@ export const calculateTrendsFromTransactions = (
         'Chủ nhật': 0,
       };
 
-      expenseTxs.forEach((t) => {
+      // Ưu tiên các giao dịch tháng hiện tại để biểu diễn chu kỳ tuần
+      const now = new Date();
+      const currentMonthTxs = expenseTxs.filter((t) => {
+        const d = parseTxDate(t.transactionDate);
+        return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      const txsForDaily = currentMonthTxs.length > 0 ? currentMonthTxs : expenseTxs;
+
+      txsForDaily.forEach((t) => {
         const d = parseTxDate(t.transactionDate);
         if (d) {
           const jsDay = d.getDay(); // 0: Chủ nhật, 1: Thứ 2, ..., 6: Thứ 7
@@ -67,7 +75,14 @@ export const calculateTrendsFromTransactions = (
         'Tuần 4': 0,
       };
 
-      expenseTxs.forEach((t) => {
+      const now = new Date();
+      const currentMonthTxs = expenseTxs.filter((t) => {
+        const d = parseTxDate(t.transactionDate);
+        return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      const txsForWeekly = currentMonthTxs.length > 0 ? currentMonthTxs : expenseTxs;
+
+      txsForWeekly.forEach((t) => {
         const d = parseTxDate(t.transactionDate);
         if (d) {
           const day = d.getDate();
