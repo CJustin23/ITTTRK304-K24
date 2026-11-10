@@ -9,8 +9,8 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:budglee2006@gmail.com}
-    password: ${MAIL_PASSWORD:hylvtgrcveammbju}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -27,7 +27,7 @@ server:
 # JWT Token Configuration
 app:
   jwt:
-    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    secret: ${JWT_SECRET}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   cors:
     # Danh sách origin trình duyệt được phép gọi API kèm credential, phân cách bởi dấu phẩy.

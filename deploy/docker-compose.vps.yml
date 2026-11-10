@@ -73,8 +73,8 @@ services:
       APP_SECURITY_SYSTEM_ADMIN_PASSWORD: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
-      MAIL_USERNAME: ${MAIL_USERNAME:-budglee2006@gmail.com}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-hylvtgrcveammbju}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://quanlythuchi.duckdns.org,http://quanlythuchi.duckdns.org,http://localhost:3000,http://localhost:5173}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:MaxMetaspaceSize=192m -Duser.timezone=Asia/Ho_Chi_Minh
     mem_limit: 768m

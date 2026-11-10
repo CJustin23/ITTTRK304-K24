@@ -226,5 +226,49 @@ class PasswordResetFlowTest {
                         .content(om.writeValueAsString(body)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @DisplayName("Đổi mật khẩu: Mật khẩu mới yếu hoặc dưới 8 ký tự thì trả về 400 BAD_REQUEST")
+    void resetPassword_weakPassword_returns400() throws Exception {
+        User user = createTestUser("OldPass@123");
+        String otp = passwordResetService.generateAndSaveCode(user.getEmail());
+
+        // Mật khẩu chỉ có 6 ký tự (dưới 8 ký tự)
+        Map<String, String> shortPassBody = Map.of(
+                "email", user.getEmail(),
+                "otp", otp,
+                "newPassword", "Pass1"
+        );
+        mvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(shortPassBody)))
+                .andExpect(status().isBadRequest());
+
+        // Mật khẩu không có chữ HOA và số
+        Map<String, String> noUpperBody = Map.of(
+                "email", user.getEmail(),
+                "otp", otp,
+                "newPassword", "passwordonly"
+        );
+        mvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(noUpperBody)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Đổi mật khẩu: Email lạ không tồn tại trong DB thì trả về 404 NOT_FOUND")
+    void resetPassword_nonExistentEmail_returns404() throws Exception {
+        String randomEmail = "stranger." + UUID.randomUUID() + "@example.com";
+        Map<String, String> body = Map.of(
+                "email", randomEmail,
+                "otp", "123456",
+                "newPassword", "StrongPass@2026"
+        );
+        mvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(body)))
+                .andExpect(status().isNotFound());
+    }
 }
 

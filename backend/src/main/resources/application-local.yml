@@ -16,10 +16,10 @@ spring:
       host: localhost
       port: 6379
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: budglee2006@gmail.com
-    password: hylvtgrcveammbju
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
