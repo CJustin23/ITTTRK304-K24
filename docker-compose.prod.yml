@@ -22,6 +22,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    mem_limit: 384m
     networks:
       - budglee-network
 
@@ -38,6 +39,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 96m
     networks:
       - budglee-network
 
@@ -67,6 +69,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    mem_limit: 768m
     networks:
       - budglee-network
 
@@ -81,6 +84,7 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    mem_limit: 64m
     networks:
       - budglee-network
 
@@ -96,6 +100,7 @@ services:
     depends_on:
       - frontend
       - backend
+    mem_limit: 64m
     networks:
       - budglee-network
 
