@@ -129,6 +129,11 @@ export const App: React.FC = () => {
     );
   }
 
+  // System administration uses its own shell so finance navigation/actions are not shown here.
+  if (activeTab === 'admin') {
+    return <AdminView />;
+  }
+
   // Render content according to active tab
   const renderContent = () => {
     switch (activeTab) {

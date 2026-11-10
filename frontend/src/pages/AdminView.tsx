@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, LoaderCircle, Search, ShieldCheck, UserRound, Users, UserX } from 'lucide-react';
+import { AlertCircle, CheckCircle2, LoaderCircle, LogOut, Search, ShieldCheck, UserRound, Users, UserX } from 'lucide-react';
 import { AdminService, AdminUser } from '../services/api';
 import { Role } from '../types';
 import { useStore } from '../store/useStore';
@@ -16,6 +16,7 @@ const getErrorMessage = (error: any) => error?.response?.data?.message || error?
 
 export const AdminView: React.FC = () => {
   const currentUser = useStore((state) => state.currentUser);
+  const logout = useStore((state) => state.logout);
   const [tab, setTab] = useState<AdminTab>('accounts');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [query, setQuery] = useState('');
@@ -104,14 +105,26 @@ export const AdminView: React.FC = () => {
     </section>;
   }
 
-  return <div className="mx-auto max-w-7xl space-y-7">
+  return <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
+    <header className="border-b border-slate-200 bg-white">
+      <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-4 sm:px-8">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-xl font-bold text-white shadow-md shadow-emerald-500/20">B</div>
+          <div><p className="font-bold leading-tight text-slate-900">Budglee</p><p className="text-xs text-slate-500">Quản trị nền tảng</p></div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 sm:inline-flex"><ShieldCheck className="h-4 w-4" />SYSTEM_ADMIN</span>
+          <button onClick={logout} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"><LogOut className="h-4 w-4" />Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+    <main className="mx-auto max-w-[1440px] space-y-7 px-5 py-8 sm:px-8">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">Budglee · Vận hành nền tảng</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">Vận hành nền tảng</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">Quản trị hệ thống</h1>
         <p className="mt-2 text-sm text-slate-500">Quản lý tài khoản và nhóm hộ. Nội dung tài chính của người dùng không hiển thị tại đây.</p>
       </div>
-      <span className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"><ShieldCheck className="h-4 w-4" />SYSTEM_ADMIN</span>
     </div>
 
     <div className="grid gap-4 sm:grid-cols-3">
@@ -165,6 +178,7 @@ export const AdminView: React.FC = () => {
       </div>}
       {tab === 'accounts' && <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredUsers.length} / {users.length} tài khoản</div>}
     </section>
+    </main>
   </div>;
 };
 
