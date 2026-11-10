@@ -127,6 +127,31 @@ class DashboardFlowTest {
     }
 
     @Test
+    @DisplayName("Lấy dữ liệu Điểm sức khỏe tài chính /dashboard/financial-health trả 200 OK")
+    void getFinancialHealth_Authenticated_Returns200WithData() throws Exception {
+        String token = loginNewUser();
+
+        MvcResult result = mvc.perform(get("/api/v1/dashboard/financial-health")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "11"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode body = json(result);
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        assertThat(body.at("/success").asBoolean()).isTrue();
+        assertThat(body.at("/message").asText()).isEqualTo("Tính toán điểm sức khỏe tài chính thành công");
+
+        JsonNode data = body.at("/data");
+        assertThat(data.has("score")).isTrue();
+        assertThat(data.has("rating")).isTrue();
+        assertThat(data.has("ratingLabel")).isTrue();
+        assertThat(data.has("breakdown")).isTrue();
+        assertThat(data.has("advice")).isTrue();
+    }
+
+    @Test
     @DisplayName("DUAN-42 (Redis Error 500 Fix): CacheErrorHandler bắt ngoại lệ Redis và không re-throw giúp API không bị lỗi 500")
     void redisCacheErrorHandler_CatchesAndSuppressesRedisErrors() {
         CacheErrorHandler errorHandler = redisConfig.errorHandler();

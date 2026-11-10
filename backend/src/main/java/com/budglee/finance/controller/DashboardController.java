@@ -2,9 +2,11 @@ package com.budglee.finance.controller;
 
 import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.DashboardSummaryResponse;
+import com.budglee.finance.dto.FinancialHealthResponse;
 import com.budglee.finance.dto.HabitRecommendationResponse;
 import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.DashboardService;
+import com.budglee.finance.service.FinancialHealthService;
 import com.budglee.finance.service.RecommendationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +26,7 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
     private final RecommendationService recommendationService;
+    private final FinancialHealthService financialHealthService;
 
     @GetMapping("/summary")
     @Operation(summary = "Lấy dữ liệu tổng quan Dashboard (Tổng số dư, Thu/Chi tháng, Tỷ lệ ngân sách)")
@@ -61,5 +64,19 @@ public class DashboardController {
 
         HabitRecommendationResponse response = recommendationService.generateSpendingAdvice(currentUser.getId(), y, m);
         return ResponseEntity.ok(ApiResponse.ok(response, "Kích hoạt phân tích thói quen thành công"));
+    }
+
+    @GetMapping("/financial-health")
+    @Operation(summary = "Tính toán điểm sức khỏe tài chính cá nhân (0 - 100) và gợi ý cải thiện")
+    public ResponseEntity<ApiResponse<FinancialHealthResponse>> getFinancialHealth(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        LocalDate now = LocalDate.now();
+        int y = (year != null) ? year : now.getYear();
+        int m = (month != null) ? month : now.getMonthValue();
+
+        FinancialHealthResponse response = financialHealthService.calculateFinancialHealth(currentUser.getId(), y, m);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Tính toán điểm sức khỏe tài chính thành công"));
     }
 }
