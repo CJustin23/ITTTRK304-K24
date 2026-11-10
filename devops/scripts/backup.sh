@@ -21,7 +21,16 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_FILE="${BACKUP_DIR}/budglee_backup_${TIMESTAMP}.sql.gz"
 
 # Check dependencies
-for cmd in mysqldump gzip find sort cut du; do
+if command -v mysqldump >/dev/null 2>&1; then
+    DUMP_CMD=mysqldump
+elif command -v mariadb-dump >/dev/null 2>&1; then
+    DUMP_CMD=mariadb-dump
+else
+    echo "[$(date)] [ERROR] Missing command: mysqldump/mariadb-dump" >&2
+    exit 1
+fi
+
+for cmd in gzip find sort cut du; do
     command -v "$cmd" >/dev/null 2>&1 || {
         echo "[$(date)] [ERROR] Missing command: $cmd" >&2
         exit 1
@@ -48,7 +57,7 @@ echo "[$(date)] Starting backup: ${DB_NAME}"
 
 export MYSQL_PWD="$DB_PASSWORD"
 
-mysqldump \
+"$DUMP_CMD" \
     -h "$DB_HOST" \
     -P "$DB_PORT" \
     -u "$DB_USER" \

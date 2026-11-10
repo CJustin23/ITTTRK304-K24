@@ -13,8 +13,6 @@ import {
   TrendingUp,
   Wallet,
   AlertCircle,
-  Plus,
-  Trash2,
   Home,
   Crown,
   KeyRound,
@@ -27,13 +25,6 @@ import { Role, User } from '../types';
 
 interface AuthPageProps {
   onSuccess?: () => void;
-}
-
-interface InitialMemberRow {
-  id: string;
-  fullName: string;
-  email: string;
-  role: Role;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
@@ -50,7 +41,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   // Family registration states
   const [familyName, setFamilyName] = useState('');
-  const [initialFamilyMembers, setInitialFamilyMembers] = useState<InitialMemberRow[]>([]);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -104,39 +94,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     if (!val.trim()) return 'Vui lòng nhập họ và tên của bạn';
     if (val.trim().length < 2) return 'Họ và tên phải có ít nhất 2 ký tự';
     return '';
-  };
-
-  const handleAddMemberRow = () => {
-    setInitialFamilyMembers((prev) => [
-      ...prev,
-      {
-        id: 'member-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-        fullName: '',
-        email: '',
-        role: 'FAMILY_MEMBER',
-      },
-    ]);
-  };
-
-  const handleRemoveMemberRow = (id: string) => {
-    setInitialFamilyMembers((prev) => prev.filter((m) => m.id !== id));
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[`member_${id}_name`];
-      delete copy[`member_${id}_email`];
-      return copy;
-    });
-  };
-
-  const handleMemberChange = (id: string, field: 'fullName' | 'email' | 'role', value: string) => {
-    setInitialFamilyMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
-    );
-    // Clear error for this field
-    const errKey = `member_${id}_${field === 'fullName' ? 'name' : field}`;
-    if (errors[errKey]) {
-      setErrors((prev) => ({ ...prev, [errKey]: '' }));
-    }
   };
 
   const handleForgotPasswordRequest = async (e: React.FormEvent) => {
@@ -316,38 +273,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         newPassword: newPassword,
       });
 
-      // Cập nhật cả localStorage nếu tài khoản lưu ở client
-      const normalizedForgotEmail = forgotEmail.trim().toLowerCase();
-      const savedUserStr = localStorage.getItem('budglee_user_' + normalizedForgotEmail);
-      let userObj: any = null;
-      if (savedUserStr) {
-        try {
-          userObj = JSON.parse(savedUserStr);
-          userObj.password = newPassword;
-          localStorage.setItem('budglee_user_' + normalizedForgotEmail, JSON.stringify(userObj));
-        } catch {}
-      } else {
-        userObj = {
-          id: Date.now(),
-          fullName: normalizedForgotEmail.split('@')[0],
-          email: normalizedForgotEmail,
-          role: 'INDIVIDUAL_USER',
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-        };
-        localStorage.setItem('budglee_user_' + normalizedForgotEmail, JSON.stringify(userObj));
-      }
-
-      // Đổi mật khẩu thành công -> Tự động đăng nhập luôn
-      if (userObj) {
-        setAuth(userObj, 'jwt-token-' + Date.now());
-        setIsForgotPassword(false);
-      } else {
-        setIsForgotPassword(false);
-        setIsLogin(true);
-        setEmail(forgotEmail);
-        setPassword(newPassword);
-        setSuccessMessage('Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay.');
-      }
+      setIsForgotPassword(false);
+      setForgotStep(1);
+      setIsLogin(true);
+      setEmail(forgotEmail.trim().toLowerCase());
+      setPassword('');
+      setSuccessMessage('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Không thể đổi mật khẩu. Mã xác thực có thể đã hết hạn hoặc đã được sử dụng!';
       setErrorMessage(msg);
@@ -387,7 +318,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       setIsLoading(false);
     }
   };
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     const errs: Record<string, string> = {};
@@ -419,18 +350,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         errs.familyName = 'Tên sổ quỹ phải có ít nhất 2 ký tự';
       }
 
-      // Kiểm tra danh sách thành viên gia đình ban đầu
-      initialFamilyMembers.forEach((m) => {
-        if (!m.fullName.trim()) {
-          errs[`member_${m.id}_name`] = 'Vui lòng nhập họ tên thành viên';
-        }
-        const memberEmailErr = validateEmail(m.email);
-        if (memberEmailErr) {
-          errs[`member_${m.id}_email`] = memberEmailErr;
-        } else if (m.email.trim().toLowerCase() === email.trim().toLowerCase()) {
-          errs[`member_${m.id}_email`] = 'Email không được trùng với email chủ hộ';
-        }
-      });
     }
 
     if (Object.keys(errs).length > 0) {
@@ -440,41 +359,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
     setErrors({});
     setIsLoading(true);
-
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
       const trimmedEmail = email.trim().toLowerCase();
-      const familyGroupId = role === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined;
-
-      const newUser: User = {
-        id: Date.now(),
-        fullName: fullName.trim(),
-        email: trimmedEmail,
-        role: role,
-        familyGroupId,
-        familyGroupName: role === 'FAMILY_ADMIN' ? familyName.trim() : undefined,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-      };
-
-      // Lưu hồ sơ tài khoản
-      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(newUser));
-
-      // Tạo tài khoản MỚI HOÀN TOÀN SẠCH (isNewRegistration = true, không dính ví/giao dịch cũ)
-      setAuth(
-        newUser,
-        'mock-jwt-token-' + Date.now(),
-        true,
-        initialFamilyMembers
-          .filter((m) => m.fullName.trim() && m.email.trim())
-          .map((m) => ({
-            fullName: m.fullName.trim(),
-            email: m.email.trim(),
-            role: m.role,
-          }))
-      );
-
+      const registration = { fullName: fullName.trim(), email: trimmedEmail, password };
+      if (role === 'FAMILY_ADMIN') {
+        await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+      } else {
+        await AuthService.register(registration);
+      }
+      const account = await AuthService.login(trimmedEmail, password);
+      const user: User = { id: account.id, fullName: account.fullName, email: account.email,
+        role: account.role, familyGroupId: account.familyGroupId };
+      setAuth(user, account.token, true);
       if (onSuccess) onSuccess();
-    }, 700);
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data?.message || 'Đăng ký thất bại. Vui lòng kiểm tra thông tin và thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -1112,12 +1014,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setRole('FAMILY_ADMIN');
-                      if (initialFamilyMembers.length === 0) {
-                        handleAddMemberRow();
-                      }
-                    }}
+                    onClick={() => setRole('FAMILY_ADMIN')}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       role === 'FAMILY_ADMIN'
                         ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-md'
@@ -1167,108 +1064,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                       </p>
                     )}
                   </div>
-
-                  {/* Danh sách thành viên gia đình ban đầu */}
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Thành viên gia đình cần thêm:
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddMemberRow}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>+ Thêm thành viên</span>
-                      </button>
-                    </div>
-
-                    {initialFamilyMembers.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 italic">
-                        Chưa có thành viên nào. Bấm "+ Thêm thành viên" để mời người thân ngay lúc tạo sổ quỹ.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {initialFamilyMembers.map((member, idx) => (
-                          <div
-                            key={member.id}
-                            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
-                          >
-                            <div className="flex items-center justify-between text-[11px] text-slate-400">
-                              <span className="font-semibold">Thành viên #{idx + 1}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveMemberRow(member.id)}
-                                className="text-slate-500 hover:text-rose-400 p-0.5 rounded transition-colors"
-                                title="Xóa dòng thành viên này"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <input
-                                  type="text"
-                                  placeholder="Họ tên thành viên"
-                                  value={member.fullName}
-                                  onChange={(e) =>
-                                    handleMemberChange(member.id, 'fullName', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
-                                    errors[`member_${member.id}_name`]
-                                      ? 'border-rose-500'
-                                      : 'border-slate-700 focus:border-emerald-500'
-                                  }`}
-                                />
-                                {errors[`member_${member.id}_name`] && (
-                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
-                                    {errors[`member_${member.id}_name`]}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div>
-                                <input
-                                  type="email"
-                                  placeholder="Email thành viên"
-                                  value={member.email}
-                                  onChange={(e) =>
-                                    handleMemberChange(member.id, 'email', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
-                                    errors[`member_${member.id}_email`]
-                                      ? 'border-rose-500'
-                                      : 'border-slate-700 focus:border-emerald-500'
-                                  }`}
-                                />
-                                {errors[`member_${member.id}_email`] && (
-                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
-                                    {errors[`member_${member.id}_email`]}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-slate-400">Vai trò:</span>
-                              <select
-                                value={member.role}
-                                onChange={(e) =>
-                                  handleMemberChange(member.id, 'role', e.target.value)
-                                }
-                                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-slate-300 focus:outline-none focus:border-emerald-500"
-                              >
-                                <option value="FAMILY_MEMBER">Thành viên (Ghi chép thu chi)</option>
-                                <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-400">Sau khi tạo nhóm, bạn có thể mời thành viên từ mục Nhóm hộ. Mỗi người cần có tài khoản Budglee.</p>
                 </div>
               )}
 

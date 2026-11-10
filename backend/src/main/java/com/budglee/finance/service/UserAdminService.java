@@ -47,10 +47,20 @@ public class UserAdminService {
 
     private final UserRepository userRepository;
     private final FamilyGroupRepository familyGroupRepository;
+    private final com.budglee.finance.repository.TransactionRepository transactionRepository;
 
     @Transactional(readOnly = true)
     public List<User> listUsers() {
         return userRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    @Transactional(readOnly = true)
+    public com.budglee.finance.dto.AdminStatsResponse getStats() {
+        return new com.budglee.finance.dto.AdminStatsResponse(
+                userRepository.count(),
+                userRepository.countByEnabled(Boolean.FALSE),
+                familyGroupRepository.count(),
+                transactionRepository.countByCreatedAtAfter(java.time.LocalDateTime.now().minusHours(24)));
     }
 
     @Transactional

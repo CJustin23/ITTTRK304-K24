@@ -3,6 +3,8 @@ package com.budglee.finance.service;
 import com.budglee.finance.dto.AuthRequest;
 import com.budglee.finance.dto.AuthResponse;
 import com.budglee.finance.dto.RegisterRequest;
+import com.budglee.finance.dto.FamilyOwnerRegisterRequest;
+import com.budglee.finance.entity.FamilyGroup;
 import com.budglee.finance.dto.ForgotPasswordRequest;
 import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
@@ -27,6 +29,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Locale;
@@ -40,9 +43,9 @@ import java.util.Set;
  * Đã cài đặt (DUAN-39):
  * 1. Email lưu ở dạng chữ thường; đăng ký lại bằng chữ HOA vẫn bị 409.
  * 2. Mật khẩu chỉ lưu dạng băm BCrypt, không bao giờ trả ra response.
- * 3. Vai trò bị khoá: đơn đăng ký công khai chỉ được INDIVIDUAL_USER hoặc FAMILY_MEMBER,
- *    và FAMILY_MEMBER phải kèm mã nhóm hộ. Nhận FAMILY_ADMIN/SYSTEM_ADMIN thì trả 400,
- *    vì nếu không thì ai cũng tự cấp quyền quản trị cho mình.
+ * 3. Endpoint đăng ký thông thường chỉ nhận INDIVIDUAL_USER hoặc FAMILY_MEMBER, và FAMILY_MEMBER
+ *    phải kèm mã nhóm hộ. Chủ hộ có endpoint riêng tạo nhóm mới gắn với chính tài khoản của họ;
+ *    SYSTEM_ADMIN chỉ do bootstrap hoặc quản trị viên hệ thống cấp.
  * 4. Đăng nhập đi qua AuthenticationManager (DaoAuthenticationProvider + BCrypt),
  *    sai một trong hai thông tin đều trả cùng một thông báo 401 để không dò được email nào có thật.
  * 5. Thành công cấp JWT HS256 qua JwtTokenProvider; token này đi vừa với JwtAuthenticationFilter.
@@ -121,6 +124,27 @@ public class AuthService {
                 .role(saved.getRole())
                 .familyGroupId(saved.getFamilyGroupId())
                 .build();
+    }
+
+    @Transactional
+    public AuthResponse registerFamilyOwner(FamilyOwnerRegisterRequest request) {
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        if (userRepository.existsByEmail(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email đã được đăng ký");
+        }
+        String groupId;
+        do { groupId = "BG-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT); }
+        while (familyGroupRepository.existsById(groupId));
+
+        User owner = userRepository.save(User.builder()
+                .fullName(request.getFullName().trim()).email(email)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(Role.FAMILY_ADMIN).familyGroupId(groupId).build());
+        familyGroupRepository.save(FamilyGroup.builder().id(groupId).name(request.getFamilyName().trim())
+                .createdBy(owner).build());
+        log.info("Đăng ký chủ hộ id={} group={} email={}", owner.getId(), groupId, email);
+        return AuthResponse.builder().id(owner.getId()).fullName(owner.getFullName()).email(email)
+                .role(Role.FAMILY_ADMIN).familyGroupId(groupId).build();
     }
 
     public AuthResponse login(AuthRequest request, String clientIp) {

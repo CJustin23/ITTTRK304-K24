@@ -50,8 +50,8 @@ services:
 
   backend:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: budglee-backend
     restart: unless-stopped
     depends_on:
@@ -65,9 +65,18 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-budglee_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-budglee_user}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-budglee_db}
+      DB_USER: ${DB_USER:-budglee_user}
+      DB_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      CHATBOT_KEY_ENCRYPTION_SECRET: ${CHATBOT_KEY_ENCRYPTION_SECRET:-${JWT_SECRET:?JWT_SECRET must be set}}
+      ADMIN_BACKUP_DIRECTORY: /backups
+      ADMIN_BACKUP_SCRIPT: /opt/budglee/scripts/backup.sh
+      ADMIN_RESTORE_SCRIPT: /opt/budglee/scripts/restore.sh
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       APP_SECURITY_SYSTEM_ADMIN_EMAIL: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-}
       APP_SECURITY_SYSTEM_ADMIN_PASSWORD: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
@@ -79,6 +88,8 @@ services:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:MaxMetaspaceSize=192m -Duser.timezone=Asia/Ho_Chi_Minh
     mem_limit: 768m
     networks: [budglee-network]
+    volumes:
+      - backup_data:/backups
 
   frontend:
     build:
@@ -107,6 +118,7 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  backup_data:
 
 networks:
   budglee-network:

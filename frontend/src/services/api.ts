@@ -29,6 +29,12 @@ api.interceptors.request.use(
 );
 
 export const AuthService = {
+  register: async (data: { fullName: string; email: string; password: string }): Promise<void> => {
+    await api.post('/auth/register', { ...data, role: 'INDIVIDUAL_USER' });
+  },
+  registerFamilyOwner: async (data: { fullName: string; email: string; password: string; familyName: string }): Promise<void> => {
+    await api.post('/auth/register/family-owner', data);
+  },
   login: async (email: string, password: string): Promise<{ token: string; id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
     const response = await api.post('/auth/login', { email, password });
     return response.data.data;
@@ -153,7 +159,30 @@ export interface AdminUser {
   createdAt?: string;
 }
 
+export interface AdminStats {
+  totalAccounts: number;
+  disabledAccounts: number;
+  familyGroups: number;
+  transactionsLast24Hours: number;
+}
+
+export interface ChatbotApiKey {
+  id: number;
+  provider: string;
+  maskedKey: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminBackup {
+  name: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
 export const AdminService = {
+  getStats: async (): Promise<AdminStats> => (await api.get('/admin/stats')).data.data,
   getUsers: async (): Promise<AdminUser[]> => {
     const response = await api.get('/admin/users');
     return response.data.data;
@@ -170,6 +199,16 @@ export const AdminService = {
     const response = await api.post('/admin/family-groups', data);
     return response.data.data;
   },
+  getChatbotKeys: async (): Promise<ChatbotApiKey[]> => (await api.get('/admin/chatbot-keys')).data.data,
+  createChatbotKey: async (provider: string, key: string): Promise<ChatbotApiKey> => (await api.post('/admin/chatbot-keys', { provider, key })).data.data,
+  updateChatbotKey: async (id: number, provider: string, key: string): Promise<ChatbotApiKey> => (await api.put(`/admin/chatbot-keys/${id}`, { provider, key })).data.data,
+  toggleChatbotKey: async (id: number, active: boolean): Promise<ChatbotApiKey> => (await api.put(`/admin/chatbot-keys/${id}/status`, { active })).data.data,
+  revealChatbotKey: async (id: number): Promise<string> => (await api.get(`/admin/chatbot-keys/${id}/reveal`)).data.data,
+  deleteChatbotKey: async (id: number): Promise<void> => { await api.delete(`/admin/chatbot-keys/${id}`); },
+  getBackups: async (): Promise<AdminBackup[]> => (await api.get('/admin/backups')).data.data,
+  createBackup: async (): Promise<AdminBackup> => (await api.post('/admin/backups')).data.data,
+  prepareRestore: async (name: string): Promise<{ token: string; backupName: string; requiredConfirmation: string; expiresInSeconds: number }> => (await api.post(`/admin/backups/${encodeURIComponent(name)}/restore/prepare`)).data.data,
+  restoreBackup: async (name: string, token: string, confirmation: string): Promise<void> => { await api.post(`/admin/backups/${encodeURIComponent(name)}/restore`, { token, confirmation }); },
 };
 
 export default api;

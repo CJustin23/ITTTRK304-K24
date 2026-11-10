@@ -32,3 +32,7 @@ logging:
 app:
   security:
     expose-otp: true
+  admin:
+    backup-directory: ${ADMIN_BACKUP_DIRECTORY:../backups}
+    backup-script: ${ADMIN_BACKUP_SCRIPT:../devops/scripts/backup.sh}
+    restore-script: ${ADMIN_RESTORE_SCRIPT:../devops/scripts/restore.sh}

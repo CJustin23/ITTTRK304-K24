@@ -41,6 +41,11 @@ app:
     # Tra OTP quen mat khau trong response: CHI bat cho demo cuc bo (dev/local).
     # Mac dinh tat vi /auth/forgot-password la endpoint cong khai, lo ma la lo quyen doi mat khau.
     expose-otp: ${APP_SECURITY_EXPOSE_OTP:false}
+  admin:
+    chatbot-encryption-secret: ${CHATBOT_KEY_ENCRYPTION_SECRET:${JWT_SECRET:Budglee-dev-only-chatbot-encryption-secret}}
+    backup-directory: ${ADMIN_BACKUP_DIRECTORY:/backups}
+    backup-script: ${ADMIN_BACKUP_SCRIPT:./devops/scripts/backup.sh}
+    restore-script: ${ADMIN_RESTORE_SCRIPT:./devops/scripts/restore.sh}
 
 # Swagger / OpenAPI
 springdoc:

@@ -62,6 +62,7 @@ test -f "$APP_DIR/backend/pom.xml" || { echo "Thieu source backend de build imag
 echo "== 5. Sinh biến môi trường và khoá (chi lan dau, luu root-only) =="
 if [ ! -f "$ENV_FILE" ]; then
   JWT=$(openssl rand -base64 48 | tr -d '\n')
+  CHATBOT_KEY_SECRET=$(openssl rand -base64 48 | tr -d '\n')
   DBPASS=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)
   ROOTPASS=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)
   # Cho phep dat san mat khau demo co dinh:  APP_SECURITY_SYSTEM_ADMIN_PASSWORD=... bash deploy/bootstrap.sh
@@ -77,6 +78,7 @@ DB_USER=budglee_user
 DB_PASSWORD=${DBPASS}
 DB_ROOT_PASSWORD=${ROOTPASS}
 JWT_SECRET=${JWT}
+CHATBOT_KEY_ENCRYPTION_SECRET=${CHATBOT_KEY_SECRET}
 JWT_EXPIRATION_MS=86400000
 APP_SECURITY_SYSTEM_ADMIN_EMAIL=${ADMIN_EMAIL}
 APP_SECURITY_SYSTEM_ADMIN_PASSWORD=${ADMINPASS}
