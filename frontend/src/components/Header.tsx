@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Date Display */}
         <div className="hidden md:flex items-center gap-2 text-sm text-slate-500 font-medium px-3 py-1.5 bg-slate-100 rounded-lg">
           <Calendar className="w-4 h-4 text-emerald-600" />
-          <span>Tháng 10, 2026</span>
+          <span>{`Tháng ${new Date().getMonth() + 1}, ${new Date().getFullYear()}`}</span>
         </div>
 
         {/* Logout Button */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -9,73 +9,215 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useStore } from '../store/useStore';
-import { Timeframe } from '../types';
+import { Timeframe, Transaction } from '../types';
+import { DashboardService } from '../services/api';
 
 interface ChartSectionProps {
   data?: { label: string; amount: number }[];
 }
 
+const parseTxDate = (dateStr?: string): Date | null => {
+  if (!dateStr) return null;
+  const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+  const d = new Date(normalized);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+export const calculateTrendsFromTransactions = (
+  timeframe: Timeframe,
+  transactions: Transaction[]
+): { label: string; amount: number }[] => {
+  const expenseTxs = transactions.filter(
+    (t) => t.transactionType === 'EXPENSE' && t.amount > 0
+  );
+
+  switch (timeframe) {
+    case 'Daily': {
+      // Nhóm theo các thứ trong tuần: Thứ 2 -> Chủ nhật
+      const dayLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+      const map: Record<string, number> = {
+        'Thứ 2': 0,
+        'Thứ 3': 0,
+        'Thứ 4': 0,
+        'Thứ 5': 0,
+        'Thứ 6': 0,
+        'Thứ 7': 0,
+        'Chủ nhật': 0,
+      };
+
+      expenseTxs.forEach((t) => {
+        const d = parseTxDate(t.transactionDate);
+        if (d) {
+          const jsDay = d.getDay(); // 0: Chủ nhật, 1: Thứ 2, ..., 6: Thứ 7
+          const label = jsDay === 0 ? 'Chủ nhật' : `Thứ ${jsDay + 1}`;
+          map[label] = (map[label] || 0) + t.amount;
+        }
+      });
+
+      return dayLabels.map((label) => ({ label, amount: map[label] || 0 }));
+    }
+
+    case 'Weekly': {
+      // Phân chia 4 tuần trong tháng: Tuần 1 (1-7), Tuần 2 (8-14), Tuần 3 (15-21), Tuần 4 (22-hết tháng)
+      const weekLabels = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
+      const map: Record<string, number> = {
+        'Tuần 1': 0,
+        'Tuần 2': 0,
+        'Tuần 3': 0,
+        'Tuần 4': 0,
+      };
+
+      expenseTxs.forEach((t) => {
+        const d = parseTxDate(t.transactionDate);
+        if (d) {
+          const day = d.getDate();
+          if (day <= 7) map['Tuần 1'] = (map['Tuần 1'] || 0) + t.amount;
+          else if (day <= 14) map['Tuần 2'] = (map['Tuần 2'] || 0) + t.amount;
+          else if (day <= 21) map['Tuần 3'] = (map['Tuần 3'] || 0) + t.amount;
+          else map['Tuần 4'] = (map['Tuần 4'] || 0) + t.amount;
+        }
+      });
+
+      return weekLabels.map((label) => ({ label, amount: map[label] || 0 }));
+    }
+
+    case 'Monthly': {
+      // 4 tháng gần nhất tính tới thời điểm hiện tại
+      const now = new Date();
+      const months: { label: string; year: number; month: number }[] = [];
+      for (let i = 3; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+          label: `Tháng ${d.getMonth() + 1}`,
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+        });
+      }
+
+      return months.map((m) => {
+        const total = expenseTxs
+          .filter((t) => {
+            const d = parseTxDate(t.transactionDate);
+            return d && d.getFullYear() === m.year && d.getMonth() + 1 === m.month;
+          })
+          .reduce((sum, t) => sum + t.amount, 0);
+        return { label: m.label, amount: total };
+      });
+    }
+
+    case 'Yearly': {
+      // 4 năm gần nhất
+      const curYear = new Date().getFullYear();
+      const years = [curYear - 3, curYear - 2, curYear - 1, curYear];
+
+      return years.map((y) => {
+        const total = expenseTxs
+          .filter((t) => {
+            const d = parseTxDate(t.transactionDate);
+            return d && d.getFullYear() === y;
+          })
+          .reduce((sum, t) => sum + t.amount, 0);
+        return { label: y.toString(), amount: total };
+      });
+    }
+
+    case 'Custom': {
+      // Nhóm theo các mốc ngày giao dịch thực tế
+      const dateMap: Record<string, number> = {};
+      expenseTxs.forEach((t) => {
+        const d = parseTxDate(t.transactionDate);
+        if (d) {
+          const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+          dateMap[key] = (dateMap[key] || 0) + t.amount;
+        }
+      });
+
+      const dates = Object.keys(dateMap);
+      if (dates.length > 0) {
+        return dates.slice(-7).map((d) => ({ label: d, amount: dateMap[d] }));
+      }
+
+      const now = new Date();
+      return [4, 3, 2, 1, 0].map((daysAgo) => {
+        const d = new Date(now);
+        d.setDate(d.getDate() - daysAgo * 2);
+        return {
+          label: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
+          amount: 0,
+        };
+      });
+    }
+
+    default:
+      return [];
+  }
+};
+
 export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
   const [timeframe, setTimeframe] = useState<Timeframe>('Monthly');
-  const { currentUser, recentTransactions } = useStore();
+  const { recentTransactions, token } = useStore();
+  const [apiTrends, setApiTrends] = useState<Record<string, { label: string; amount: number }[]>>({});
 
   const tabs: Timeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'];
 
-  // Dữ liệu mẫu theo các mốc thời gian dành cho Demo
-  const demoDatasets: Record<Timeframe, { label: string; amount: number }[]> = {
-    Daily: [
-      { label: 'Thứ 2', amount: 1200000 },
-      { label: 'Thứ 3', amount: 2450000 },
-      { label: 'Thứ 4', amount: 850000 },
-      { label: 'Thứ 5', amount: 3100000 },
-      { label: 'Thứ 6', amount: 1950000 },
-      { label: 'Thứ 7', amount: 3500000 },
-      { label: 'Chủ nhật', amount: 1200000 },
-    ],
-    Weekly: [
-      { label: 'Tuần 1', amount: 4500000 },
-      { label: 'Tuần 2', amount: 5200000 },
-      { label: 'Tuần 3', amount: 3800000 },
-      { label: 'Tuần 4', amount: 4100000 },
-    ],
-    Monthly: [
-      { label: 'Tháng 7', amount: 12500000 },
-      { label: 'Tháng 8', amount: 13800000 },
-      { label: 'Tháng 9', amount: 15200000 },
-      { label: 'Tháng 10', amount: 14250000 },
-    ],
-    Yearly: [
-      { label: '2023', amount: 120000000 },
-      { label: '2024', amount: 155000000 },
-      { label: '2025', amount: 170000000 },
-      { label: '2026', amount: 142500000 },
-    ],
-    Custom: [
-      { label: '15/10', amount: 1850000 },
-      { label: '18/10', amount: 2400000 },
-      { label: '21/10', amount: 950000 },
-      { label: '24/10', amount: 3200000 },
-      { label: '28/10', amount: 1450000 },
-    ],
-  };
+  // Gọi API /dashboard/trends từ backend khi chuyển tab nếu có token
+  useEffect(() => {
+    let isMounted = true;
+    const fetchApiTrends = async () => {
+      if (!token) return;
+      try {
+        const res = await DashboardService.getTrends(timeframe.toUpperCase());
+        if (isMounted && Array.isArray(res) && res.length > 0 && res.some((p) => p.amount > 0)) {
+          setApiTrends((prev) => ({ ...prev, [timeframe]: res }));
+        }
+      } catch (err) {
+        // Fallback tự động sang tính toán từ recentTransactions
+      }
+    };
+    fetchApiTrends();
+    return () => {
+      isMounted = false;
+    };
+  }, [timeframe, token, recentTransactions.length]);
 
-  const isDemo = ['thanhcanhan@gmail.com', 'thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com', 'demo@budglee.com'].includes(currentUser?.email.toLowerCase() || '');
   const hasExpenses = recentTransactions.some((t) => t.transactionType === 'EXPENSE');
 
-  // Tài khoản Demo hiển thị dữ liệu demo; tài khoản thường nếu chưa có chi tiêu thì để 0
-  const activeData = isDemo
-    ? (demoDatasets[timeframe] || data || [])
-    : hasExpenses
-    ? (demoDatasets[timeframe] || data || [])
-    : [
-        { label: 'Thứ 2', amount: 0 },
-        { label: 'Thứ 3', amount: 0 },
-        { label: 'Thứ 4', amount: 0 },
-        { label: 'Thứ 5', amount: 0 },
-        { label: 'Thứ 6', amount: 0 },
-        { label: 'Thứ 7', amount: 0 },
-        { label: 'Chủ nhật', amount: 0 },
-      ];
+  // Tính toán dữ liệu biểu đồ hoàn toàn động từ giao dịch thực tế
+  const activeData = useMemo(() => {
+    // 1. Ưu tiên dữ liệu từ API thật nếu có điểm dữ liệu > 0
+    if (apiTrends[timeframe] && apiTrends[timeframe].length > 0 && apiTrends[timeframe].some((p) => p.amount > 0)) {
+      return apiTrends[timeframe];
+    }
+    // 2. Dữ liệu ban đầu nếu là Weekly và được truyền từ dashboardSummary
+    if (timeframe === 'Weekly' && data && data.length > 0 && data.some((p) => p.amount > 0)) {
+      return data;
+    }
+    // 3. Tính toán trực tiếp theo các giao dịch thực tế
+    return calculateTrendsFromTransactions(timeframe, recentTransactions);
+  }, [timeframe, apiTrends, data, recentTransactions]);
+
+  // Nhãn khoảng thời gian động cho tab Custom
+  const customRangeLabel = useMemo(() => {
+    const dates = recentTransactions
+      .map((t) => parseTxDate(t.transactionDate))
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    if (dates.length > 0) {
+      const min = dates[0];
+      const max = dates[dates.length - 1];
+      const fmt = (d: Date) =>
+        `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      return `${fmt(min)} – ${fmt(max)}`;
+    }
+
+    const now = new Date();
+    const past14 = new Date(now);
+    past14.setDate(now.getDate() - 14);
+    const fmt = (d: Date) =>
+      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    return `${fmt(past14)} – ${fmt(now)}`;
+  }, [recentTransactions]);
 
   const formatTooltipValue = (value: number) => {
     return [new Intl.NumberFormat('vi-VN').format(value) + ' ₫', 'Tổng chi tiêu'];
@@ -92,10 +234,10 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
             <span className="font-semibold text-emerald-600">{timeframe}</span>
             {timeframe === 'Custom' && (
               <span className="ml-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
-                15/10/2026 – 28/10/2026
+                {customRangeLabel}
               </span>
             )}
-            {!hasExpenses && !isDemo && (
+            {!hasExpenses && (
               <span className="text-slate-400 italic ml-2">• Chưa có giao dịch chi tiêu</span>
             )}
           </p>

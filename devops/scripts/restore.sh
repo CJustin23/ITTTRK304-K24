@@ -67,3 +67,4 @@ gunzip -c "$RESTORE_FILE" | mysql \
 unset MYSQL_PWD
 
 echo "[$(date)] Database restore completed successfully for '${DB_NAME}'!"
+

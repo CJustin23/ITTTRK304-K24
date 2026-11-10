@@ -291,7 +291,7 @@ export const THANHCANHAN_DATA: {
   notifications: [
     {
       id: 'notif-1',
-      title: 'Lương tháng 10/2026 đã về',
+      title: `Lương tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()} đã về`,
       message: '+35.000.000 ₫ từ Công ty Công nghệ Budglee đã ghi nhận vào ví Techcombank.',
       time: 'Hôm qua',
       type: 'INFO',
@@ -705,14 +705,32 @@ export const calculateDashboardSummary = (
       categoryExpenses[cat] = (categoryExpenses[cat] || 0) + t.amount;
     });
 
+  // Biến động chi tiêu theo 4 tuần thực tế trong tháng (Weekly Spent Trends)
+  const weeklyAmounts: Record<string, number> = {
+    'Tuần 1': 0,
+    'Tuần 2': 0,
+    'Tuần 3': 0,
+    'Tuần 4': 0,
+  };
+  transactions
+    .filter((t) => t.transactionType === 'EXPENSE' && t.amount > 0 && t.transactionDate)
+    .forEach((t) => {
+      const normalized = t.transactionDate.includes('T') ? t.transactionDate : t.transactionDate.replace(' ', 'T');
+      const d = new Date(normalized);
+      if (!isNaN(d.getTime())) {
+        const day = d.getDate();
+        if (day <= 7) weeklyAmounts['Tuần 1'] += t.amount;
+        else if (day <= 14) weeklyAmounts['Tuần 2'] += t.amount;
+        else if (day <= 21) weeklyAmounts['Tuần 3'] += t.amount;
+        else weeklyAmounts['Tuần 4'] += t.amount;
+      }
+    });
+
   const spentTrends = [
-    { label: 'Thứ 2', amount: 0 },
-    { label: 'Thứ 3', amount: 0 },
-    { label: 'Thứ 4', amount: 0 },
-    { label: 'Thứ 5', amount: 0 },
-    { label: 'Thứ 6', amount: 0 },
-    { label: 'Thứ 7', amount: 0 },
-    { label: 'Chủ nhật', amount: 0 },
+    { label: 'Tuần 1', amount: weeklyAmounts['Tuần 1'] },
+    { label: 'Tuần 2', amount: weeklyAmounts['Tuần 2'] },
+    { label: 'Tuần 3', amount: weeklyAmounts['Tuần 3'] },
+    { label: 'Tuần 4', amount: weeklyAmounts['Tuần 4'] },
   ];
 
   return {
