@@ -53,6 +53,7 @@ export const App: React.FC = () => {
     logout,
     fetchReceivedInvitations,
     fetchSentInvitations,
+    fetchCoreData,
   } = useStore();
 
   const handleTabChange = (tab: string) => {
@@ -75,8 +76,9 @@ export const App: React.FC = () => {
     if (currentUser) {
       fetchReceivedInvitations();
       fetchSentInvitations();
+      fetchCoreData();
     }
-  }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations]);
+  }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations, fetchCoreData]);
 
   const handleCreateTransaction = (data: {
     walletId: number;

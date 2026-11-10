@@ -13,7 +13,13 @@ import {
   Role,
   FamilyInvitation,
 } from '../types';
-import { FamilyApiService } from '../services/api';
+import {
+  FamilyApiService,
+  WalletService,
+  TransactionService,
+  BudgetService,
+  DashboardService,
+} from '../services/api';
 
 // ============================================================================
 // DỮ LIỆU MẪU: 1 TÀI KHOẢN CÁ NHÂN (thanhcanhan@gmail.com) - 10-20 DỮ LIỆU MỖI CHỨC NĂNG
@@ -673,39 +679,6 @@ export const FAMILY_SHARED_DATA: {
   },
 };
 
-// Export backward-compatibility aliases
-export const DEMO_WALLETS = THANHCANHAN_DATA.wallets;
-export const DEMO_TRANSACTIONS = THANHCANHAN_DATA.recentTransactions;
-export const DEMO_BUDGETS = THANHCANHAN_DATA.budgets;
-export const DEMO_GOALS = THANHCANHAN_DATA.savingGoals;
-export const DEMO_MEMBERS = FAMILY_SHARED_DATA.familyMembers;
-export const DEMO_SUMMARY: DashboardSummary = {
-  totalBalance: 72950000,
-  monthlyIncome: 51500000,
-  monthlySpending: 11234000,
-  leftToSpend: 40266000,
-  spendingPercentageOfBudget: 77.5,
-  categoryExpenses: {
-    'Ăn uống & Cà phê': 1085000,
-    'Mua sắm cá nhân': 1930000,
-    'Hóa đơn & Tiện ích': 1580000,
-    'Di chuyển & Xăng xe': 390000,
-    'Giải trí & Du lịch': 299000,
-    'Học tập & Phát triển': 350000,
-  },
-  spentTrends: [
-    { label: 'Thứ 2', amount: 1200000 },
-    { label: 'Thứ 3', amount: 2450000 },
-    { label: 'Thứ 4', amount: 850000 },
-    { label: 'Thứ 5', amount: 3100000 },
-    { label: 'Thứ 6', amount: 1950000 },
-    { label: 'Thứ 7', amount: 3500000 },
-    { label: 'Chủ nhật', amount: 1200000 },
-  ],
-};
-export const DEMO_BOT_RECOMMENDATION = THANHCANHAN_DATA.botRecommendation;
-export const DEMO_NOTIFICATIONS = THANHCANHAN_DATA.notifications;
-
 // Helper: tính toán DashboardSummary theo dữ liệu hiện tại
 export const calculateDashboardSummary = (
   wallets: Wallet[],
@@ -822,6 +795,9 @@ interface AppState {
     familyGroupName: string,
     initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
   ) => void;
+
+  // Core Data API Sync
+  fetchCoreData: () => Promise<void>;
 
   // Family Invitation actions
   fetchReceivedInvitations: () => Promise<void>;
@@ -1157,6 +1133,7 @@ export const useStore = create<AppState>((set, get) => ({
         setTimeout(() => {
           get().fetchReceivedInvitations();
           get().fetchSentInvitations();
+          get().fetchCoreData();
         }, 50);
         return;
       } catch (err) {
@@ -1192,6 +1169,7 @@ export const useStore = create<AppState>((set, get) => ({
         setTimeout(() => {
           get().fetchReceivedInvitations();
           get().fetchSentInvitations();
+          get().fetchCoreData();
         }, 50);
         return;
       } catch (err) {
@@ -1221,6 +1199,7 @@ export const useStore = create<AppState>((set, get) => ({
       setTimeout(() => {
         get().fetchReceivedInvitations();
         get().fetchSentInvitations();
+        get().fetchCoreData();
       }, 50);
       return;
     }
@@ -1247,6 +1226,7 @@ export const useStore = create<AppState>((set, get) => ({
       setTimeout(() => {
         get().fetchReceivedInvitations();
         get().fetchSentInvitations();
+        get().fetchCoreData();
       }, 50);
       return;
     }
@@ -1400,6 +1380,17 @@ export const useStore = create<AppState>((set, get) => ({
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
+
+    if (get().token) {
+      WalletService.create({
+        name: walletData.walletName,
+        walletType: walletData.type || 'BANK',
+        initialBalance: walletData.balance,
+        currency: walletData.currency || 'VND',
+        bankName: (walletData as any).bankName || '',
+        accountNumber: walletData.cardNumberMasked || '',
+      }).catch((e) => console.warn('Background sync wallet to API:', e?.message));
+    }
   },
 
   setTransactions: (recentTransactions) => {
@@ -1450,6 +1441,17 @@ export const useStore = create<AppState>((set, get) => ({
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
+
+    if (get().token) {
+      TransactionService.create({
+        walletId: txData.walletId,
+        categoryId: txData.categoryId || 1,
+        amount: txData.amount,
+        transactionType: txData.transactionType,
+        note: txData.note || txData.actionTitle || '',
+        transactionDate: txData.transactionDate || new Date().toISOString(),
+      }).catch((e) => console.warn('Background sync transaction to API:', e?.message));
+    }
   },
 
   setBudgets: (budgets) => {
@@ -1473,6 +1475,15 @@ export const useStore = create<AppState>((set, get) => ({
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
+
+    if (get().token) {
+      BudgetService.create({
+        categoryId: budgetData.categoryId || 1,
+        amountLimit: budgetData.amountLimit,
+        periodMonth: budgetData.periodMonth || (new Date().getMonth() + 1),
+        periodYear: budgetData.periodYear || new Date().getFullYear(),
+      }).catch((e) => console.warn('Background sync budget to API:', e?.message));
+    }
   },
 
   updateBudget: (id, budgetData) => {
@@ -1661,6 +1672,95 @@ export const useStore = create<AppState>((set, get) => ({
   setFamilyModalOpen: (isFamilyModalOpen) => set({ isFamilyModalOpen }),
   setConfirmInviteModalOpen: (isConfirmInviteModalOpen) => set({ isConfirmInviteModalOpen }),
   setSelectedInvitationForConfirm: (selectedInvitationForConfirm) => set({ selectedInvitationForConfirm }),
+
+  fetchCoreData: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const year = now.getFullYear();
+
+      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes] = await Promise.allSettled([
+        WalletService.getAll(),
+        TransactionService.getAll(0, 100),
+        BudgetService.getAll(month, year),
+        DashboardService.getSummary(year, month),
+        DashboardService.getRecommendations(year, month),
+      ]);
+
+      const updates: any = {};
+      if (walletsRes.status === 'fulfilled' && Array.isArray(walletsRes.value) && walletsRes.value.length > 0) {
+        updates.wallets = walletsRes.value.map((w: any) => ({
+          id: w.id,
+          walletName: w.name || w.walletName,
+          cardNumberMasked: w.accountNumber || w.cardNumberMasked || '',
+          balance: Number(w.balance || w.initialBalance || 0),
+          currency: w.currency || 'VND',
+          type: w.walletType || w.type || 'BANK',
+          color: w.color || 'from-slate-900 to-indigo-950',
+          bankName: w.bankName,
+        }));
+      }
+
+      if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content) && txsRes.value.content.length > 0) {
+        updates.recentTransactions = txsRes.value.content.map((t: any) => ({
+          id: t.id,
+          walletId: t.wallet?.id || t.walletId || 1,
+          walletName: t.wallet?.name || t.walletName || 'Ví',
+          categoryName: t.category?.name || t.categoryName || 'Chi tiêu',
+          categoryIcon: t.category?.icon || t.categoryIcon || 'ShoppingBag',
+          actionTitle: t.note || t.actionTitle || 'Giao dịch',
+          amount: Number(t.amount || 0),
+          transactionType: t.transactionType,
+          transactionDate: t.transactionDate,
+          balanceAfter: Number(t.balanceAfter || 0),
+          note: t.note,
+        }));
+      }
+
+      if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value) && budgetsRes.value.length > 0) {
+        updates.budgets = budgetsRes.value.map((b: any) => ({
+          id: b.id,
+          categoryName: b.category?.name || b.categoryName || 'Danh mục',
+          categoryIcon: b.category?.icon || b.categoryIcon || 'Tag',
+          amountLimit: Number(b.amountLimit || 0),
+          spentAmount: Number(b.spentAmount || b.actualSpent || 0),
+          periodMonth: b.periodMonth || month,
+          periodYear: b.periodYear || year,
+        }));
+      }
+
+      if (summaryRes.status === 'fulfilled' && summaryRes.value) {
+        updates.dashboardSummary = summaryRes.value;
+      }
+
+      if (botRes.status === 'fulfilled' && botRes.value) {
+        updates.botRecommendation = botRes.value;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        set((state) => {
+          const finalWallets = updates.wallets || state.wallets;
+          const finalTxs = updates.recentTransactions || state.recentTransactions;
+          const finalBudgets = updates.budgets || state.budgets;
+          const finalSummary = updates.dashboardSummary || calculateDashboardSummary(finalWallets, finalTxs, finalBudgets);
+          const finalBot = updates.botRecommendation || state.botRecommendation;
+          const newState = {
+            wallets: finalWallets,
+            recentTransactions: finalTxs,
+            budgets: finalBudgets,
+            dashboardSummary: finalSummary,
+            botRecommendation: finalBot,
+          };
+          persistCurrentUserData(state.currentUser, newState);
+          return newState;
+        });
+      }
+    } catch (err) {
+      console.warn('fetchCoreData background sync error:', err);
+    }
+  },
 
   fetchReceivedInvitations: async () => {
     const user = get().currentUser;

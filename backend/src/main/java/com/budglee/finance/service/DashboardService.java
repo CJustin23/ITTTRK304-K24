@@ -158,42 +158,90 @@ public class DashboardService {
 
         String tf = timeframe != null ? timeframe.toUpperCase() : "MONTHLY";
         List<DashboardSummaryResponse.ChartDataPoint> points = new ArrayList<>();
+        LocalDate now = LocalDate.now();
+
         switch (tf) {
-            case "DAILY":
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 2", new BigDecimal("1200000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 3", new BigDecimal("2450000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 4", new BigDecimal("850000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 5", new BigDecimal("3100000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 6", new BigDecimal("1950000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 7", new BigDecimal("3500000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Chủ nhật", new BigDecimal("1200000")));
+            case "DAILY": {
+                LocalDate monday = now.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+                LocalDateTime start = monday.atStartOfDay();
+                LocalDateTime end = monday.plusDays(6).atTime(LocalTime.MAX);
+                List<Transaction> txs = transactionRepository.findByUserIdAndTransactionDateBetween(userId, start, end);
+                Map<java.time.DayOfWeek, BigDecimal> dayMap = new EnumMap<>(java.time.DayOfWeek.class);
+                if (txs != null) {
+                    for (Transaction t : txs) {
+                        if (t.getTransactionType() == TransactionType.EXPENSE && t.getAmount() != null && t.getTransactionDate() != null) {
+                            dayMap.merge(t.getTransactionDate().getDayOfWeek(), t.getAmount(), BigDecimal::add);
+                        }
+                    }
+                }
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 2", dayMap.getOrDefault(java.time.DayOfWeek.MONDAY, BigDecimal.ZERO)));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 3", dayMap.getOrDefault(java.time.DayOfWeek.TUESDAY, BigDecimal.ZERO)));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 4", dayMap.getOrDefault(java.time.DayOfWeek.WEDNESDAY, BigDecimal.ZERO)));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 5", dayMap.getOrDefault(java.time.DayOfWeek.THURSDAY, BigDecimal.ZERO)));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 6", dayMap.getOrDefault(java.time.DayOfWeek.FRIDAY, BigDecimal.ZERO)));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Thứ 7", dayMap.getOrDefault(java.time.DayOfWeek.SATURDAY, BigDecimal.ZERO)));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Chủ nhật", dayMap.getOrDefault(java.time.DayOfWeek.SUNDAY, BigDecimal.ZERO)));
                 break;
-            case "WEEKLY":
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 1", new BigDecimal("4500000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 2", new BigDecimal("5200000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 3", new BigDecimal("3800000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 4", new BigDecimal("4100000")));
+            }
+            case "WEEKLY": {
+                LocalDate firstDay = now.withDayOfMonth(1);
+                LocalDateTime start = firstDay.atStartOfDay();
+                LocalDateTime end = firstDay.withDayOfMonth(firstDay.lengthOfMonth()).atTime(LocalTime.MAX);
+                List<Transaction> txs = transactionRepository.findByUserIdAndTransactionDateBetween(userId, start, end);
+                BigDecimal w1 = BigDecimal.ZERO;
+                BigDecimal w2 = BigDecimal.ZERO;
+                BigDecimal w3 = BigDecimal.ZERO;
+                BigDecimal w4 = BigDecimal.ZERO;
+                if (txs != null) {
+                    for (Transaction t : txs) {
+                        if (t.getTransactionType() == TransactionType.EXPENSE && t.getAmount() != null && t.getTransactionDate() != null) {
+                            int day = t.getTransactionDate().getDayOfMonth();
+                            if (day <= 7) w1 = w1.add(t.getAmount());
+                            else if (day <= 14) w2 = w2.add(t.getAmount());
+                            else if (day <= 21) w3 = w3.add(t.getAmount());
+                            else w4 = w4.add(t.getAmount());
+                        }
+                    }
+                }
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 1", w1));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 2", w2));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 3", w3));
+                points.add(new DashboardSummaryResponse.ChartDataPoint("Tuần 4", w4));
                 break;
-            case "YEARLY":
-                points.add(new DashboardSummaryResponse.ChartDataPoint("2023", new BigDecimal("120000000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("2024", new BigDecimal("155000000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("2025", new BigDecimal("170000000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("2026", new BigDecimal("142500000")));
+            }
+            case "YEARLY": {
+                int currentYear = now.getYear();
+                for (int y = currentYear - 3; y <= currentYear; y++) {
+                    LocalDateTime start = LocalDate.of(y, 1, 1).atStartOfDay();
+                    LocalDateTime end = LocalDate.of(y, 12, 31).atTime(LocalTime.MAX);
+                    BigDecimal total = transactionRepository.getTotalAmountByTypeAndPeriod(userId, TransactionType.EXPENSE, start, end);
+                    points.add(new DashboardSummaryResponse.ChartDataPoint(String.valueOf(y), total != null ? total : BigDecimal.ZERO));
+                }
                 break;
-            case "CUSTOM":
-                points.add(new DashboardSummaryResponse.ChartDataPoint("15/10", new BigDecimal("1850000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("18/10", new BigDecimal("2400000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("21/10", new BigDecimal("950000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("24/10", new BigDecimal("3200000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("28/10", new BigDecimal("1450000")));
+            }
+            case "CUSTOM": {
+                for (int i = 4; i >= 0; i--) {
+                    LocalDate d = now.minusDays(i * 3L);
+                    LocalDateTime start = d.atStartOfDay();
+                    LocalDateTime end = d.atTime(LocalTime.MAX);
+                    BigDecimal total = transactionRepository.getTotalAmountByTypeAndPeriod(userId, TransactionType.EXPENSE, start, end);
+                    String label = String.format("%02d/%02d", d.getDayOfMonth(), d.getMonthValue());
+                    points.add(new DashboardSummaryResponse.ChartDataPoint(label, total != null ? total : BigDecimal.ZERO));
+                }
                 break;
+            }
             case "MONTHLY":
-            default:
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tháng 7", new BigDecimal("12500000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tháng 8", new BigDecimal("13800000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tháng 9", new BigDecimal("15200000")));
-                points.add(new DashboardSummaryResponse.ChartDataPoint("Tháng 10", new BigDecimal("14250000")));
+            default: {
+                for (int i = 3; i >= 0; i--) {
+                    LocalDate d = now.minusMonths(i);
+                    LocalDate first = d.withDayOfMonth(1);
+                    LocalDate last = d.withDayOfMonth(d.lengthOfMonth());
+                    BigDecimal total = transactionRepository.getTotalAmountByTypeAndPeriod(
+                            userId, TransactionType.EXPENSE, first.atStartOfDay(), last.atTime(LocalTime.MAX));
+                    points.add(new DashboardSummaryResponse.ChartDataPoint("Tháng " + d.getMonthValue(), total != null ? total : BigDecimal.ZERO));
+                }
                 break;
+            }
         }
         return points;
     }
