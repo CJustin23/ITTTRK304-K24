@@ -117,18 +117,23 @@ public class BudgetService {
         }
 
         LocalDate firstDay = LocalDate.of(year, month, 1);
-        List<Transaction> expenses = transactionRepository.findByUserIdAndTransactionDateBetween(
-                        userId, firstDay.atStartOfDay(), firstDay.plusMonths(1).atStartOfDay())
-                .stream()
-                .filter(t -> t.getTransactionType() == TransactionType.EXPENSE && t.getLinkedTransactionId() == null)
-                .toList();
+        LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
+        java.time.LocalDateTime startDateTime = firstDay.atStartOfDay();
+        java.time.LocalDateTime endDateTime = lastDay.atTime(java.time.LocalTime.MAX);
+
+        // Tối ưu hóa Sprint 4 - Tú: Dùng SQL Aggregate trực tiếp thay vì load toàn bộ Entity Transaction vào RAM
+        BigDecimal spentTotal = transactionRepository.getTotalAmountByTypeAndPeriod(
+                userId, TransactionType.EXPENSE, startDateTime, endDateTime);
+        if (spentTotal == null) spentTotal = BigDecimal.ZERO;
 
         Map<Long, BigDecimal> spentByCategory = new HashMap<>();
-        BigDecimal spentTotal = BigDecimal.ZERO;
-        for (Transaction expense : expenses) {
-            spentTotal = spentTotal.add(expense.getAmount());
-            if (expense.getCategory() != null) {
-                spentByCategory.merge(expense.getCategory().getId(), expense.getAmount(), BigDecimal::add);
+        List<Object[]> categorySums = transactionRepository.getCategoryExpenseSums(
+                userId, startDateTime, endDateTime);
+        if (categorySums != null) {
+            for (Object[] row : categorySums) {
+                if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                    spentByCategory.put((Long) row[0], (BigDecimal) row[1]);
+                }
             }
         }
 

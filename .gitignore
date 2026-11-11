@@ -43,6 +43,7 @@ target/
 # Docker
 docker-data/
 *.sql.gz
+budglee_backup.sql
 backup/
 backups/
 
