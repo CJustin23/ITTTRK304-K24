@@ -74,6 +74,14 @@ export const AdminView: React.FC = () => {
   }, [users, query]);
 
   const groupCount = new Set(users.map((user) => user.familyGroupId).filter(Boolean)).size;
+  const navigation: { id: AdminTab; label: string; description: string; icon: React.ReactNode }[] = [
+    { id: 'overview', label: 'Tổng quan', description: 'Chỉ số vận hành hệ thống', icon: <CheckCircle2 /> },
+    { id: 'accounts', label: 'Tài khoản', description: 'Tìm kiếm và phân quyền', icon: <UserRound /> },
+    { id: 'families', label: 'Nhóm hộ', description: 'Danh sách và chủ hộ', icon: <Users /> },
+    { id: 'chatbot', label: 'Chatbot API Key', description: 'Cấu hình nhà cung cấp', icon: <KeyRound /> },
+    { id: 'backups', label: 'Sao lưu dữ liệu', description: 'Backup và khôi phục', icon: <DatabaseBackup /> },
+  ];
+  const activeNavigation = navigation.find((item) => item.id === tab) || navigation[0];
   const selectableOwners = users.filter((user) =>
     user.enabled !== false && user.role !== 'SYSTEM_ADMIN' && user.familyGroupId == null
   );
@@ -175,38 +183,45 @@ export const AdminView: React.FC = () => {
         </div>
       </div>
     </header>
-    <main className="mx-auto max-w-[1440px] space-y-7 px-5 py-8 sm:px-8">
+    <main className="mx-auto grid max-w-[1600px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-8 lg:px-8 lg:py-8">
+    <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:sticky lg:top-6">
+      <div className="hidden px-3 pb-3 pt-2 lg:block">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Không gian quản trị</p>
+      </div>
+      <nav aria-label="Chức năng quản trị" className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
+        {navigation.map((item) => {
+          const selected = tab === item.id;
+          return <button key={item.id} aria-current={selected ? 'page' : undefined} onClick={() => setTab(item.id)} className={`group flex min-w-max flex-1 items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors lg:w-full lg:flex-none ${selected ? 'bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-100' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selected ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 group-hover:bg-white'}`}>{React.cloneElement(item.icon as React.ReactElement, { className: 'h-4 w-4' })}</span>
+            <span className="min-w-0"><span className="block text-sm font-bold">{item.label}</span><span className={`mt-0.5 hidden text-[11px] lg:block ${selected ? 'text-emerald-700/75' : 'text-slate-400'}`}>{item.description}</span></span>
+          </button>;
+        })}
+      </nav>
+      <div className="mt-4 hidden rounded-xl bg-slate-50 p-3 lg:block"><p className="text-xs font-bold text-slate-700">Quyền quản trị hệ thống</p><p className="mt-1 text-[11px] leading-relaxed text-slate-500">Dữ liệu tài chính cá nhân được bảo vệ và không hiển thị trong khu vực này.</p></div>
+    </aside>
+
+    <div className="min-w-0 space-y-7">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">Vận hành nền tảng</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">Quản trị hệ thống</h1>
-        <p className="mt-2 text-sm text-slate-500">Quản lý tài khoản và nhóm hộ. Nội dung tài chính của người dùng không hiển thị tại đây.</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">{activeNavigation.label}</h1>
+        <p className="mt-2 text-sm text-slate-500">{tab === 'overview' ? 'Quản lý nền tảng Budglee. Nội dung tài chính của người dùng không hiển thị tại đây.' : activeNavigation.description}</p>
       </div>
+      {tab === 'accounts' && <label className="relative w-full sm:w-80"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm tài khoản" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm tên, email, mã nhóm..." className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" /></label>}
     </div>
 
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {tab === 'overview' && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <SummaryCard icon={<UserRound />} label="Tổng tài khoản" value={stats?.totalAccounts ?? users.length} />
       <SummaryCard icon={<UserX />} label="Tài khoản đã khóa" value={stats?.disabledAccounts ?? users.filter((user) => user.enabled === false).length} />
       <SummaryCard icon={<Users />} label="Nhóm hộ" value={stats?.familyGroups ?? groupCount} />
       <SummaryCard icon={<CheckCircle2 />} label="Giao dịch 24 giờ" value={stats?.transactionsLast24Hours ?? 0} />
-    </div>
+    </div>}
 
     {(error || notice) && <div role="status" className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${error ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
       {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}{error || notice}
     </div>}
 
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div className="flex gap-2">
-          <TabButton selected={tab === 'overview'} onClick={() => setTab('overview')}>Tổng quan</TabButton>
-          <TabButton selected={tab === 'accounts'} onClick={() => setTab('accounts')}>Tài khoản</TabButton>
-          <TabButton selected={tab === 'families'} onClick={() => setTab('families')}>Nhóm hộ</TabButton>
-          <TabButton selected={tab === 'chatbot'} onClick={() => setTab('chatbot')}>Chatbot API Key</TabButton>
-          <TabButton selected={tab === 'backups'} onClick={() => setTab('backups')}>Sao lưu</TabButton>
-        </div>
-        {tab === 'accounts' && <label className="relative w-full sm:w-72"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm tài khoản" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm tên, email, mã nhóm..." className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100" /></label>}
-      </div>
-
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {tab === 'overview' ? <div className="grid gap-5 p-6 md:grid-cols-2">
         <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5"><h2 className="font-bold">Vận hành nền tảng</h2><p className="mt-2 text-sm text-slate-600">Số liệu chỉ là tổng số, không hiển thị thông tin tài chính cá nhân. Các thao tác quản trị được giới hạn cho SYSTEM_ADMIN.</p></div>
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5"><p className="text-sm font-semibold text-emerald-900">Bảo vệ dữ liệu</p><p className="mt-2 text-sm text-emerald-800">API key được mã hóa khi lưu. Restore cần xác nhận hai bước và chỉ chấp nhận file backup hợp lệ.</p></div>
@@ -249,11 +264,11 @@ export const AdminView: React.FC = () => {
       </div>}
       {tab === 'accounts' && <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">Hiển thị {filteredUsers.length} / {users.length} tài khoản</div>}
     </section>
+    </div>
     </main>
   </div>;
 };
 
 const inputClass = 'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100';
 const SummaryCard: React.FC<{ icon: React.ReactNode; label: string; value: number }> = ({ icon, label, value }) => <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-700">{React.cloneElement(icon as React.ReactElement, { className: 'h-5 w-5' })}</span><div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="mt-1 text-2xl font-black text-slate-900">{value}</p></div></div>;
-const TabButton: React.FC<{ selected: boolean; onClick: () => void; children: React.ReactNode }> = ({ selected, onClick, children }) => <button onClick={onClick} className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${selected ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}>{children}</button>;
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => <label className="block text-xs font-semibold text-slate-700">{label}{children}</label>;
