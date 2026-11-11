@@ -15,6 +15,7 @@ import java.util.List;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+    long countByCreatedAtAfter(LocalDateTime createdAt);
     Page<Transaction> findByUserIdOrderByTransactionDateDesc(Long userId, Pageable pageable);
 
     Page<Transaction> findByWalletIdInOrderByTransactionDateDesc(java.util.Collection<Long> walletIds, Pageable pageable);

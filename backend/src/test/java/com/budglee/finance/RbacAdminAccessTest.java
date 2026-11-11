@@ -371,6 +371,24 @@ class RbacAdminAccessTest {
     }
 
     @Test
+    void publicFamilyOwnerRegistrationCreatesAnOwnedGroupAndCanLogInWithRealJwt() throws Exception {
+        String email = "family.owner." + UUID.randomUUID() + "@budglee.dev";
+        MvcResult registered = mvc.perform(post("/api/v1/auth/register/family-owner")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of("fullName", "Chủ hộ mới", "email", email,
+                        "password", PASSWORD, "familyName", "Nhà mới")))).andReturn();
+
+        assertThat(registered.getResponse().getStatus()).isEqualTo(200);
+        User owner = userRepository.findByEmail(email).orElseThrow();
+        assertThat(owner.getRole()).isEqualTo(Role.FAMILY_ADMIN);
+        assertThat(owner.getFamilyGroupId()).isNotBlank();
+        assertThat(familyGroupRepository.findById(owner.getFamilyGroupId())).isPresent();
+        Account authenticated = new Account(email, login(email));
+        assertThat(authenticated.token()).startsWith("eyJ");
+        assertThat(call("GET", "/api/v1/family/members", authenticated, null).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
     void familyGroupCodeCannotBeReused() throws Exception {
         Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
         Account firstOwner = register(Role.INDIVIDUAL_USER, null);

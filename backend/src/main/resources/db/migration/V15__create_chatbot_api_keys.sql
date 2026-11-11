@@ -1,0 +1,10 @@
+CREATE TABLE chatbot_api_keys (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    provider VARCHAR(80) NOT NULL,
+    key_ciphertext TEXT NOT NULL,
+    key_masked VARCHAR(120) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_chatbot_api_keys_active (active)
+);

@@ -4,6 +4,7 @@ import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.AuthRequest;
 import com.budglee.finance.dto.AuthResponse;
 import com.budglee.finance.dto.RegisterRequest;
+import com.budglee.finance.dto.FamilyOwnerRegisterRequest;
 import com.budglee.finance.dto.ForgotPasswordRequest;
 import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
@@ -31,6 +32,13 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);
         return ResponseEntity.ok(ApiResponse.ok(response, "Đăng ký tài khoản thành công"));
+    }
+
+    @PostMapping("/register/family-owner")
+    @Operation(summary = "Đăng ký chủ hộ và tạo không gian hộ mới do chính người đăng ký sở hữu")
+    public ResponseEntity<ApiResponse<AuthResponse>> registerFamilyOwner(@Valid @RequestBody FamilyOwnerRegisterRequest request) {
+        AuthResponse response = authService.registerFamilyOwner(request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Tạo tài khoản và nhóm hộ thành công"));
     }
 
     @PostMapping("/login")

@@ -34,9 +34,11 @@ vao `~/.ssh/` truoc khi clone.
 ```bash
 cp deploy/.env.production.example deploy/.env.production
 openssl rand -base64 48          # dan ket qua vao JWT_SECRET
+openssl rand -base64 48          # sinh rieng CHATBOT_KEY_ENCRYPTION_SECRET va giu nguyen qua cac lan deploy
 ```
 
-Bat buoc phai co `JWT_SECRET`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`.
+Bat buoc phai co `JWT_SECRET`, `DB_PASSWORD`, `DB_ROOT_PASSWORD` va
+`MAIL_USERNAME` / `MAIL_PASSWORD` (SMTP App Password moi, sau khi thu hoi credential cu).
 Muon co tai quan tri de demo RBAC thi dien them `APP_SECURITY_SYSTEM_ADMIN_EMAIL` /
 `APP_SECURITY_SYSTEM_ADMIN_PASSWORD` — bo trong thi backend van chay, khong tao ai ca.
 
@@ -50,7 +52,7 @@ docker compose -f deploy/docker-compose.vps.yml ps
 ## 5. Kiem tra
 
 ```bash
-docker logs budglee-backend --tail 40      # phai thay "Migrating schema ... version 9" va "Started BudgleeApplication"
+docker logs budglee-backend --tail 40      # phai thay migration toi V15 va "Started BudgleeApplication"
 free -h                                     # tong RAM con duoi 2GB, swap da bat
 docker stats --no-stream                    # mysql <= 384M, backend <= 768M
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost/            # 200 tu frontend
@@ -58,6 +60,19 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost/swagger-ui.html
 curl -s -X POST http://localhost/api/v1/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"seed.user@budglee.local","password":"password"}'       # FAMILY_ADMIN tu seed V6
 ```
+
+Kiểm tra RBAC cho cả SYSTEM_ADMIN và user thường (không in token/mật khẩu):
+
+```bash
+ADMIN_EMAIL=admin@budglee.local ADMIN_PASSWORD='...' \
+USER_EMAIL=seed.user@budglee.local USER_PASSWORD=password \
+  bash deploy/admin-smoke.sh
+```
+
+Trang admin có tổng số tài khoản, tài khoản khóa, nhóm hộ và giao dịch 24 giờ; quản lý tài khoản,
+nhóm hộ, API key chatbot đã mã hóa và bản sao lưu. Restore cần lấy challenge trước rồi xác nhận cụm
+`RESTORE BUDGLEE DATABASE`; token xác nhận chỉ dùng một lần và hết hạn sau 5 phút. Giữ nguyên
+`CHATBOT_KEY_ENCRYPTION_SECRET` khi deploy lại hoặc khôi phục database để giải mã được các key đã lưu.
 
 ## 6. Lenh khi co su co
 
