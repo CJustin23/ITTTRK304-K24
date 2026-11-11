@@ -56,7 +56,8 @@ class SchemaContractTest {
             "/db/migration/V11__add_transaction_lookup_indexes.sql",
             "/db/migration/V12__add_wallet_version.sql",
             "/db/migration/V13__add_user_enabled_flag.sql",
-            "/db/migration/V15__create_chatbot_api_keys.sql");
+            "/db/migration/V15__create_chatbot_api_keys.sql",
+            "/db/migration/V16__optimize_reporting_indexes.sql");
 
     /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V8 thêm cột vào bảng đã có. */
     private static final Pattern ADD_COLUMN = Pattern.compile(
@@ -167,8 +168,8 @@ class SchemaContractTest {
 
         assertThat(expected).hasSize(8);
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
-                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2, V15 thêm 1 index")
-                .isEqualTo(17);
+                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2, V15 thêm 1, V16 thêm 1 index")
+                .isEqualTo(18);
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))

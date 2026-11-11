@@ -41,12 +41,48 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("SELECT t.category.name, SUM(t.amount) FROM Transaction t " +
+    @Query("SELECT COALESCE(c.name, 'Khác'), SUM(t.amount) FROM Transaction t " +
+           "LEFT JOIN t.category c " +
            "WHERE t.user.id = :userId AND t.transactionType = 'EXPENSE' " +
            "AND t.linkedTransactionId IS NULL " +
            "AND t.transactionDate BETWEEN :startDate AND :endDate " +
-           "GROUP BY t.category.name")
+           "GROUP BY c.name")
     List<Object[]> getCategoryExpenseBreakdown(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Tối ưu hóa truy vấn dòng tiền 4 tuần (Sprint 4 - Tú):
+     * Gom nhóm và tính tổng chi tiêu 4 tuần trực tiếp bằng SQL Aggregate Function (CASE WHEN ... DAY),
+     * thay thế việc load toàn bộ Entity Transaction vào RAM của Backend.
+     */
+    @Query("SELECT " +
+           "COALESCE(SUM(CASE WHEN FUNCTION('DAY', t.transactionDate) <= 7 THEN t.amount ELSE 0 END), 0), " +
+           "COALESCE(SUM(CASE WHEN FUNCTION('DAY', t.transactionDate) > 7 AND FUNCTION('DAY', t.transactionDate) <= 14 THEN t.amount ELSE 0 END), 0), " +
+           "COALESCE(SUM(CASE WHEN FUNCTION('DAY', t.transactionDate) > 14 AND FUNCTION('DAY', t.transactionDate) <= 21 THEN t.amount ELSE 0 END), 0), " +
+           "COALESCE(SUM(CASE WHEN FUNCTION('DAY', t.transactionDate) > 21 THEN t.amount ELSE 0 END), 0) " +
+           "FROM Transaction t " +
+           "WHERE t.user.id = :userId AND t.transactionType = 'EXPENSE' " +
+           "AND t.linkedTransactionId IS NULL " +
+           "AND t.transactionDate BETWEEN :startDate AND :endDate")
+    List<Object[]> getWeeklyExpenseBreakdown(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Tối ưu hóa tính chi tiêu theo ngân sách (Sprint 4 - Tú):
+     * Tổng hợp số tiền chi theo categoryId trực tiếp bằng SQL GROUP BY,
+     * loại bỏ việc duyệt stream từng Transaction trên Backend.
+     */
+    @Query("SELECT t.category.id, SUM(t.amount) FROM Transaction t " +
+           "WHERE t.user.id = :userId AND t.transactionType = 'EXPENSE' " +
+           "AND t.linkedTransactionId IS NULL " +
+           "AND t.category IS NOT NULL " +
+           "AND t.transactionDate BETWEEN :startDate AND :endDate " +
+           "GROUP BY t.category.id")
+    List<Object[]> getCategoryExpenseSums(
             @Param("userId") Long userId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);

@@ -62,30 +62,15 @@ class DashboardServiceTest {
         when(transactionRepository.getCategoryExpenseBreakdown(eq(userId), any(), any()))
                 .thenReturn(categoryBreakdown);
 
-        // Giao dịch 4 tuần
-        Transaction txW1 = Transaction.builder()
-                .amount(new BigDecimal("2500000"))
-                .transactionType(TransactionType.EXPENSE)
-                .transactionDate(LocalDateTime.of(2026, 11, 3, 10, 0))
-                .build();
-        Transaction txW2 = Transaction.builder()
-                .amount(new BigDecimal("3500000"))
-                .transactionType(TransactionType.EXPENSE)
-                .transactionDate(LocalDateTime.of(2026, 11, 10, 10, 0))
-                .build();
-        Transaction txW3 = Transaction.builder()
-                .amount(new BigDecimal("2000000"))
-                .transactionType(TransactionType.EXPENSE)
-                .transactionDate(LocalDateTime.of(2026, 11, 18, 10, 0))
-                .build();
-        Transaction txW4 = Transaction.builder()
-                .amount(new BigDecimal("2000000"))
-                .transactionType(TransactionType.EXPENSE)
-                .transactionDate(LocalDateTime.of(2026, 11, 25, 10, 0))
-                .build();
-
-        when(transactionRepository.findByUserIdAndTransactionDateBetween(eq(userId), any(), any()))
-                .thenReturn(List.of(txW1, txW2, txW3, txW4));
+        // Tối ưu hóa Sprint 4 - Tú: Mock kết quả aggregate 4 tuần từ SQL query getWeeklyExpenseBreakdown
+        List<Object[]> weeklyBreakdown = Collections.singletonList(new Object[]{
+                new BigDecimal("2500000"),
+                new BigDecimal("3500000"),
+                new BigDecimal("2000000"),
+                new BigDecimal("2000000")
+        });
+        when(transactionRepository.getWeeklyExpenseBreakdown(eq(userId), any(), any()))
+                .thenReturn(weeklyBreakdown);
 
         Budget budget = Budget.builder()
                 .amountLimit(new BigDecimal("20000000"))
@@ -128,7 +113,7 @@ class DashboardServiceTest {
                 .thenReturn(new BigDecimal("5000000"));
         when(transactionRepository.getCategoryExpenseBreakdown(eq(userId), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(transactionRepository.findByUserIdAndTransactionDateBetween(eq(userId), any(), any()))
+        when(transactionRepository.getWeeklyExpenseBreakdown(eq(userId), any(), any()))
                 .thenReturn(Collections.emptyList());
         when(budgetRepository.findByUserIdAndPeriodMonthAndPeriodYear(userId, month, year))
                 .thenReturn(Collections.emptyList());
@@ -153,7 +138,7 @@ class DashboardServiceTest {
                 .thenReturn(null);
         when(transactionRepository.getCategoryExpenseBreakdown(eq(userId), any(), any()))
                 .thenReturn(Collections.emptyList());
-        when(transactionRepository.findByUserIdAndTransactionDateBetween(eq(userId), any(), any()))
+        when(transactionRepository.getWeeklyExpenseBreakdown(eq(userId), any(), any()))
                 .thenReturn(Collections.emptyList());
         when(budgetRepository.findByUserIdAndPeriodMonthAndPeriodYear(userId, month, year))
                 .thenReturn(Collections.emptyList());
