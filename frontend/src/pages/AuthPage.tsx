@@ -13,8 +13,6 @@ import {
   TrendingUp,
   Wallet,
   AlertCircle,
-  Plus,
-  Trash2,
   Home,
   Crown,
   KeyRound,
@@ -27,13 +25,6 @@ import { Role, User } from '../types';
 
 interface AuthPageProps {
   onSuccess?: () => void;
-}
-
-interface InitialMemberRow {
-  id: string;
-  fullName: string;
-  email: string;
-  role: Role;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
@@ -50,7 +41,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   // Family registration states
   const [familyName, setFamilyName] = useState('');
-  const [initialFamilyMembers, setInitialFamilyMembers] = useState<InitialMemberRow[]>([]);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -93,47 +83,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   const validatePassword = (val: string) => {
     if (!val) return 'Vui lòng nhập mật khẩu';
-    if (val.length < 6) return 'Mật khẩu phải có tối thiểu 6 ký tự';
+    if (val.length < 8 || val.length > 100) return 'Mật khẩu phải từ 8 đến 100 ký tự';
+    if (!/[A-Z]/.test(val) || !/\d/.test(val)) return 'Mật khẩu phải có ít nhất một chữ HOA và một chữ số';
     return '';
   };
+
+  const validateLoginPassword = (val: string) => val ? '' : 'Vui lòng nhập mật khẩu';
 
   const validateFullName = (val: string) => {
     if (!val.trim()) return 'Vui lòng nhập họ và tên của bạn';
     if (val.trim().length < 2) return 'Họ và tên phải có ít nhất 2 ký tự';
     return '';
-  };
-
-  const handleAddMemberRow = () => {
-    setInitialFamilyMembers((prev) => [
-      ...prev,
-      {
-        id: 'member-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-        fullName: '',
-        email: '',
-        role: 'FAMILY_MEMBER',
-      },
-    ]);
-  };
-
-  const handleRemoveMemberRow = (id: string) => {
-    setInitialFamilyMembers((prev) => prev.filter((m) => m.id !== id));
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[`member_${id}_name`];
-      delete copy[`member_${id}_email`];
-      return copy;
-    });
-  };
-
-  const handleMemberChange = (id: string, field: 'fullName' | 'email' | 'role', value: string) => {
-    setInitialFamilyMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
-    );
-    // Clear error for this field
-    const errKey = `member_${id}_${field === 'fullName' ? 'name' : field}`;
-    if (errors[errKey]) {
-      setErrors((prev) => ({ ...prev, [errKey]: '' }));
-    }
   };
 
   const handleForgotPasswordRequest = async (e: React.FormEvent) => {
@@ -313,38 +273,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         newPassword: newPassword,
       });
 
-      // Cập nhật cả localStorage nếu tài khoản lưu ở client
-      const normalizedForgotEmail = forgotEmail.trim().toLowerCase();
-      const savedUserStr = localStorage.getItem('budglee_user_' + normalizedForgotEmail);
-      let userObj: any = null;
-      if (savedUserStr) {
-        try {
-          userObj = JSON.parse(savedUserStr);
-          userObj.password = newPassword;
-          localStorage.setItem('budglee_user_' + normalizedForgotEmail, JSON.stringify(userObj));
-        } catch {}
-      } else {
-        userObj = {
-          id: Date.now(),
-          fullName: normalizedForgotEmail.split('@')[0],
-          email: normalizedForgotEmail,
-          role: 'INDIVIDUAL_USER',
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-        };
-        localStorage.setItem('budglee_user_' + normalizedForgotEmail, JSON.stringify(userObj));
-      }
-
-      // Đổi mật khẩu thành công -> Tự động đăng nhập luôn
-      if (userObj) {
-        setAuth(userObj, 'jwt-token-' + Date.now());
-        setIsForgotPassword(false);
-      } else {
-        setIsForgotPassword(false);
-        setIsLogin(true);
-        setEmail(forgotEmail);
-        setPassword(newPassword);
-        setSuccessMessage('Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay.');
-      }
+      setIsForgotPassword(false);
+      setForgotStep(1);
+      setIsLogin(true);
+      setEmail(forgotEmail.trim().toLowerCase());
+      setPassword('');
+      setSuccessMessage('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Không thể đổi mật khẩu. Mã xác thực có thể đã hết hạn hoặc đã được sử dụng!';
       setErrorMessage(msg);
@@ -359,172 +293,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     const errs: Record<string, string> = {};
     const emailErr = validateEmail(email);
     if (emailErr) errs.email = emailErr;
-    const passErr = validatePassword(password);
+    const passErr = validateLoginPassword(password);
     if (passErr) errs.password = passErr;
-
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
     setErrors({});
     setIsLoading(true);
-
-    const trimmedEmail = email.trim().toLowerCase();
-
-    // Danh sách 4 tài khoản hệ thống chính thức theo yêu cầu
-    const SYSTEM_DEFAULT_ACCOUNTS: Record<string, { user: User; defaultPassword: string }> = {
-      'thanhcanhan@gmail.com': {
-        user: {
-          id: 1001,
-          fullName: 'Nguyễn Tiến Thành',
-          email: 'thanhcanhan@gmail.com',
-          role: 'INDIVIDUAL_USER',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-        },
-        defaultPassword: '123456',
-      },
-      'thanhba@gmail.com': {
-        user: {
-          id: 1002,
-          fullName: 'Nguyễn Tiến Ba (Ba)',
-          email: 'thanhba@gmail.com',
-          role: 'FAMILY_ADMIN',
-          familyGroupId: 'FAM-HANHPHUC',
-          familyGroupName: 'Gia đình Hạnh Phúc',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
-        },
-        defaultPassword: '123456',
-      },
-      'thanhme@gmail.com': {
-        user: {
-          id: 1003,
-          fullName: 'Trần Thị Mẹ (Mẹ)',
-          email: 'thanhme@gmail.com',
-          role: 'FAMILY_ADMIN',
-          familyGroupId: 'FAM-HANHPHUC',
-          familyGroupName: 'Gia đình Hạnh Phúc',
-          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
-        },
-        defaultPassword: '123456',
-      },
-      'thanhcon@gmail.com': {
-        user: {
-          id: 1004,
-          fullName: 'Nguyễn Tiến Con (Con)',
-          email: 'thanhcon@gmail.com',
-          role: 'FAMILY_MEMBER',
-          familyGroupId: 'FAM-HANHPHUC',
-          familyGroupName: 'Gia đình Hạnh Phúc',
-          avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop&crop=faces',
-        },
-        defaultPassword: '123456',
-      },
-      'demo@budglee.com': {
-        user: {
-          id: 1,
-          fullName: 'Nguyễn Tiến Thành',
-          email: 'demo@budglee.com',
-          role: 'INDIVIDUAL_USER',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-        },
-        defaultPassword: '123456',
-      },
-    };
-
     try {
-      // 1. Gửi request đăng nhập lên API thật của backend
-      const authRes = await AuthService.login({
-        email: trimmedEmail,
-        password: password,
-      });
-
-      if (authRes && authRes.token) {
-        const loggedUser: User = {
-          id: authRes.id || Date.now(),
-          fullName: authRes.fullName || (trimmedEmail.split('@')[0]),
-          email: authRes.email || trimmedEmail,
-          role: (authRes.role as Role) || 'INDIVIDUAL_USER',
-          familyGroupId: authRes.familyGroupId || (SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail]?.user.familyGroupId),
-          familyGroupName: SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail]?.user.familyGroupName || (authRes.familyGroupId ? 'Gia đình Hạnh Phúc' : undefined),
-          avatarUrl: SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail]?.user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-        };
-
-        localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(loggedUser));
-        setAuth(loggedUser, authRes.token, false);
-        if (onSuccess) onSuccess();
-        setIsLoading(false);
-        return;
-      }
-    } catch (apiErr: any) {
-      console.warn('API login error, checking fallback for demo/offline:', apiErr?.message);
-      // Nếu API trả về lỗi xác thực rõ ràng 401 Unauthorized và không phải lỗi mạng
-      if (apiErr?.response?.status === 401) {
-        const sys = SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail];
-        const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
-        let savedUser: any = null;
-        if (savedUserStr) {
-          try { savedUser = JSON.parse(savedUserStr); } catch {}
-        }
-        const expectedPassword = savedUser?.password || sys?.defaultPassword;
-        if (sys && (password === expectedPassword || password === '123456')) {
-          const userToLogin: User = {
-            ...sys.user,
-            ...(savedUser || {}),
-          };
-          localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
-          setAuth(userToLogin, 'token-' + trimmedEmail, false);
-          if (onSuccess) onSuccess();
-          setIsLoading(false);
-          return;
-        }
-
-        const backendMsg = apiErr.response?.data?.message || 'Email hoặc mật khẩu không chính xác!';
-        setErrorMessage(backendMsg);
-        setIsLoading(false);
-        return;
-      }
-
-      // Fallback khi offline hoặc backend chưa kết nối
-      const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
-      let savedUser: any = null;
-      if (savedUserStr) {
-        try { savedUser = JSON.parse(savedUserStr); } catch {}
-      }
-
-      if (SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail]) {
-        const sys = SYSTEM_DEFAULT_ACCOUNTS[trimmedEmail];
-        const expectedPassword = savedUser?.password || sys.defaultPassword;
-        if (password !== expectedPassword && password !== '123456' && password !== 'Budglee@2026') {
-          setErrorMessage('Mật khẩu không chính xác. Mật khẩu mặc định là 123456.');
-          setIsLoading(false);
-          return;
-        }
-        const userToLogin: User = {
-          ...sys.user,
-          ...(savedUser || {}),
-        };
-        localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
-        setAuth(userToLogin, 'token-' + trimmedEmail, false);
-      } else if (savedUser) {
-        if (savedUser.password && password !== savedUser.password) {
-          setErrorMessage('Mật khẩu không chính xác. Vui lòng kiểm tra lại!');
-          setIsLoading(false);
-          return;
-        }
-        setAuth(savedUser, 'token-' + trimmedEmail, false);
-      } else {
-        const backendMsg = apiErr.response?.data?.message || 'Tài khoản chưa tồn tại trên hệ thống. Vui lòng kiểm tra lại email hoặc đăng ký mới!';
-        setErrorMessage(backendMsg);
-        setIsLoading(false);
-        return;
-      }
-
+      const account = await AuthService.login(email.trim().toLowerCase(), password);
+      const user: User = {
+        id: account.id,
+        fullName: account.fullName,
+        email: account.email,
+        role: account.role,
+        familyGroupId: account.familyGroupId,
+      };
+      setAuth(user, account.token, false);
       if (onSuccess) onSuccess();
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.');
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -557,18 +350,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         errs.familyName = 'Tên sổ quỹ phải có ít nhất 2 ký tự';
       }
 
-      // Kiểm tra danh sách thành viên gia đình ban đầu
-      initialFamilyMembers.forEach((m) => {
-        if (!m.fullName.trim()) {
-          errs[`member_${m.id}_name`] = 'Vui lòng nhập họ tên thành viên';
-        }
-        const memberEmailErr = validateEmail(m.email);
-        if (memberEmailErr) {
-          errs[`member_${m.id}_email`] = memberEmailErr;
-        } else if (m.email.trim().toLowerCase() === email.trim().toLowerCase()) {
-          errs[`member_${m.id}_email`] = 'Email không được trùng với email chủ hộ';
-        }
-      });
     }
 
     if (Object.keys(errs).length > 0) {
@@ -578,71 +359,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
     setErrors({});
     setIsLoading(true);
-
-    const trimmedEmail = email.trim().toLowerCase();
-    const familyGroupId = role === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined;
-
     try {
-      // Gọi API đăng ký thật của backend
-      const regRes = await AuthService.register({
-        fullName: fullName.trim(),
-        email: trimmedEmail,
-        password: password,
-        role: role,
-        familyGroupId,
-      });
-
-      const newUser: User = {
-        id: regRes?.id || Date.now(),
-        fullName: regRes?.fullName || fullName.trim(),
-        email: regRes?.email || trimmedEmail,
-        role: (regRes?.role as Role) || role,
-        familyGroupId: regRes?.familyGroupId || familyGroupId,
-        familyGroupName: role === 'FAMILY_ADMIN' ? familyName.trim() : undefined,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-      };
-
-      // Lưu hồ sơ tài khoản
-      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(newUser));
-
-      // Tạo tài khoản MỚI HOÀN TOÀN SẠCH (isNewRegistration = true, không dính ví/giao dịch cũ)
-      setAuth(
-        newUser,
-        regRes?.token || ('jwt-token-' + Date.now()),
-        true,
-        initialFamilyMembers
-      );
-
-      if (onSuccess) onSuccess();
-    } catch (err: any) {
-      console.warn('Backend register error, attempting client registration fallback:', err?.message);
-      if (err?.response?.status === 400 || err?.response?.status === 409) {
-        const msg = err.response?.data?.message || 'Email này đã được sử dụng. Vui lòng chọn email khác!';
-        setErrorMessage(msg);
-        setIsLoading(false);
-        return;
+      const trimmedEmail = email.trim().toLowerCase();
+      const registration = { fullName: fullName.trim(), email: trimmedEmail, password };
+      if (role === 'FAMILY_ADMIN') {
+        await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+      } else {
+        await AuthService.register(registration);
       }
-
-      // Offline / fallback registration
-      const newUser: User = {
-        id: Date.now(),
-        fullName: fullName.trim(),
-        email: trimmedEmail,
-        role: role,
-        familyGroupId,
-        familyGroupName: role === 'FAMILY_ADMIN' ? familyName.trim() : undefined,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-      };
-
-      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(newUser));
-      setAuth(
-        newUser,
-        'client-token-' + Date.now(),
-        true,
-        initialFamilyMembers
-      );
-
+      const account = await AuthService.login(trimmedEmail, password);
+      const user: User = { id: account.id, fullName: account.fullName, email: account.email,
+        role: account.role, familyGroupId: account.familyGroupId };
+      setAuth(user, account.token, true);
       if (onSuccess) onSuccess();
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data?.message || 'Đăng ký thất bại. Vui lòng kiểm tra thông tin và thử lại.');
     } finally {
       setIsLoading(false);
     }
@@ -985,7 +716,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Mật khẩu mới (tối thiểu 6 ký tự) <span className="text-rose-500">*</span>
+                    Mật khẩu mới (8–100 ký tự, có chữ HOA và chữ số) <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1283,12 +1014,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setRole('FAMILY_ADMIN');
-                      if (initialFamilyMembers.length === 0) {
-                        handleAddMemberRow();
-                      }
-                    }}
+                    onClick={() => setRole('FAMILY_ADMIN')}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       role === 'FAMILY_ADMIN'
                         ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-md'
@@ -1338,108 +1064,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                       </p>
                     )}
                   </div>
-
-                  {/* Danh sách thành viên gia đình ban đầu */}
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Thành viên gia đình cần thêm:
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddMemberRow}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>+ Thêm thành viên</span>
-                      </button>
-                    </div>
-
-                    {initialFamilyMembers.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 italic">
-                        Chưa có thành viên nào. Bấm "+ Thêm thành viên" để mời người thân ngay lúc tạo sổ quỹ.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {initialFamilyMembers.map((member, idx) => (
-                          <div
-                            key={member.id}
-                            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
-                          >
-                            <div className="flex items-center justify-between text-[11px] text-slate-400">
-                              <span className="font-semibold">Thành viên #{idx + 1}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveMemberRow(member.id)}
-                                className="text-slate-500 hover:text-rose-400 p-0.5 rounded transition-colors"
-                                title="Xóa dòng thành viên này"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <input
-                                  type="text"
-                                  placeholder="Họ tên thành viên"
-                                  value={member.fullName}
-                                  onChange={(e) =>
-                                    handleMemberChange(member.id, 'fullName', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
-                                    errors[`member_${member.id}_name`]
-                                      ? 'border-rose-500'
-                                      : 'border-slate-700 focus:border-emerald-500'
-                                  }`}
-                                />
-                                {errors[`member_${member.id}_name`] && (
-                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
-                                    {errors[`member_${member.id}_name`]}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div>
-                                <input
-                                  type="email"
-                                  placeholder="Email thành viên"
-                                  value={member.email}
-                                  onChange={(e) =>
-                                    handleMemberChange(member.id, 'email', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
-                                    errors[`member_${member.id}_email`]
-                                      ? 'border-rose-500'
-                                      : 'border-slate-700 focus:border-emerald-500'
-                                  }`}
-                                />
-                                {errors[`member_${member.id}_email`] && (
-                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
-                                    {errors[`member_${member.id}_email`]}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-slate-400">Vai trò:</span>
-                              <select
-                                value={member.role}
-                                onChange={(e) =>
-                                  handleMemberChange(member.id, 'role', e.target.value)
-                                }
-                                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-slate-300 focus:outline-none focus:border-emerald-500"
-                              >
-                                <option value="FAMILY_MEMBER">Thành viên (Ghi chép thu chi)</option>
-                                <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-400">Sau khi tạo nhóm, bạn có thể mời thành viên từ mục Nhóm hộ. Mỗi người cần có tài khoản Budglee.</p>
                 </div>
               )}
 

@@ -9,6 +9,7 @@ import {
   Settings,
   Users,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
@@ -30,6 +31,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
     { id: 'family', label: 'Quỹ gia đình (Family)', icon: Users },
     { id: 'settings', label: 'Cài đặt (Settings)', icon: Settings },
   ];
+  if (currentUser?.role === 'SYSTEM_ADMIN') {
+    menuItems.push({ id: 'admin', label: 'Quản trị hệ thống', icon: ShieldCheck });
+  }
 
   return (
     <aside className="w-64 bg-[#1E293B] text-slate-300 flex flex-col shrink-0 min-h-screen border-r border-slate-700">
@@ -108,6 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
               <p className="text-xs text-slate-400 truncate">
                 {currentUser?.role === 'FAMILY_ADMIN'
                   ? 'Chủ hộ (Admin)'
+                : currentUser?.role === 'SYSTEM_ADMIN'
+                  ? 'Quản trị hệ thống'
                   : currentUser?.role === 'FAMILY_MEMBER'
                   ? 'Thành viên Gia đình'
                   : 'Quản lý Cá nhân'}

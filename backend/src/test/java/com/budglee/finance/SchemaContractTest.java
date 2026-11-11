@@ -1,6 +1,7 @@
 package com.budglee.finance;
 
 import jakarta.persistence.Column;
+import com.budglee.finance.entity.ChatbotApiKey;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -54,7 +55,8 @@ class SchemaContractTest {
             "/db/migration/V8__link_transfer_transactions.sql",
             "/db/migration/V11__add_transaction_lookup_indexes.sql",
             "/db/migration/V12__add_wallet_version.sql",
-            "/db/migration/V13__add_user_enabled_flag.sql");
+            "/db/migration/V13__add_user_enabled_flag.sql",
+            "/db/migration/V15__create_chatbot_api_keys.sql");
 
     /** ALTER TABLE x ADD COLUMN y VARCHAR(n) — bản V8 thêm cột vào bảng đã có. */
     private static final Pattern ADD_COLUMN = Pattern.compile(
@@ -72,6 +74,18 @@ class SchemaContractTest {
     private static final Pattern COLUMN_LINE = Pattern.compile(
             "^([A-Za-z_][A-Za-z0-9_]*)\\s+(VARCHAR|INT|BIGINT|DECIMAL|TIMESTAMP|DATETIME|DATE|TEXT|BOOLEAN|ENUM)\\b(\\s*\\([^)]*\\))?",
             Pattern.CASE_INSENSITIVE);
+
+    @Test
+    void chatbotApiKeyMigrationMatchesEncryptedEntityTable() throws Exception {
+        String migration;
+        try (InputStream stream = getClass().getResourceAsStream("/db/migration/V15__create_chatbot_api_keys.sql")) {
+            assertThat(stream).isNotNull();
+            migration = new String(stream.readAllBytes(), StandardCharsets.UTF_8).toLowerCase();
+        }
+        assertThat(ChatbotApiKey.class.getAnnotation(Table.class).name()).isEqualTo("chatbot_api_keys");
+        assertThat(migration).contains("create table chatbot_api_keys", "key_ciphertext text not null",
+                "key_masked varchar(120) not null", "active boolean not null");
+    }
 
     @Autowired
     private jakarta.persistence.EntityManagerFactory entityManagerFactory;
@@ -151,10 +165,10 @@ class SchemaContractTest {
         Map<String, Set<String>> expected = readSchemaIndexes();
         Map<String, Set<String>> actual = readEntityIndexes();
 
-        assertThat(expected).hasSize(7);
+        assertThat(expected).hasSize(8);
         assertThat(expected.values().stream().mapToInt(Set::size).sum())
-                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2 index")
-                .isEqualTo(16);
+                .as("V1 khai 10 index, V5 thêm 3, V8 thêm 1, V11 thêm 2, V15 thêm 1 index")
+                .isEqualTo(17);
         assertThat(actual.keySet()).containsExactlyInAnyOrderElementsOf(expected.keySet());
         for (String table : new TreeSet<>(expected.keySet())) {
             assertThat(actual.get(table))
@@ -423,7 +437,7 @@ class SchemaContractTest {
         }
         assertThat(tables)
                 .as("V1 + V4 + V5 phải khai báo 8 bảng (6 cốt lõi + family_groups + family_invitations)")
-                .hasSize(8);
+                .hasSize(9);
         return tables;
     }
 

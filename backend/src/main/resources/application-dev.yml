@@ -27,3 +27,12 @@ logging:
     com.budglee.finance: DEBUG
     org.springframework.security: INFO
     org.hibernate.SQL: DEBUG
+
+# Demo cuc bo: tra OTP trong response de giao dien dien san. Production mac dinh tat.
+app:
+  security:
+    expose-otp: true
+  admin:
+    backup-directory: ${ADMIN_BACKUP_DIRECTORY:../backups}
+    backup-script: ${ADMIN_BACKUP_SCRIPT:../devops/scripts/backup.sh}
+    restore-script: ${ADMIN_RESTORE_SCRIPT:../devops/scripts/restore.sh}
