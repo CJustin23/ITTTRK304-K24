@@ -67,11 +67,7 @@ if [ ! -f "$ENV_FILE" ]; then
   ROOTPASS=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)
   # Cho phep dat san mat khau demo co dinh:  APP_SECURITY_SYSTEM_ADMIN_PASSWORD=... bash deploy/bootstrap.sh
   ADMIN_EMAIL=${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-admin@budglee.local}
-  ADMINPASS=${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
-  if [ -z "$ADMINPASS" ]; then
-    ADMINPASS=$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)
-    echo "Khong truyen APP_SECURITY_SYSTEM_ADMIN_PASSWORD -> sinh ngau nhien."
-  fi
+  ADMINPASS=${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-BudgleeAdmin@2026!}
   cat > "$ENV_FILE" <<EOF
 DB_NAME=budglee_db
 DB_USER=budglee_user

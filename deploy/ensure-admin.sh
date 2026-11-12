@@ -9,18 +9,18 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 test -f "$ENV_FILE" || { echo "Khong tim thay $ENV_FILE" >&2; exit 1; }
 
-ADMIN_EMAIL=$(grep '^APP_SECURITY_SYSTEM_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2- || true)
-ADMIN_PASS=$(grep '^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
-if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASS" ]; then
-  ADMIN_EMAIL=${ADMIN_EMAIL:-${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-admin@budglee.local}}
-  ADMIN_PASS=${ADMIN_PASS:-${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)}}
+FILE_ADMIN_EMAIL=$(grep '^APP_SECURITY_SYSTEM_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2- || true)
+FILE_ADMIN_PASS=$(grep '^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
+ADMIN_EMAIL=${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-${FILE_ADMIN_EMAIL:-admin@budglee.local}}
+ADMIN_PASS=${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-BudgleeAdmin@2026!}
+if [ "$ADMIN_EMAIL" != "$FILE_ADMIN_EMAIL" ] || [ "$ADMIN_PASS" != "$FILE_ADMIN_PASS" ]; then
   sed -i '/^APP_SECURITY_SYSTEM_ADMIN_EMAIL=/d; /^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=/d' "$ENV_FILE"
   cat >> "$ENV_FILE" <<EOF
 APP_SECURITY_SYSTEM_ADMIN_EMAIL=${ADMIN_EMAIL}
 APP_SECURITY_SYSTEM_ADMIN_PASSWORD=${ADMIN_PASS}
 EOF
   chmod 600 "$ENV_FILE"
-  echo "Da tao credential SYSTEM_ADMIN cho deployment (khong in mat khau ra log)."
+  echo "Da cap nhat credential SYSTEM_ADMIN trong env (khong in mat khau ra log)."
 fi
 
 printf 'SYSTEM_ADMIN : %s / %s\n' "$ADMIN_EMAIL" "$ADMIN_PASS" > /root/budglee-system-admin.txt
