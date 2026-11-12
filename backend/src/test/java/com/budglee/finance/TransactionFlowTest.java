@@ -47,7 +47,7 @@ class TransactionFlowTest {
     private String loginNewUser() throws Exception {
         Map<String, Object> register = new HashMap<>();
         register.put("fullName", "Người dùng demo");
-        register.put("email", "tx." + UUID.randomUUID() + "@budglee.dev");
+        register.put("email", "tx." + UUID.randomUUID() + "@gmail.com");
         register.put("password", "MatKhau123");
         mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

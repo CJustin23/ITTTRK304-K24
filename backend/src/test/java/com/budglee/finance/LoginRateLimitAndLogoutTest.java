@@ -77,7 +77,7 @@ class LoginRateLimitAndLogoutTest {
 
     @Test
     void bruteForceIsBlockedAfterTenWrongGuesses() throws Exception {
-        String email = register("rl." + UUID.randomUUID() + "@budglee.dev");
+        String email = register("rl." + UUID.randomUUID() + "@gmail.com");
         String ip = newIp();
 
         for (int attempt = 1; attempt <= 10; attempt++) {
@@ -97,8 +97,8 @@ class LoginRateLimitAndLogoutTest {
     @Test
     void oneNoisyIpLocksOutEveryAccountItHammers() throws Exception {
         String attacker = newIp();
-        String first = register("rl." + UUID.randomUUID() + "@budglee.dev");
-        String second = register("rl." + UUID.randomUUID() + "@budglee.dev");
+        String first = register("rl." + UUID.randomUUID() + "@gmail.com");
+        String second = register("rl." + UUID.randomUUID() + "@gmail.com");
         for (int attempt = 0; attempt < 10; attempt++) {
             assertThat(attempt(first, "Sai" + attempt, attacker).getResponse().getStatus()).isEqualTo(401);
         }
@@ -113,7 +113,7 @@ class LoginRateLimitAndLogoutTest {
 
     @Test
     void aSuccessfulLoginClearsTheCounter() throws Exception {
-        String email = register("rl." + UUID.randomUUID() + "@budglee.dev");
+        String email = register("rl." + UUID.randomUUID() + "@gmail.com");
         String ip = newIp();
         for (int attempt = 0; attempt < 9; attempt++) {
             assertThat(attempt(email, "Sai" + attempt, ip).getResponse().getStatus()).isEqualTo(401);
@@ -130,8 +130,8 @@ class LoginRateLimitAndLogoutTest {
 
     @Test
     void logoutKillsTheTokenThatIsStillInsideItsValidity() throws Exception {
-        String email = register("logout." + UUID.randomUUID() + "@budglee.dev");
-        String other = register("logout." + UUID.randomUUID() + "@budglee.dev");
+        String email = register("logout." + UUID.randomUUID() + "@gmail.com");
+        String other = register("logout." + UUID.randomUUID() + "@gmail.com");
         String ip = newIp();
         String token = loginAndGetToken(email, ip);
         String otherToken = loginAndGetToken(other, ip);
@@ -156,7 +156,7 @@ class LoginRateLimitAndLogoutTest {
 
     @Test
     void logoutWithTheSameTokenTwiceStillLeavesItDead() throws Exception {
-        String email = register("logout." + UUID.randomUUID() + "@budglee.dev");
+        String email = register("logout." + UUID.randomUUID() + "@gmail.com");
         String token = loginAndGetToken(email, newIp());
 
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + token)).andReturn();
@@ -175,7 +175,7 @@ class LoginRateLimitAndLogoutTest {
 
     @Test
     void loggingInAgainAfterLogoutGivesAFreshUsableToken() throws Exception {
-        String email = register("logout." + UUID.randomUUID() + "@budglee.dev");
+        String email = register("logout." + UUID.randomUUID() + "@gmail.com");
         String ip = newIp();
         String dead = loginAndGetToken(email, ip);
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + dead)).andReturn();

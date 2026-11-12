@@ -45,7 +45,7 @@ class AuthRegistrationTest {
     private FamilyGroupRepository familyGroupRepository;
 
     private String newEmail() {
-        return "register." + UUID.randomUUID() + "@budglee.dev";
+        return "register." + UUID.randomUUID() + "@gmail.com";
     }
 
     private Map<String, Object> payload(String fullName, String email, String password) {

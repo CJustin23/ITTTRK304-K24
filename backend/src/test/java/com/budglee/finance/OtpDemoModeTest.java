@@ -49,7 +49,7 @@ class OtpDemoModeTest {
     void demoModeReturnsTheSixDigitCodeForTheUiToPrefill() throws Exception {
         User user = userRepository.save(User.builder()
                 .fullName("Người dùng demo")
-                .email("otp.demo." + UUID.randomUUID() + "@budglee.dev")
+                .email("otp.demo." + UUID.randomUUID() + "@gmail.com")
                 .passwordHash(passwordEncoder.encode("MatKhau123"))
                 .role(Role.INDIVIDUAL_USER)
                 .enabled(true)
