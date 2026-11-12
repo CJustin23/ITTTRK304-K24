@@ -7,6 +7,7 @@ import {
   Category,
   Budget,
   FamilyInvitation,
+  SavingGoal,
 } from '../types';
 
 const api = axios.create({
@@ -119,6 +120,28 @@ export const BudgetService = {
   create: async (data: any): Promise<Budget> => {
     const response = await api.post('/budgets', data);
     return response.data.data;
+  },
+};
+
+export const SavingGoalApiService = {
+  getAll: async (): Promise<SavingGoal[]> => {
+    const response = await api.get('/saving-goals');
+    return response.data.data || [];
+  },
+  create: async (data: Omit<SavingGoal, 'id'>): Promise<SavingGoal> => {
+    const response = await api.post('/saving-goals', data);
+    return response.data.data;
+  },
+  update: async (id: number, data: Partial<SavingGoal>): Promise<SavingGoal> => {
+    const response = await api.put(`/saving-goals/${id}`, data);
+    return response.data.data;
+  },
+  deposit: async (id: number, amount: number, fromWalletId?: number): Promise<SavingGoal> => {
+    const response = await api.post(`/saving-goals/${id}/deposit`, { amount, fromWalletId });
+    return response.data.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/saving-goals/${id}`);
   },
 };
 

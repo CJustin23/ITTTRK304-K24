@@ -25,6 +25,7 @@ import { NewGoalModal } from './components/NewGoalModal';
 import { DepositGoalModal } from './components/DepositGoalModal';
 import { InviteFamilyModal } from './components/InviteFamilyModal';
 import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
+import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
 
 import { useStore } from './store/useStore';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
@@ -78,16 +79,18 @@ export const App: React.FC = () => {
     (window as any).toggleAuthPage = () => {
       handleTabChange(activeTab === 'auth' ? 'overview' : 'auth');
     };
+    let intervalId: any;
     (window as any).handleLogout = () => {
+      if (intervalId) clearInterval(intervalId);
       logout();
       handleTabChange('overview');
     };
 
-    let intervalId: any;
-    const syncInvitations = () => {
+    const isFamilyAdminWithGroup = currentUser?.role === 'FAMILY_ADMIN' && !!currentUser?.familyGroupId;
+
+    const syncFamilyData = () => {
       const u = useStore.getState().currentUser;
-      if (u && u.role !== 'SYSTEM_ADMIN') {
-        fetchReceivedInvitations();
+      if (u?.role === 'FAMILY_ADMIN' && u?.familyGroupId) {
         fetchSentInvitations();
         useStore.getState().fetchFamilyMembers?.();
       }
@@ -95,17 +98,24 @@ export const App: React.FC = () => {
 
     if (currentUser && currentUser.role !== 'SYSTEM_ADMIN') {
       fetchReceivedInvitations();
-      fetchSentInvitations();
       fetchCoreData();
-      intervalId = setInterval(syncInvitations, 3000);
-      window.addEventListener('storage', syncInvitations);
-      window.addEventListener('budglee_invitation_update', syncInvitations);
+
+      if (isFamilyAdminWithGroup) {
+        fetchSentInvitations();
+        useStore.getState().fetchFamilyMembers?.();
+        intervalId = setInterval(syncFamilyData, 5000);
+      } else if (currentUser.familyGroupId) {
+        useStore.getState().fetchFamilyMembers?.();
+      }
+
+      window.addEventListener('storage', syncFamilyData);
+      window.addEventListener('budglee_invitation_update', syncFamilyData);
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
-      window.removeEventListener('storage', syncInvitations);
-      window.removeEventListener('budglee_invitation_update', syncInvitations);
+      window.removeEventListener('storage', syncFamilyData);
+      window.removeEventListener('budglee_invitation_update', syncFamilyData);
     };
   }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations, fetchCoreData]);
 
@@ -303,6 +313,9 @@ export const App: React.FC = () => {
       <DepositGoalModal />
       <InviteFamilyModal />
       <ConfirmFamilyInviteModal />
+
+      {/* 3. Floating AI Chat Widget */}
+      <FloatingChatWidget />
     </div>
   );
 };

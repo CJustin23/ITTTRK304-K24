@@ -19,6 +19,7 @@ import {
   TransactionService,
   BudgetService,
   DashboardService,
+  SavingGoalApiService,
 } from '../services/api';
 
 // ============================================================================
@@ -2327,20 +2328,29 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  addSavingGoal: (goalData) => {
-    const newGoal: SavingGoal = {
-      ...goalData,
-      id: Date.now(),
-    };
+  addSavingGoal: async (goalData) => {
+    let createdGoal: SavingGoal;
+    try {
+      createdGoal = await SavingGoalApiService.create(goalData);
+    } catch (e) {
+      createdGoal = {
+        ...goalData,
+        id: Date.now(),
+      };
+    }
     set((state) => {
-      const updatedGoals = [...state.savingGoals, newGoal];
+      const updatedGoals = [...state.savingGoals, createdGoal];
       const newState = { savingGoals: updatedGoals };
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
 
-  depositToGoal: (goalId, walletId, amount) => {
+  depositToGoal: async (goalId, walletId, amount) => {
+    try {
+      await SavingGoalApiService.deposit(goalId, amount, walletId);
+    } catch (e) {}
+
     set((state) => {
       const selectedWallet = state.wallets.find((w) => w.id === walletId);
       const selectedGoal = state.savingGoals.find((g) => g.id === goalId);
@@ -2506,12 +2516,13 @@ export const useStore = create<AppState>((set, get) => ({
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
 
-      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes] = await Promise.allSettled([
+      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes, goalsRes] = await Promise.allSettled([
         WalletService.getAll(),
         TransactionService.getAll(0, 100),
         BudgetService.getAll(month, year),
         DashboardService.getSummary(year, month),
         DashboardService.getRecommendations(year, month),
+        SavingGoalApiService.getAll(),
       ]);
 
       const updates: any = {};
@@ -2564,17 +2575,30 @@ export const useStore = create<AppState>((set, get) => ({
         updates.botRecommendation = botRes.value;
       }
 
+      if (goalsRes.status === 'fulfilled' && Array.isArray(goalsRes.value) && goalsRes.value.length > 0) {
+        updates.savingGoals = goalsRes.value.map((g: any) => ({
+          id: g.id,
+          goalName: g.goalName,
+          targetAmount: Number(g.targetAmount || 0),
+          currentAmount: Number(g.currentAmount || 0),
+          deadline: g.deadline,
+          status: g.status || 'IN_PROGRESS',
+        }));
+      }
+
       if (Object.keys(updates).length > 0) {
         set((state) => {
           const finalWallets = updates.wallets || state.wallets;
           const finalTxs = updates.recentTransactions || state.recentTransactions;
           const finalBudgets = updates.budgets || state.budgets;
+          const finalGoals = updates.savingGoals || state.savingGoals;
           const finalSummary = updates.dashboardSummary || calculateDashboardSummary(finalWallets, finalTxs, finalBudgets);
           const finalBot = updates.botRecommendation || state.botRecommendation;
           const newState = {
             wallets: finalWallets,
             recentTransactions: finalTxs,
             budgets: finalBudgets,
+            savingGoals: finalGoals,
             dashboardSummary: finalSummary,
             botRecommendation: finalBot,
           };
@@ -2696,6 +2720,10 @@ export const useStore = create<AppState>((set, get) => ({
   fetchSentInvitations: async () => {
     const user = get().currentUser;
     if (!user || !user.email) return;
+    if (user.role !== 'FAMILY_ADMIN' || !user.familyGroupId) {
+      set({ sentInvitations: [] });
+      return;
+    }
 
     let invites: FamilyInvitation[] = [];
     try {
