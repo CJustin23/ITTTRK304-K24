@@ -82,9 +82,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   };
 
   const validateRegistrationEmail = (val: string) => {
-    const formatError = validateEmail(val);
-    if (formatError) return formatError;
-    if (!val.trim().toLowerCase().endsWith('@gmail.com')) {
+    if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
+    // Regex chặt: chỉ chấp nhận đúng dạng xxx@gmail.com (không cho @g.com, @gmail.co, v.v.)
+    const gmailRegex = /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i;
+    if (!gmailRegex.test(val.trim())) {
       return 'Vui lòng sử dụng địa chỉ Gmail có dạng example@gmail.com';
     }
     return '';
@@ -311,13 +312,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     setErrors({});
     setIsLoading(true);
     try {
-      const account = await AuthService.login(email.trim().toLowerCase(), password);
+      const account = await AuthService.login( email.trim().toLowerCase(), password);
+      const trimmedLoginEmail = email.trim().toLowerCase();
+      let savedLocalUser: Partial<User> = {};
+      try {
+        const raw = localStorage.getItem('budglee_user_' + trimmedLoginEmail);
+        if (raw) savedLocalUser = JSON.parse(raw);
+      } catch {}
+      const resolvedRole: Role =
+        account.role && account.role !== 'INDIVIDUAL_USER'
+          ? account.role
+          : (savedLocalUser.role as Role) || account.role || 'INDIVIDUAL_USER';
       const user: User = {
         id: account.id,
         fullName: account.fullName,
         email: account.email,
-        role: account.role,
-        familyGroupId: account.familyGroupId,
+        role: resolvedRole,
+        familyGroupId: account.familyGroupId || savedLocalUser.familyGroupId,
+        familyGroupName: savedLocalUser.familyGroupName,
       };
       setAuth(user, account.token, false);
       if (onSuccess) onSuccess();
@@ -371,14 +383,38 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     try {
       const trimmedEmail = email.trim().toLowerCase();
       const registration = { fullName: fullName.trim(), email: trimmedEmail, password };
+      let registered: { id?: number; fullName?: string; email?: string; role?: Role; familyGroupId?: string } | undefined;
       if (role === 'FAMILY_ADMIN') {
-        await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+        try {
+          registered = await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+        } catch (familyRegErr: any) {
+          const status = familyRegErr?.response?.status;
+          // Nếu kết nối tới backend cũ chưa có /auth/register/family-owner (404/405), fallback sang /auth/register
+          if (status === 404 || status === 405) {
+            registered = await AuthService.register(registration);
+          } else {
+            throw familyRegErr;
+          }
+        }
       } else {
-        await AuthService.register(registration);
+        registered = await AuthService.register(registration);
       }
       const account = await AuthService.login(trimmedEmail, password);
-      const user: User = { id: account.id, fullName: account.fullName, email: account.email,
-        role: account.role, familyGroupId: account.familyGroupId };
+      const finalRole: Role = role === 'FAMILY_ADMIN' ? 'FAMILY_ADMIN' : (account.role || registered?.role || 'INDIVIDUAL_USER');
+      const finalGroupId =
+        account.familyGroupId ||
+        registered?.familyGroupId ||
+        (finalRole === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined);
+      const finalGroupName = finalRole === 'FAMILY_ADMIN' ? familyName.trim() : undefined;
+      const user: User = {
+        id: account.id ?? registered?.id ?? Date.now(),
+        fullName: account.fullName || fullName.trim(),
+        email: account.email || trimmedEmail,
+        role: finalRole,
+        familyGroupId: finalGroupId,
+        familyGroupName: finalGroupName,
+      };
+      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(user));
       setAuth(user, account.token, true);
       if (onSuccess) onSuccess();
     } catch (error: any) {
@@ -964,7 +1000,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="reg-email"
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder="ban@gmail.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);

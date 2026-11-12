@@ -2452,6 +2452,16 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       localStorage.setItem('budglee_current_user', JSON.stringify(updatedUser));
+      if (updatedUser.email) {
+        const userKey = 'budglee_user_' + updatedUser.email.toLowerCase();
+        try {
+          const existing = localStorage.getItem(userKey);
+          const parsed = existing ? JSON.parse(existing) : {};
+          localStorage.setItem(userKey, JSON.stringify({ ...parsed, ...updatedUser }));
+        } catch {
+          localStorage.setItem(userKey, JSON.stringify(updatedUser));
+        }
+      }
       const newState = {
         currentUser: updatedUser,
         familyMembers: newMembers,

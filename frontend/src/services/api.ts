@@ -29,11 +29,13 @@ api.interceptors.request.use(
 );
 
 export const AuthService = {
-  register: async (data: { fullName: string; email: string; password: string }): Promise<void> => {
-    await api.post('/auth/register', { ...data, role: 'INDIVIDUAL_USER' });
+  register: async (data: { fullName: string; email: string; password: string }): Promise<{ id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
+    const response = await api.post('/auth/register', { ...data, role: 'INDIVIDUAL_USER' });
+    return response.data.data;
   },
-  registerFamilyOwner: async (data: { fullName: string; email: string; password: string; familyName: string }): Promise<void> => {
-    await api.post('/auth/register/family-owner', data);
+  registerFamilyOwner: async (data: { fullName: string; email: string; password: string; familyName: string }): Promise<{ id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
+    const response = await api.post('/auth/register/family-owner', data);
+    return response.data.data;
   },
   login: async (email: string, password: string): Promise<{ token: string; id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
     const response = await api.post('/auth/login', { email, password });
