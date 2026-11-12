@@ -2148,13 +2148,25 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (get().token) {
       WalletService.create({
-        name: walletData.walletName,
-        walletType: walletData.type || 'BANK',
-        initialBalance: walletData.balance,
+        walletName: walletData.walletName,
+        type: walletData.type || 'BANK',
+        balance: walletData.balance,
         currency: walletData.currency || 'VND',
-        bankName: (walletData as any).bankName || '',
-        accountNumber: walletData.cardNumberMasked || '',
-      }).catch((e) => console.warn('Background sync wallet to API:', e?.message));
+        cardNumberMasked: walletData.cardNumberMasked || '',
+      })
+        .then((createdWallet: any) => {
+          if (createdWallet && createdWallet.id) {
+            set((state) => {
+              const updatedWallets = state.wallets.map((w) =>
+                w.id === newWallet.id ? { ...w, id: createdWallet.id } : w
+              );
+              const newState = { wallets: updatedWallets };
+              persistCurrentUserData(state.currentUser, newState);
+              return newState;
+            });
+          }
+        })
+        .catch((e) => console.warn('Background sync wallet to API:', e?.message));
     }
   },
 
@@ -2168,6 +2180,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addTransaction: (txData) => {
+    const createdLocalTxId = Date.now();
     set((state) => {
       const targetWallet =
         state.wallets.find((w) => w.id === txData.walletId) ||
@@ -2196,7 +2209,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const newTx: Transaction = {
         ...txData,
-        id: Date.now(),
+        id: createdLocalTxId,
         walletId: actualWalletId,
         walletName: actualWalletName,
         balanceAfter: actualBalanceAfter,
@@ -2230,11 +2243,25 @@ export const useStore = create<AppState>((set, get) => ({
       TransactionService.create({
         walletId: targetW ? targetW.id : txData.walletId,
         categoryId: txData.categoryId || 1,
+        actionTitle: txData.actionTitle || txData.note || 'Giao dịch',
         amount: txData.amount,
         transactionType: txData.transactionType,
         note: txData.note || txData.actionTitle || '',
         transactionDate: txData.transactionDate || new Date().toISOString(),
-      }).catch((e) => console.warn('Background sync transaction to API:', e?.message));
+      })
+        .then((createdTx: any) => {
+          if (createdTx && createdTx.id) {
+            set((state) => {
+              const updatedTxs = state.recentTransactions.map((t) =>
+                t.id === createdLocalTxId ? { ...t, id: createdTx.id } : t
+              );
+              const newState = { recentTransactions: updatedTxs };
+              persistCurrentUserData(state.currentUser, newState);
+              return newState;
+            });
+          }
+        })
+        .catch((e) => console.warn('Background sync transaction to API:', e?.message));
     }
   },
 
@@ -2491,11 +2518,11 @@ export const useStore = create<AppState>((set, get) => ({
       if (walletsRes.status === 'fulfilled' && Array.isArray(walletsRes.value) && walletsRes.value.length > 0) {
         updates.wallets = walletsRes.value.map((w: any) => ({
           id: w.id,
-          walletName: w.name || w.walletName,
+          walletName: w.walletName || w.name,
           cardNumberMasked: w.accountNumber || w.cardNumberMasked || '',
           balance: Number(w.balance || w.initialBalance || 0),
           currency: w.currency || 'VND',
-          type: w.walletType || w.type || 'BANK',
+          type: w.type || w.walletType || 'BANK',
           color: w.color || 'from-slate-900 to-indigo-950',
           bankName: w.bankName,
         }));
@@ -2505,10 +2532,10 @@ export const useStore = create<AppState>((set, get) => ({
         updates.recentTransactions = txsRes.value.content.map((t: any) => ({
           id: t.id,
           walletId: t.wallet?.id || t.walletId || 1,
-          walletName: t.wallet?.name || t.walletName || 'Ví',
+          walletName: t.wallet?.walletName || t.wallet?.name || t.walletName || 'Ví',
           categoryName: t.category?.name || t.categoryName || 'Chi tiêu',
           categoryIcon: t.category?.icon || t.categoryIcon || 'ShoppingBag',
-          actionTitle: t.note || t.actionTitle || 'Giao dịch',
+          actionTitle: t.actionTitle || t.note || 'Giao dịch',
           amount: Number(t.amount || 0),
           transactionType: t.transactionType,
           transactionDate: t.transactionDate,
