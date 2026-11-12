@@ -82,8 +82,8 @@ public class FamilyInvitationFlowTest {
     @DisplayName("Luồng trọn vẹn: Chủ hộ mời tài khoản đã đăng ký -> Người nhận được thông báo -> Xác nhận tham gia gia đình thành công")
     void fullFamilyInvitationLifecycle() throws Exception {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
-        String adminEmail = "admin." + suffix + "@budglee.dev";
-        String memberEmail = "member." + suffix + "@budglee.dev";
+        String adminEmail = "admin." + suffix + "@gmail.com";
+        String memberEmail = "member." + suffix + "@gmail.com";
 
         // 1. Tạo Chủ hộ và Nhóm gia đình
         String groupId = "FAM-TEST-" + suffix;

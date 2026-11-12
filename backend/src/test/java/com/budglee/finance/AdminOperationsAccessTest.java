@@ -40,7 +40,7 @@ class AdminOperationsAccessTest {
     private record Account(long id, String token) { }
 
     private Account account(Role role) throws Exception {
-        String email = "admin.ops." + UUID.randomUUID() + "@budglee.dev";
+        String email = "admin.ops." + UUID.randomUUID() + "@gmail.com";
         User user = users.save(User.builder().fullName("Test " + role).email(email)
                 .passwordHash(passwordEncoder.encode(PASSWORD)).role(role).build());
         String body = mapper.writeValueAsString(Map.of("email", email, "password", PASSWORD));

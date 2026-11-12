@@ -46,7 +46,7 @@ class PasswordResetFlowTest {
     private PasswordResetService passwordResetService;
 
     private User createTestUser(String rawPassword) {
-        String email = "test.reset." + UUID.randomUUID() + "@budglee.dev";
+        String email = "test.reset." + UUID.randomUUID() + "@gmail.com";
         User user = User.builder()
                 .fullName("Test Reset User")
                 .email(email)

@@ -75,7 +75,7 @@ class FamilyWorkspaceAccessTest {
      * Đăng ký qua API rồi đăng nhập. API chỉ cho nhận INDIVIDUAL_USER hoặc FAMILY_MEMBER.
      */
     private String registerAndLogin(Role role, String familyGroupId) throws Exception {
-        String email = "fam." + UUID.randomUUID() + "@budglee.dev";
+        String email = "fam." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Thành viên " + role);
         body.put("email", email);
@@ -95,7 +95,7 @@ class FamilyWorkspaceAccessTest {
      * Chủ hộ và quản trị không thể tạo qua API, nên dựng trực tiếp trong CSDL.
      */
     private String createAdminAndLogin(Role role, String familyGroupId) throws Exception {
-        String email = "admin." + UUID.randomUUID() + "@budglee.dev";
+        String email = "admin." + UUID.randomUUID() + "@gmail.com";
         userRepository.save(User.builder()
                 .fullName("Quản trị " + role)
                 .email(email)

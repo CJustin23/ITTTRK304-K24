@@ -39,7 +39,7 @@ class ErrorCodeOverRealHttpTest {
 
     @Test
     void duplicateEmailKeepsConflictAndUsesApiEnvelope() {
-        String email = "realhttp." + UUID.randomUUID() + "@budglee.dev";
+        String email = "realhttp." + UUID.randomUUID() + "@gmail.com";
         assertThat(register(email, "MatKhau123").getStatusCode()).isEqualTo(HttpStatus.OK);
 
         ResponseEntity<String> second = register(email, "MatKhau456");
@@ -51,7 +51,7 @@ class ErrorCodeOverRealHttpTest {
 
     @Test
     void privilegedRoleIsRejectedWithEnvelopeNotDefaultErrorPage() {
-        ResponseEntity<String> response = register("realhttp." + UUID.randomUUID() + "@budglee.dev", "MatKhau123",
+        ResponseEntity<String> response = register("realhttp." + UUID.randomUUID() + "@gmail.com", "MatKhau123",
                 "SYSTEM_ADMIN");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

@@ -81,6 +81,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     return '';
   };
 
+  const validateRegistrationEmail = (val: string) => {
+    const formatError = validateEmail(val);
+    if (formatError) return formatError;
+    if (!val.trim().toLowerCase().endsWith('@gmail.com')) {
+      return 'Vui lòng sử dụng địa chỉ Gmail có dạng example@gmail.com';
+    }
+    return '';
+  };
+
   const validatePassword = (val: string) => {
     if (!val) return 'Vui lòng nhập mật khẩu';
     if (val.length < 8 || val.length > 100) return 'Mật khẩu phải từ 8 đến 100 ký tự';
@@ -326,7 +335,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     const nameErr = validateFullName(fullName);
     if (nameErr) errs.fullName = nameErr;
 
-    const emailErr = validateEmail(email);
+    const emailErr = validateRegistrationEmail(email);
     if (emailErr) errs.email = emailErr;
 
     const passErr = validatePassword(password);

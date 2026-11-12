@@ -45,7 +45,7 @@ class AuthLoginTest {
     }
 
     private String newEmail() {
-        return "login." + UUID.randomUUID() + "@budglee.dev";
+        return "login." + UUID.randomUUID() + "@gmail.com";
     }
 
     private void registerUser(String email) throws Exception {
@@ -144,7 +144,7 @@ class AuthLoginTest {
         registerUser(email);
 
         MvcResult badPassword = login(email, "SaiRoi123");
-        MvcResult unknownEmail = login("khong.ton.tai." + UUID.randomUUID() + "@budglee.dev", "MatKhau123");
+        MvcResult unknownEmail = login("khong.ton.tai." + UUID.randomUUID() + "@gmail.com", "MatKhau123");
 
         assertThat(badPassword.getResponse().getStatus()).isEqualTo(401);
         assertThat(unknownEmail.getResponse().getStatus()).isEqualTo(401);

@@ -52,7 +52,7 @@ class OtpExposureTest {
     private User newUser() {
         return userRepository.save(User.builder()
                 .fullName("Người dùng quên mật khẩu")
-                .email("otp." + UUID.randomUUID() + "@budglee.dev")
+                .email("otp." + UUID.randomUUID() + "@gmail.com")
                 .passwordHash(passwordEncoder.encode("MatKhau123"))
                 .role(Role.INDIVIDUAL_USER)
                 .enabled(true)

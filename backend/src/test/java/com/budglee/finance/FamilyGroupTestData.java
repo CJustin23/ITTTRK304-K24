@@ -21,7 +21,7 @@ final class FamilyGroupTestData {
     static FamilyGroup newGroup(FamilyGroupRepository groups, UserRepository users, String code) {
         User owner = users.save(User.builder()
                 .fullName("Chủ hộ " + code)
-                .email("owner." + code + "@budglee.dev")
+                .email("owner." + code + "@gmail.com")
                 .passwordHash(NOT_A_LOGIN_PASSWORD)
                 .role(Role.FAMILY_ADMIN)
                 .familyGroupId(code)
