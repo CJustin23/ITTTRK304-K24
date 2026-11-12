@@ -93,7 +93,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({ transactions, search
                     <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
                       <span>{tx.categoryName || 'Không phân loại'}</span>
                       <span>•</span>
-                      <span>{tx.walletName || 'Techcombank'}</span>
+                      <span>{tx.walletName || 'Ví chính'}</span>
                       <span>•</span>
                       <span>{tx.transactionDate}</span>
                     </div>

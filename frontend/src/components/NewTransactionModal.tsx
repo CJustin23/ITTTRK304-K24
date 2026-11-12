@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, DollarSign, AlertCircle } from 'lucide-react';
 import { TransactionType, Wallet } from '../types';
 
@@ -23,12 +23,21 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   onSubmit,
 }) => {
   const [transactionType, setTransactionType] = useState<TransactionType>('EXPENSE');
-  const [walletId, setWalletId] = useState<number>(wallets[0]?.id || 1);
+  const [walletId, setWalletId] = useState<number>(() => wallets[0]?.id || 1);
   const [actionTitle, setActionTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [categoryName, setCategoryName] = useState('Ăn uống & Cà phê');
   const [note, setNote] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Luôn đồng bộ walletId với danh sách ví hiện tại khi mở modal hoặc khi wallets thay đổi
+  useEffect(() => {
+    if (isOpen && wallets.length > 0) {
+      if (!walletId || !wallets.some((w) => w.id === walletId)) {
+        setWalletId(wallets[0].id);
+      }
+    }
+  }, [isOpen, wallets, walletId]);
 
   if (!isOpen) return null;
 
@@ -37,14 +46,17 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     const errs: Record<string, string> = {};
     const numAmount = parseFloat(amount);
 
+    // Đảm bảo target wallet luôn hợp lệ từ danh sách ví
+    const targetWallet = wallets.find((w) => w.id === walletId) || wallets[0];
+    const resolvedWalletId = targetWallet ? targetWallet.id : walletId;
+
     if (!amount.trim()) {
       errs.amount = 'Vui lòng nhập số tiền giao dịch';
     } else if (isNaN(numAmount) || numAmount <= 0) {
       errs.amount = 'Số tiền giao dịch phải lớn hơn 0 ₫';
     } else if (transactionType === 'EXPENSE') {
-      const selectedWallet = wallets.find((w) => w.id === walletId);
-      if (selectedWallet && numAmount > selectedWallet.balance) {
-        errs.amount = `Số tiền chi tiêu vượt quá số dư ví (${new Intl.NumberFormat('vi-VN').format(selectedWallet.balance)} ₫)`;
+      if (targetWallet && numAmount > targetWallet.balance) {
+        errs.amount = `Số tiền chi tiêu vượt quá số dư ví (${new Intl.NumberFormat('vi-VN').format(targetWallet.balance)} ₫)`;
       }
     }
 
@@ -60,7 +72,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     }
 
     onSubmit({
-      walletId,
+      walletId: resolvedWalletId,
       actionTitle: actionTitle.trim(),
       amount: numAmount,
       transactionType,

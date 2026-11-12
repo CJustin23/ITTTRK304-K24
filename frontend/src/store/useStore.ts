@@ -2168,13 +2168,17 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addTransaction: (txData) => {
-    const newTx: Transaction = {
-      ...txData,
-      id: Date.now(),
-    };
     set((state) => {
+      const targetWallet =
+        state.wallets.find((w) => w.id === txData.walletId) ||
+        state.wallets.find((w) => w.walletName === txData.walletName) ||
+        state.wallets[0];
+
+      const actualWalletId = targetWallet ? targetWallet.id : txData.walletId;
+      const actualWalletName = targetWallet ? targetWallet.walletName : (txData.walletName || 'Ví chính');
+
       const updatedWallets = state.wallets.map((w) => {
-        if (w.id === txData.walletId) {
+        if (w.id === actualWalletId) {
           const newBal =
             txData.transactionType === 'INCOME'
               ? w.balance + txData.amount
@@ -2183,6 +2187,20 @@ export const useStore = create<AppState>((set, get) => ({
         }
         return w;
       });
+
+      const actualBalanceAfter = targetWallet
+        ? (txData.transactionType === 'INCOME'
+            ? targetWallet.balance + txData.amount
+            : targetWallet.balance - txData.amount)
+        : txData.balanceAfter;
+
+      const newTx: Transaction = {
+        ...txData,
+        id: Date.now(),
+        walletId: actualWalletId,
+        walletName: actualWalletName,
+        balanceAfter: actualBalanceAfter,
+      };
 
       const updatedTxs = [newTx, ...state.recentTransactions];
 
@@ -2208,8 +2226,9 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     if (get().token) {
+      const targetW = get().wallets.find((w) => w.id === txData.walletId) || get().wallets[0];
       TransactionService.create({
-        walletId: txData.walletId,
+        walletId: targetW ? targetW.id : txData.walletId,
         categoryId: txData.categoryId || 1,
         amount: txData.amount,
         transactionType: txData.transactionType,
