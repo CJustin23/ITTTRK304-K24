@@ -275,7 +275,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* 1. Sidebar */}
       <Sidebar
         activeTab={activeTab}
@@ -290,7 +290,7 @@ export const App: React.FC = () => {
       />
 
       {/* 2. Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         <Header
           onNewTransaction={() => setTransactionModalOpen(true)}
           searchQuery={searchQuery}
