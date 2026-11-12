@@ -117,7 +117,9 @@ export const App: React.FC = () => {
     categoryName: string;
     note?: string;
   }) => {
-    const selectedWallet = wallets.find((w) => w.id === data.walletId);
+    const selectedWallet = wallets.find((w) => w.id === data.walletId) || wallets[0];
+    const actualWalletId = selectedWallet ? selectedWallet.id : data.walletId;
+    const actualWalletName = selectedWallet ? selectedWallet.walletName : 'Ví chính';
     const currentBalance = selectedWallet ? selectedWallet.balance : 0;
     const newBalance =
       data.transactionType === 'INCOME'
@@ -125,8 +127,8 @@ export const App: React.FC = () => {
         : currentBalance - data.amount;
 
     addTransaction({
-      walletId: data.walletId,
-      walletName: selectedWallet?.walletName || 'Techcombank Primary',
+      walletId: actualWalletId,
+      walletName: actualWalletName,
       categoryName: data.categoryName,
       actionTitle: data.actionTitle,
       amount: data.amount,

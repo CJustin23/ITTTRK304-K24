@@ -279,7 +279,7 @@ export const TransactionsView: React.FC = () => {
                         </span>
                           </td>
                           <td className="py-4 px-6 text-slate-600 font-medium">
-                            {t.walletName || 'Techcombank'}
+                            {t.walletName || wallets.find((w) => w.id === t.walletId)?.walletName || 'Ví'}
                           </td>
                           <td className="py-4 px-6 text-slate-400 text-xs font-mono">
                             {t.transactionDate}
