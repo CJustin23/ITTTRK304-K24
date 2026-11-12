@@ -67,11 +67,7 @@ if [ ! -f "$ENV_FILE" ]; then
   ROOTPASS=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)
   # Cho phep dat san mat khau demo co dinh:  APP_SECURITY_SYSTEM_ADMIN_PASSWORD=... bash deploy/bootstrap.sh
   ADMIN_EMAIL=${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-admin@budglee.local}
-  ADMINPASS=${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
-  if [ -z "$ADMINPASS" ]; then
-    ADMINPASS=$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)
-    echo "Khong truyen APP_SECURITY_SYSTEM_ADMIN_PASSWORD -> sinh ngau nhien."
-  fi
+  ADMINPASS=${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-BudgleeAdmin@2026!}
   cat > "$ENV_FILE" <<EOF
 DB_NAME=budglee_db
 DB_USER=budglee_user
@@ -96,6 +92,10 @@ EOF
 else
   echo "Ton tai $ENV_FILE, giu nguyen"
 fi
+
+bash "$APP_DIR/deploy/ensure-admin.sh" "$ENV_FILE"
+ADMIN_EMAIL=$(grep '^APP_SECURITY_SYSTEM_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2-)
+ADMIN_PASS=$(grep '^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
 
 echo "== 6. Build va khoi dong =="
 docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d --build
@@ -128,7 +128,7 @@ echo
 echo "URL demo: http://$(curl -s -m 5 ifconfig.me || hostname -I | awk '{print $1}')/swagger-ui.html"
 # Chi in mat khau khi chay tu ban phim: CD log tren GitHub Actions se lo secret neu in o day.
 if [ -t 1 ]; then
-  echo "Tai khoan demo   : cat /root/budglee-demo-credentials.txt"
+  echo "Tai khoan admin  : cat /root/budglee-system-admin.txt"
   echo "  SYSTEM_ADMIN   : ${ADMIN_EMAIL} / ${ADMIN_PASS}"
   echo "  FAMILY_ADMIN   : seed.user@budglee.local / password"
   echo "  FAMILY_MEMBER  : seed.member@budglee.local / password"

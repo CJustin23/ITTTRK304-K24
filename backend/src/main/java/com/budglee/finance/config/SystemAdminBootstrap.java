@@ -64,12 +64,19 @@ public class SystemAdminBootstrap implements ApplicationRunner {
             log.info("Đã khởi tạo tài khoản quản trị hệ thống {}", normalizedEmail);
             return;
         }
+        boolean changed = false;
         if (admin.getRole() != Role.SYSTEM_ADMIN) {
             admin.setRole(Role.SYSTEM_ADMIN);
             admin.setFamilyGroupId(null);
+            changed = true;
+        }
+        if (admin.getPasswordHash() == null || !passwordEncoder.matches(password, admin.getPasswordHash())) {
+            admin.setPasswordHash(passwordEncoder.encode(password));
+            changed = true;
+        }
+        if (changed) {
             userRepository.save(admin);
-            log.warn("Nâng cấp {} lên SYSTEM_ADMIN theo cấu hình, mật khẩu giữ nguyên như tài khoản đã có",
-                    normalizedEmail);
+            log.info("Đã đồng bộ tài khoản SYSTEM_ADMIN {} theo cấu hình triển khai", normalizedEmail);
         }
     }
 }
