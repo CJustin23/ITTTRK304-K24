@@ -97,26 +97,9 @@ else
   echo "Ton tai $ENV_FILE, giu nguyen"
 fi
 
-# Dam bao moi deployment co dung mot tai khoan SYSTEM_ADMIN duoc bootstrap.
-# Neu file env cu chua co thong tin admin, tao credential rieng mot lan va luu
-# trong file root-only de chu he thong co the dang nhap sau khi cap nhat.
-ADMIN_EMAIL=$(grep '^APP_SECURITY_SYSTEM_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2- || true)
-ADMIN_PASS=$(grep '^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)
-if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PASS" ]; then
-  ADMIN_EMAIL=${ADMIN_EMAIL:-${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-admin@budglee.local}}
-  ADMIN_PASS=${ADMIN_PASS:-${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)}}
-  sed -i '/^APP_SECURITY_SYSTEM_ADMIN_EMAIL=/d; /^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=/d' "$ENV_FILE"
-  cat >> "$ENV_FILE" <<EOF
-APP_SECURITY_SYSTEM_ADMIN_EMAIL=${ADMIN_EMAIL}
-APP_SECURITY_SYSTEM_ADMIN_PASSWORD=${ADMIN_PASS}
-EOF
-  chmod 600 "$ENV_FILE"
-  echo "Da tao credential SYSTEM_ADMIN cho deployment (khong in mat khau ra log)."
-fi
-{
-  echo "SYSTEM_ADMIN : ${ADMIN_EMAIL} / ${ADMIN_PASS}"
-} > /root/budglee-system-admin.txt
-chmod 600 /root/budglee-system-admin.txt
+bash "$APP_DIR/deploy/ensure-admin.sh" "$ENV_FILE"
+ADMIN_EMAIL=$(grep '^APP_SECURITY_SYSTEM_ADMIN_EMAIL=' "$ENV_FILE" | cut -d= -f2-)
+ADMIN_PASS=$(grep '^APP_SECURITY_SYSTEM_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
 
 echo "== 6. Build va khoi dong =="
 docker compose -f "$COMPOSE" --env-file "$ENV_FILE" up -d --build

@@ -269,6 +269,7 @@ jobs:
               echo "Pulling latest changes from branch $BRANCH..."
               git fetch origin "$BRANCH"
               git checkout -B "$BRANCH" "origin/$BRANCH"
+              sudo bash deploy/ensure-admin.sh /opt/budglee/deploy/.env.production
               echo "Rebuilding and restarting updated containers..."
               docker compose -f deploy/docker-compose.vps.yml --env-file deploy/.env.production up -d --build
               echo "Pruning dangling images to save disk space on 30GB VPS..."
