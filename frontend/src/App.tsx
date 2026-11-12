@@ -83,11 +83,30 @@ export const App: React.FC = () => {
       handleTabChange('overview');
     };
 
+    let intervalId: any;
+    const syncInvitations = () => {
+      const u = useStore.getState().currentUser;
+      if (u && u.role !== 'SYSTEM_ADMIN') {
+        fetchReceivedInvitations();
+        fetchSentInvitations();
+        useStore.getState().fetchFamilyMembers?.();
+      }
+    };
+
     if (currentUser && currentUser.role !== 'SYSTEM_ADMIN') {
       fetchReceivedInvitations();
       fetchSentInvitations();
       fetchCoreData();
+      intervalId = setInterval(syncInvitations, 3000);
+      window.addEventListener('storage', syncInvitations);
+      window.addEventListener('budglee_invitation_update', syncInvitations);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('storage', syncInvitations);
+      window.removeEventListener('budglee_invitation_update', syncInvitations);
+    };
   }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations, fetchCoreData]);
 
   const handleCreateTransaction = (data: {

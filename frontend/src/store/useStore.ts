@@ -22,6 +22,33 @@ import {
 } from '../services/api';
 
 // ============================================================================
+// HÀM TIỆN ÍCH TẠO NGÀY GIỜ THỜI GIAN THỰC (REAL-TIME DYNAMIC DATES)
+// ============================================================================
+export const getRealtimeDate = (daysAgo: number, timeStr: string = '10:00'): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day} ${timeStr}`;
+};
+
+export const getRealtimeMonthDate = (monthsAgo: number, day: number = 10, timeStr: string = '10:00'): string => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - monthsAgo);
+  d.setDate(day);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const dayStr = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${dayStr} ${timeStr}`;
+};
+
+export const currentMonthNum = new Date().getMonth() + 1;
+export const currentYearNum = new Date().getFullYear();
+export const prevMonth1Num = new Date(currentYearNum, currentMonthNum - 2, 1).getMonth() + 1;
+export const prevMonth2Num = new Date(currentYearNum, currentMonthNum - 3, 1).getMonth() + 1;
+
+// ============================================================================
 // DỮ LIỆU MẪU: 1 TÀI KHOẢN CÁ NHÂN (thanhcanhan@gmail.com) - 10-20 DỮ LIỆU MỖI CHỨC NĂNG
 // ============================================================================
 export const THANHCANHAN_DATA: {
@@ -45,11 +72,11 @@ export const THANHCANHAN_DATA: {
       walletName: 'Techcombank Lương',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Nhận lương tháng 10/2026',
+      actionTitle: `Nhận lương tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}`,
       amount: 35000000,
       transactionType: 'INCOME',
       balanceAfter: 45200000,
-      transactionDate: '2026-10-25 09:30',
+      transactionDate: getRealtimeDate(0, '09:30'),
       note: 'Lương chuyển khoản công ty Budglee',
     },
     {
@@ -62,7 +89,7 @@ export const THANHCANHAN_DATA: {
       amount: 10000000,
       transactionType: 'INCOME',
       balanceAfter: 55200000,
-      transactionDate: '2026-10-27 16:00',
+      transactionDate: getRealtimeDate(1, '16:00'),
       note: 'Thưởng dự án xuất sắc',
     },
     {
@@ -75,7 +102,7 @@ export const THANHCANHAN_DATA: {
       amount: 6500000,
       transactionType: 'INCOME',
       balanceAfter: 25000000,
-      transactionDate: '2026-10-28 11:20',
+      transactionDate: getRealtimeDate(1, '11:20'),
       note: 'Thiết kế giao diện landing page',
     },
     {
@@ -88,7 +115,7 @@ export const THANHCANHAN_DATA: {
       amount: 850000,
       transactionType: 'EXPENSE',
       balanceAfter: 24150000,
-      transactionDate: '2026-10-28 19:45',
+      transactionDate: getRealtimeDate(2, '19:45'),
       note: 'Gặp gỡ bạn bè cuối tuần',
     },
     {
@@ -101,7 +128,7 @@ export const THANHCANHAN_DATA: {
       amount: 85000,
       transactionType: 'EXPENSE',
       balanceAfter: 5715000,
-      transactionDate: '2026-10-29 08:30',
+      transactionDate: getRealtimeDate(2, '08:30'),
       note: 'Freeze trà xanh size L',
     },
     {
@@ -114,7 +141,7 @@ export const THANHCANHAN_DATA: {
       amount: 55000,
       transactionType: 'EXPENSE',
       balanceAfter: 5660000,
-      transactionDate: '2026-10-29 12:15',
+      transactionDate: getRealtimeDate(3, '12:15'),
       note: 'Cơm sườn bì chả',
     },
     {
@@ -127,8 +154,8 @@ export const THANHCANHAN_DATA: {
       amount: 1250000,
       transactionType: 'EXPENSE',
       balanceAfter: 53950000,
-      transactionDate: '2026-10-29 14:00',
-      note: 'Hóa đơn tiền điện tháng 10',
+      transactionDate: getRealtimeDate(3, '14:00'),
+      note: 'Hóa đơn tiền điện tháng này',
     },
     {
       id: 108,
@@ -140,7 +167,7 @@ export const THANHCANHAN_DATA: {
       amount: 330000,
       transactionType: 'EXPENSE',
       balanceAfter: 53620000,
-      transactionDate: '2026-10-29 14:30',
+      transactionDate: getRealtimeDate(4, '14:30'),
       note: 'Gói Home Net 200Mbps',
     },
     {
@@ -153,7 +180,7 @@ export const THANHCANHAN_DATA: {
       amount: 110000,
       transactionType: 'EXPENSE',
       balanceAfter: 3340000,
-      transactionDate: '2026-10-30 07:45',
+      transactionDate: getRealtimeDate(4, '07:45'),
       note: 'Xăng RON 95-V',
     },
     {
@@ -166,7 +193,7 @@ export const THANHCANHAN_DATA: {
       amount: 1450000,
       transactionType: 'EXPENSE',
       balanceAfter: 22700000,
-      transactionDate: '2026-10-30 15:20',
+      transactionDate: getRealtimeDate(5, '15:20'),
       note: 'Phục vụ lập trình code',
     },
     {
@@ -179,7 +206,7 @@ export const THANHCANHAN_DATA: {
       amount: 480000,
       transactionType: 'EXPENSE',
       balanceAfter: 5180000,
-      transactionDate: '2026-10-31 18:30',
+      transactionDate: getRealtimeDate(5, '18:30'),
       note: 'Sữa tươi, bánh mì, trái cây',
     },
     {
@@ -192,7 +219,7 @@ export const THANHCANHAN_DATA: {
       amount: 240000,
       transactionType: 'EXPENSE',
       balanceAfter: 4940000,
-      transactionDate: '2026-11-01 20:00',
+      transactionDate: getRealtimeDate(6, '20:00'),
       note: '2 vé phim IMAX 3D',
     },
     {
@@ -205,7 +232,7 @@ export const THANHCANHAN_DATA: {
       amount: 350000,
       transactionType: 'EXPENSE',
       balanceAfter: 22350000,
-      transactionDate: '2026-11-02 10:15',
+      transactionDate: getRealtimeDate(6, '10:15'),
       note: 'Sách Thiết kế kiến trúc Microservices',
     },
     {
@@ -218,7 +245,7 @@ export const THANHCANHAN_DATA: {
       amount: 59000,
       transactionType: 'EXPENSE',
       balanceAfter: 22291000,
-      transactionDate: '2026-11-03 09:00',
+      transactionDate: getRealtimeDate(7, '09:00'),
       note: 'Tự động trừ thẻ hàng tháng',
     },
     {
@@ -231,7 +258,7 @@ export const THANHCANHAN_DATA: {
       amount: 600000,
       transactionType: 'EXPENSE',
       balanceAfter: 53020000,
-      transactionDate: '2026-11-04 17:30',
+      transactionDate: getRealtimeDate(8, '17:30'),
       note: 'Gói thành viên Fitness 1 tháng',
     },
     {
@@ -244,7 +271,7 @@ export const THANHCANHAN_DATA: {
       amount: 95000,
       transactionType: 'EXPENSE',
       balanceAfter: 4845000,
-      transactionDate: '2026-11-05 15:00',
+      transactionDate: getRealtimeDate(9, '15:00'),
       note: 'Trà sữa Oolong hạt sen',
     },
     {
@@ -253,11 +280,11 @@ export const THANHCANHAN_DATA: {
       walletName: 'Techcombank Lương',
       categoryName: 'Tiết kiệm & Đầu tư',
       categoryIcon: 'PiggyBank',
-      actionTitle: 'Trích quỹ tiết kiệm định kỳ tháng 11',
+      actionTitle: `Trích quỹ tiết kiệm định kỳ tháng ${new Date().getMonth() + 1}`,
       amount: 5000000,
       transactionType: 'EXPENSE',
       balanceAfter: 48020000,
-      transactionDate: '2026-11-06 08:30',
+      transactionDate: getRealtimeDate(10, '08:30'),
       note: 'Nạp vào Mục tiêu mua xe SH',
     },
     {
@@ -270,7 +297,7 @@ export const THANHCANHAN_DATA: {
       amount: 280000,
       transactionType: 'EXPENSE',
       balanceAfter: 3060000,
-      transactionDate: '2026-11-07 10:00',
+      transactionDate: getRealtimeDate(11, '10:00'),
       note: 'Thay dầu lap và dầu máy định kỳ',
     },
     // === DỮ LIỆU CÁC THÁNG VÀ NĂM CŨ (Hiển thị biểu đồ Monthly & Yearly) ===
@@ -353,18 +380,18 @@ export const THANHCANHAN_DATA: {
       transactionDate: '2026-08-25 10:00',
       note: 'Nâng cao kỹ năng lập trình',
     },
-    // Tháng 9/2026:
+    // 2 tháng trước:
     {
       id: 130,
       walletId: 1,
       walletName: 'Techcombank Lương',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Nhận lương tháng 9/2026',
+      actionTitle: `Nhận lương tháng ${prevMonth2Num}/${currentYearNum}`,
       amount: 35000000,
       transactionType: 'INCOME',
       balanceAfter: 48000000,
-      transactionDate: '2026-09-05 09:00',
+      transactionDate: getRealtimeMonthDate(2, 5, '09:00'),
       note: 'Lương chuyển khoản',
     },
     {
@@ -373,11 +400,11 @@ export const THANHCANHAN_DATA: {
       walletName: 'Ví MoMo Pay',
       categoryName: 'Ăn uống & Cà phê',
       categoryIcon: 'Coffee',
-      actionTitle: 'Cà phê làm việc & ăn trưa văn phòng tuần 1',
+      actionTitle: `Cà phê làm việc & ăn trưa văn phòng tuần 1 tháng ${prevMonth2Num}`,
       amount: 450000,
       transactionType: 'EXPENSE',
       balanceAfter: 5200000,
-      transactionDate: '2026-09-08 12:00',
+      transactionDate: getRealtimeMonthDate(2, 8, '12:00'),
       note: 'Cơm trưa và cà phê',
     },
     {
@@ -386,11 +413,11 @@ export const THANHCANHAN_DATA: {
       walletName: 'Techcombank Lương',
       categoryName: 'Hóa đơn & Tiện ích',
       categoryIcon: 'Receipt',
-      actionTitle: 'Thanh toán tiền điện và cáp quang Internet tháng 9',
+      actionTitle: `Thanh toán tiền điện và cáp quang Internet tháng ${prevMonth2Num}`,
       amount: 1480000,
       transactionType: 'EXPENSE',
       balanceAfter: 46520000,
-      transactionDate: '2026-09-12 15:00',
+      transactionDate: getRealtimeMonthDate(2, 12, '15:00'),
       note: 'EVN & VNPT',
     },
     {
@@ -403,7 +430,7 @@ export const THANHCANHAN_DATA: {
       amount: 2350000,
       transactionType: 'EXPENSE',
       balanceAfter: 15510000,
-      transactionDate: '2026-09-17 18:30',
+      transactionDate: getRealtimeMonthDate(2, 17, '18:30'),
       note: 'Phục vụ tập trung làm việc',
     },
     {
@@ -416,7 +443,7 @@ export const THANHCANHAN_DATA: {
       amount: 290000,
       transactionType: 'EXPENSE',
       balanceAfter: 3210000,
-      transactionDate: '2026-09-22 09:30',
+      transactionDate: getRealtimeMonthDate(2, 22, '09:30'),
       note: 'Bảo dưỡng tại trung tâm',
     },
     {
@@ -429,21 +456,21 @@ export const THANHCANHAN_DATA: {
       amount: 1250000,
       transactionType: 'EXPENSE',
       balanceAfter: 14260000,
-      transactionDate: '2026-09-26 19:30',
+      transactionDate: getRealtimeMonthDate(2, 26, '19:30'),
       note: 'Cuối tuần sum họp',
     },
-    // Đầu tháng 10/2026:
+    // Tháng trước:
     {
       id: 140,
       walletId: 1,
       walletName: 'Techcombank Lương',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Tạm ứng thu nhập đầu tháng 10',
+      actionTitle: `Tạm ứng thu nhập đầu tháng ${prevMonth1Num}`,
       amount: 15000000,
       transactionType: 'INCOME',
       balanceAfter: 52000000,
-      transactionDate: '2026-10-05 09:00',
+      transactionDate: getRealtimeMonthDate(1, 5, '09:00'),
       note: 'Tạm ứng dự án',
     },
     {
@@ -452,11 +479,11 @@ export const THANHCANHAN_DATA: {
       walletName: 'Ví MoMo Pay',
       categoryName: 'Ăn uống & Cà phê',
       categoryIcon: 'Utensils',
-      actionTitle: 'Chi tiêu ăn trưa & cà phê tuần 1 tháng 10',
+      actionTitle: `Chi tiêu ăn trưa & cà phê tuần 1 tháng ${prevMonth1Num}`,
       amount: 620000,
       transactionType: 'EXPENSE',
       balanceAfter: 4580000,
-      transactionDate: '2026-10-08 12:30',
+      transactionDate: getRealtimeMonthDate(1, 8, '12:30'),
       note: 'Ăn trưa công sở',
     },
     {
@@ -465,11 +492,11 @@ export const THANHCANHAN_DATA: {
       walletName: 'Techcombank Lương',
       categoryName: 'Hóa đơn & Tiện ích',
       categoryIcon: 'Receipt',
-      actionTitle: 'Phí dịch vụ chung cư & nước sinh hoạt tháng 10',
+      actionTitle: `Phí dịch vụ chung cư & nước sinh hoạt tháng ${prevMonth1Num}`,
       amount: 1250000,
       transactionType: 'EXPENSE',
       balanceAfter: 50750000,
-      transactionDate: '2026-10-12 14:00',
+      transactionDate: getRealtimeMonthDate(1, 12, '14:00'),
       note: 'Phí căn hộ',
     },
     {
@@ -482,7 +509,7 @@ export const THANHCANHAN_DATA: {
       amount: 1850000,
       transactionType: 'EXPENSE',
       balanceAfter: 12410000,
-      transactionDate: '2026-10-18 17:00',
+      transactionDate: getRealtimeMonthDate(1, 18, '17:00'),
       note: 'Thuê lều & ăn uống ngoài trời',
     },
     // Các năm trước (2023, 2024, 2025 cho biểu đồ Yearly):
@@ -527,12 +554,12 @@ export const THANHCANHAN_DATA: {
     },
   ],
   budgets: [
-    { id: 1, categoryId: 1, categoryName: 'Ăn uống & Cà phê', categoryIcon: 'Utensils', amountLimit: 5000000, spentAmount: 1085000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 2, categoryId: 2, categoryName: 'Mua sắm cá nhân', categoryIcon: 'ShoppingBag', amountLimit: 3500000, spentAmount: 1930000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 3, categoryId: 4, categoryName: 'Hóa đơn & Tiện ích', categoryIcon: 'Receipt', amountLimit: 2000000, spentAmount: 1580000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 4, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 1500000, spentAmount: 390000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 5, categoryId: 5, categoryName: 'Giải trí & Du lịch', categoryIcon: 'Plane', amountLimit: 1500000, spentAmount: 299000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 6, categoryId: 6, categoryName: 'Học tập & Phát triển', categoryIcon: 'BookOpen', amountLimit: 1000000, spentAmount: 350000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 1, categoryId: 1, categoryName: 'Ăn uống & Cà phê', categoryIcon: 'Utensils', amountLimit: 5000000, spentAmount: 1085000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 2, categoryId: 2, categoryName: 'Mua sắm cá nhân', categoryIcon: 'ShoppingBag', amountLimit: 3500000, spentAmount: 1930000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 3, categoryId: 4, categoryName: 'Hóa đơn & Tiện ích', categoryIcon: 'Receipt', amountLimit: 2000000, spentAmount: 1580000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 4, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 1500000, spentAmount: 390000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 5, categoryId: 5, categoryName: 'Giải trí & Du lịch', categoryIcon: 'Plane', amountLimit: 1500000, spentAmount: 299000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 6, categoryId: 6, categoryName: 'Học tập & Phát triển', categoryIcon: 'BookOpen', amountLimit: 1000000, spentAmount: 350000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
   ],
   savingGoals: [
     { id: 1, goalName: 'Mua xe Honda SH 160i ABS', targetAmount: 110000000, currentAmount: 75000000, deadline: '2026-12-31', status: 'IN_PROGRESS', color: 'emerald' },
@@ -545,15 +572,15 @@ export const THANHCANHAN_DATA: {
       id: 'notif-1',
       title: `Lương tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()} đã về`,
       message: '+35.000.000 ₫ từ Công ty Công nghệ Budglee đã ghi nhận vào ví Techcombank.',
-      time: 'Hôm qua',
-      type: 'INFO',
+      time: 'Hôm nay',
+      type: 'SUCCESS',
       read: false,
     },
     {
       id: 'notif-2',
       title: 'Cảnh báo ngân sách Tiện ích',
-      message: 'Danh mục "Hóa đơn & Tiện ích" đã đạt 79% hạn mức chi tiêu tháng 11.',
-      time: '2 ngày trước',
+      message: `Danh mục "Hóa đơn & Tiện ích" đã đạt 79% hạn mức chi tiêu tháng ${new Date().getMonth() + 1}.`,
+      time: 'Hôm qua',
       type: 'WARNING',
       read: false,
     },
@@ -561,7 +588,7 @@ export const THANHCANHAN_DATA: {
       id: 'notif-3',
       title: 'Mục tiêu hoàn thành xuất sắc!',
       message: 'Chúc mừng bạn đã hoàn thành 100% mục tiêu "Quỹ dự phòng khẩn cấp 6 tháng"!',
-      time: 'Tuần trước',
+      time: '2 ngày trước',
       type: 'SUCCESS',
       read: true,
     },
@@ -626,11 +653,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Ba đóng góp quỹ chung gia đình tháng 11',
+      actionTitle: `Ba đóng góp quỹ chung gia đình tháng ${new Date().getMonth() + 1}`,
       amount: 40000000,
       transactionType: 'INCOME',
       balanceAfter: 125000000,
-      transactionDate: '2026-11-01 08:30',
+      transactionDate: getRealtimeDate(0, '08:30'),
       note: 'Đóng góp hàng tháng từ thu nhập của Ba',
     },
     {
@@ -639,11 +666,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Mẹ đóng góp quỹ chung gia đình tháng 11',
+      actionTitle: `Mẹ đóng góp quỹ chung gia đình tháng ${new Date().getMonth() + 1}`,
       amount: 25000000,
       transactionType: 'INCOME',
       balanceAfter: 150000000,
-      transactionDate: '2026-11-01 09:00',
+      transactionDate: getRealtimeDate(0, '09:00'),
       note: 'Đóng góp hàng tháng từ lương của Mẹ',
     },
     {
@@ -652,11 +679,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Học tập & Giáo dục con cái',
       categoryIcon: 'GraduationCap',
-      actionTitle: 'Đóng học phí học kỳ I năm học mới cho Con',
+      actionTitle: 'Đóng học phí học kỳ năm học mới cho Con',
       amount: 8500000,
       transactionType: 'EXPENSE',
       balanceAfter: 141500000,
-      transactionDate: '2026-11-02 10:00',
+      transactionDate: getRealtimeDate(0, '10:00'),
       note: 'Chuyển khoản trường THPT / Đại học',
     },
     {
@@ -669,8 +696,8 @@ export const FAMILY_SHARED_DATA: {
       amount: 3200000,
       transactionType: 'EXPENSE',
       balanceAfter: 35200000,
-      transactionDate: '2026-11-02 15:30',
-      note: 'Khóa luyện thi chứng chỉ quý 4',
+      transactionDate: getRealtimeDate(1, '15:30'),
+      note: 'Khóa luyện thi chứng chỉ',
     },
     {
       id: 305,
@@ -682,7 +709,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 2450000,
       transactionType: 'EXPENSE',
       balanceAfter: 32750000,
-      transactionDate: '2026-11-03 17:30',
+      transactionDate: getRealtimeDate(1, '17:30'),
       note: 'Thịt bò, hải sản, rau củ quả cho cả tuần',
     },
     {
@@ -695,7 +722,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 1850000,
       transactionType: 'EXPENSE',
       balanceAfter: 30900000,
-      transactionDate: '2026-11-03 19:00',
+      transactionDate: getRealtimeDate(2, '19:00'),
       note: 'Phí dịch vụ căn hộ 3 phòng ngủ',
     },
     {
@@ -704,11 +731,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
       categoryName: 'Hóa đơn & Nhà ở',
       categoryIcon: 'Receipt',
-      actionTitle: 'Thanh toán tiền điện EVN gia đình tháng 10',
+      actionTitle: 'Thanh toán tiền điện EVN gia đình',
       amount: 2150000,
       transactionType: 'EXPENSE',
       balanceAfter: 28750000,
-      transactionDate: '2026-11-04 11:15',
+      transactionDate: getRealtimeDate(2, '11:15'),
       note: 'Tiền điện 3 điều hòa và máy giặt sấy',
     },
     {
@@ -721,7 +748,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 380000,
       transactionType: 'EXPENSE',
       balanceAfter: 28370000,
-      transactionDate: '2026-11-04 11:30',
+      transactionDate: getRealtimeDate(3, '11:30'),
       note: 'Nước sinh hoạt gia đình',
     },
     {
@@ -734,7 +761,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 1950000,
       transactionType: 'EXPENSE',
       balanceAfter: 26420000,
-      transactionDate: '2026-11-05 14:00',
+      transactionDate: getRealtimeDate(3, '14:00'),
       note: 'Thay thế nồi chiên cũ bị hỏng',
     },
     {
@@ -747,8 +774,8 @@ export const FAMILY_SHARED_DATA: {
       amount: 6500000,
       transactionType: 'EXPENSE',
       balanceAfter: 135000000,
-      transactionDate: '2026-11-05 16:30',
-      note: 'Phí bảo hiểm quý 4/2026 cho 3 người',
+      transactionDate: getRealtimeDate(4, '16:30'),
+      note: 'Phí bảo hiểm quý cho 3 người',
     },
     {
       id: 311,
@@ -760,7 +787,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 450000,
       transactionType: 'EXPENSE',
       balanceAfter: 12050000,
-      transactionDate: '2026-11-06 09:30',
+      transactionDate: getRealtimeDate(4, '09:30'),
       note: 'Nhà thuốc Long Châu',
     },
     {
@@ -773,7 +800,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 350000,
       transactionType: 'EXPENSE',
       balanceAfter: 11700000,
-      transactionDate: '2026-11-06 12:00',
+      transactionDate: getRealtimeDate(5, '12:00'),
       note: 'Tiền sinh hoạt tuần của con',
     },
     {
@@ -786,7 +813,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 3200000,
       transactionType: 'EXPENSE',
       balanceAfter: 131800000,
-      transactionDate: '2026-11-07 10:00',
+      transactionDate: getRealtimeDate(5, '10:00'),
       note: 'Bảo dưỡng định kỳ 20.000 km',
     },
     {
@@ -799,7 +826,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 1250000,
       transactionType: 'EXPENSE',
       balanceAfter: 10450000,
-      transactionDate: '2026-11-07 17:00',
+      transactionDate: getRealtimeDate(6, '17:00'),
       note: 'Tôm cua cá làm lẩu đãi ông bà',
     },
     {
@@ -812,8 +839,8 @@ export const FAMILY_SHARED_DATA: {
       amount: 1680000,
       transactionType: 'EXPENSE',
       balanceAfter: 24740000,
-      transactionDate: '2026-11-08 19:30',
-      note: 'Bữa tối Chủ nhật đầm ấm',
+      transactionDate: getRealtimeDate(6, '19:30'),
+      note: 'Bữa tối đầm ấm',
     },
     {
       id: 316,
@@ -825,7 +852,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 10000000,
       transactionType: 'EXPENSE',
       balanceAfter: 121800000,
-      transactionDate: '2026-11-09 08:00',
+      transactionDate: getRealtimeDate(7, '08:00'),
       note: 'Chuyển vào Mục tiêu VinFast VF7',
     },
     // === DỮ LIỆU CÁC THÁNG VÀ NĂM CŨ (Hiển thị biểu đồ Monthly & Yearly quỹ gia đình) ===
@@ -921,19 +948,19 @@ export const FAMILY_SHARED_DATA: {
       transactionDate: '2026-08-25 11:00',
       note: 'Bảo dưỡng định kỳ',
     },
-    // Tháng 9/2026:
+    // 2 tháng trước:
     {
       id: 330,
       walletId: 201,
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Ba nộp quỹ chung gia đình tháng 9',
+      actionTitle: `Ba nộp quỹ chung gia đình tháng ${prevMonth2Num}`,
       amount: 40000000,
       transactionType: 'INCOME',
       balanceAfter: 130000000,
-      transactionDate: '2026-09-01 08:30',
-      note: 'Đóng góp thu nhập tháng 9',
+      transactionDate: getRealtimeMonthDate(2, 1, '08:30'),
+      note: `Đóng góp thu nhập tháng ${prevMonth2Num}`,
     },
     {
       id: 331,
@@ -941,12 +968,12 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Mẹ nộp quỹ chung gia đình tháng 9',
+      actionTitle: `Mẹ nộp quỹ chung gia đình tháng ${prevMonth2Num}`,
       amount: 25000000,
       transactionType: 'INCOME',
       balanceAfter: 155000000,
-      transactionDate: '2026-09-01 09:00',
-      note: 'Đóng góp thu nhập tháng 9',
+      transactionDate: getRealtimeMonthDate(2, 1, '09:00'),
+      note: `Đóng góp thu nhập tháng ${prevMonth2Num}`,
     },
     {
       id: 332,
@@ -958,7 +985,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 9500000,
       transactionType: 'EXPENSE',
       balanceAfter: 145500000,
-      transactionDate: '2026-09-04 10:00',
+      transactionDate: getRealtimeMonthDate(2, 4, '10:00'),
       note: 'Học phí học kỳ I',
     },
     {
@@ -967,11 +994,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
       categoryName: 'Ăn uống & Đi chợ gia đình',
       categoryIcon: 'Utensils',
-      actionTitle: 'Đi siêu thị Co.opmart mua thực phẩm sinh hoạt tháng 9',
+      actionTitle: `Đi siêu thị Co.opmart mua thực phẩm sinh hoạt tháng ${prevMonth2Num}`,
       amount: 5200000,
       transactionType: 'EXPENSE',
       balanceAfter: 26000000,
-      transactionDate: '2026-09-09 17:00',
+      transactionDate: getRealtimeMonthDate(2, 9, '17:00'),
       note: 'Thực phẩm dinh dưỡng cho con đi học',
     },
     {
@@ -980,11 +1007,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
       categoryName: 'Hóa đơn & Nhà ở',
       categoryIcon: 'Home',
-      actionTitle: 'Thanh toán tiền điện và phí gửi xe chung cư tháng 9',
+      actionTitle: `Thanh toán tiền điện và phí gửi xe chung cư tháng ${prevMonth2Num}`,
       amount: 4200000,
       transactionType: 'EXPENSE',
       balanceAfter: 21800000,
-      transactionDate: '2026-09-14 14:30',
+      transactionDate: getRealtimeMonthDate(2, 14, '14:30'),
       note: 'Điện EVN & ban quản lý',
     },
     {
@@ -997,7 +1024,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 4800000,
       transactionType: 'EXPENSE',
       balanceAfter: 17000000,
-      transactionDate: '2026-09-19 16:00',
+      transactionDate: getRealtimeMonthDate(2, 19, '16:00'),
       note: 'Trang bị phòng ngủ và phòng khách',
     },
     {
@@ -1010,7 +1037,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 2100000,
       transactionType: 'EXPENSE',
       balanceAfter: 11000000,
-      transactionDate: '2026-09-24 09:30',
+      transactionDate: getRealtimeMonthDate(2, 24, '09:30'),
       note: 'Nhà thuốc Pharmacity',
     },
     {
@@ -1023,22 +1050,22 @@ export const FAMILY_SHARED_DATA: {
       amount: 1950000,
       transactionType: 'EXPENSE',
       balanceAfter: 15050000,
-      transactionDate: '2026-09-28 19:30',
-      note: 'Liên hoan tháng 9',
+      transactionDate: getRealtimeMonthDate(2, 28, '19:30'),
+      note: `Liên hoan tháng ${prevMonth2Num}`,
     },
-    // Tháng 10/2026:
+    // Tháng trước:
     {
       id: 340,
       walletId: 201,
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Ba nộp quỹ chung gia đình tháng 10',
+      actionTitle: `Ba nộp quỹ chung gia đình tháng ${prevMonth1Num}`,
       amount: 40000000,
       transactionType: 'INCOME',
       balanceAfter: 135000000,
-      transactionDate: '2026-10-01 08:30',
-      note: 'Đóng góp thu nhập tháng 10',
+      transactionDate: getRealtimeMonthDate(1, 1, '08:30'),
+      note: `Đóng góp thu nhập tháng ${prevMonth1Num}`,
     },
     {
       id: 341,
@@ -1046,12 +1073,12 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Lương & Thưởng',
       categoryIcon: 'BadgeDollarSign',
-      actionTitle: 'Mẹ nộp quỹ chung gia đình tháng 10',
+      actionTitle: `Mẹ nộp quỹ chung gia đình tháng ${prevMonth1Num}`,
       amount: 25000000,
       transactionType: 'INCOME',
       balanceAfter: 160000000,
-      transactionDate: '2026-10-01 09:00',
-      note: 'Đóng góp thu nhập tháng 10',
+      transactionDate: getRealtimeMonthDate(1, 1, '09:00'),
+      note: `Đóng góp thu nhập tháng ${prevMonth1Num}`,
     },
     {
       id: 342,
@@ -1059,11 +1086,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
       categoryName: 'Ăn uống & Đi chợ gia đình',
       categoryIcon: 'Utensils',
-      actionTitle: 'Đi chợ siêu thị thực phẩm tuần 1 tháng 10',
+      actionTitle: `Đi chợ siêu thị thực phẩm tuần 1 tháng ${prevMonth1Num}`,
       amount: 3600000,
       transactionType: 'EXPENSE',
       balanceAfter: 28000000,
-      transactionDate: '2026-10-06 17:00',
+      transactionDate: getRealtimeMonthDate(1, 6, '17:00'),
       note: 'Thực phẩm dinh dưỡng',
     },
     {
@@ -1072,11 +1099,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chi tiêu sinh hoạt (Techcombank)',
       categoryName: 'Hóa đơn & Nhà ở',
       categoryIcon: 'Home',
-      actionTitle: 'Thanh toán tiền điện EVN và dịch vụ internet tháng 10',
+      actionTitle: `Thanh toán tiền điện EVN và dịch vụ internet tháng ${prevMonth1Num}`,
       amount: 4350000,
       transactionType: 'EXPENSE',
       balanceAfter: 23650000,
-      transactionDate: '2026-10-11 14:00',
+      transactionDate: getRealtimeMonthDate(1, 11, '14:00'),
       note: 'Hóa đơn sinh hoạt',
     },
     {
@@ -1089,7 +1116,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 4600000,
       transactionType: 'EXPENSE',
       balanceAfter: 155400000,
-      transactionDate: '2026-10-15 10:30',
+      transactionDate: getRealtimeMonthDate(1, 15, '10:30'),
       note: 'Lớp học thêm quý 4',
     },
     {
@@ -1102,7 +1129,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 6200000,
       transactionType: 'EXPENSE',
       balanceAfter: 149200000,
-      transactionDate: '2026-10-19 09:00',
+      transactionDate: getRealtimeMonthDate(1, 19, '09:00'),
       note: 'Bảo hiểm thường niên',
     },
     {
@@ -1111,11 +1138,11 @@ export const FAMILY_SHARED_DATA: {
       walletName: 'Quỹ chung Gia đình (Vietcombank)',
       categoryName: 'Di chuyển & Xăng xe',
       categoryIcon: 'Car',
-      actionTitle: 'Chi phí xăng xe và vé cầu đường cao tốc cả nhà tháng 10',
+      actionTitle: `Chi phí xăng xe và vé cầu đường cao tốc cả nhà tháng ${prevMonth1Num}`,
       amount: 2900000,
       transactionType: 'EXPENSE',
       balanceAfter: 146300000,
-      transactionDate: '2026-10-23 15:30',
+      transactionDate: getRealtimeMonthDate(1, 23, '15:30'),
       note: 'Di chuyển gia đình',
     },
     {
@@ -1128,7 +1155,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 7800000,
       transactionType: 'EXPENSE',
       balanceAfter: 15850000,
-      transactionDate: '2026-10-27 19:30',
+      transactionDate: getRealtimeMonthDate(1, 27, '19:30'),
       note: 'Nghỉ dưỡng gia đình',
     },
     {
@@ -1141,7 +1168,7 @@ export const FAMILY_SHARED_DATA: {
       amount: 2400000,
       transactionType: 'EXPENSE',
       balanceAfter: 13450000,
-      transactionDate: '2026-10-31 18:30',
+      transactionDate: getRealtimeMonthDate(1, 28, '18:30'),
       note: 'Bữa tiệc gia đình',
     },
     // Các năm trước (2023, 2024, 2025 cho biểu đồ Yearly quỹ gia đình):
@@ -1212,11 +1239,11 @@ export const FAMILY_SHARED_DATA: {
     },
   ],
   budgets: [
-    { id: 201, categoryId: 1, categoryName: 'Ăn uống & Đi chợ gia đình', categoryIcon: 'Utensils', amountLimit: 15000000, spentAmount: 5380000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 202, categoryId: 6, categoryName: 'Học tập & Giáo dục con cái', categoryIcon: 'GraduationCap', amountLimit: 15000000, spentAmount: 12050000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 203, categoryId: 4, categoryName: 'Hóa đơn & Nhà ở', categoryIcon: 'Home', amountLimit: 6000000, spentAmount: 4380000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 204, categoryId: 7, categoryName: 'Y tế & Bảo hiểm', categoryIcon: 'HeartPulse', amountLimit: 8000000, spentAmount: 6950000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
-    { id: 205, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 5000000, spentAmount: 3200000, periodMonth: 11, periodYear: 2026, alertThreshold: 80 },
+    { id: 201, categoryId: 1, categoryName: 'Ăn uống & Đi chợ gia đình', categoryIcon: 'Utensils', amountLimit: 15000000, spentAmount: 5380000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 202, categoryId: 6, categoryName: 'Học tập & Giáo dục con cái', categoryIcon: 'GraduationCap', amountLimit: 15000000, spentAmount: 12050000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 203, categoryId: 4, categoryName: 'Hóa đơn & Nhà ở', categoryIcon: 'Home', amountLimit: 6000000, spentAmount: 4380000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 204, categoryId: 7, categoryName: 'Y tế & Bảo hiểm', categoryIcon: 'HeartPulse', amountLimit: 8000000, spentAmount: 6950000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 205, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 5000000, spentAmount: 3200000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
   ],
   savingGoals: [
     { id: 201, goalName: 'Đổi ô tô VinFast VF7 gia đình', targetAmount: 850000000, currentAmount: 420000000, deadline: '2027-12-31', status: 'IN_PROGRESS', color: 'emerald' },
@@ -1255,7 +1282,7 @@ export const FAMILY_SHARED_DATA: {
   notifications: [
     {
       id: 'fam-notif-1',
-      title: 'Ba đã nộp quỹ chung tháng 11',
+      title: `Ba đã nộp quỹ chung tháng ${new Date().getMonth() + 1}`,
       message: '+40.000.000 ₫ đã được chuyển vào Quỹ chung gia đình Vietcombank.',
       time: 'Hôm nay',
       type: 'SUCCESS',
@@ -1263,7 +1290,7 @@ export const FAMILY_SHARED_DATA: {
     },
     {
       id: 'fam-notif-2',
-      title: 'Mẹ đã nộp quỹ chung tháng 11',
+      title: `Mẹ đã nộp quỹ chung tháng ${new Date().getMonth() + 1}`,
       message: '+25.000.000 ₫ đã được chuyển vào Quỹ chung gia đình Vietcombank.',
       time: 'Hôm nay',
       type: 'SUCCESS',
@@ -1280,7 +1307,7 @@ export const FAMILY_SHARED_DATA: {
     {
       id: 'fam-notif-4',
       title: 'Cảnh báo ngân sách Giáo dục',
-      message: 'Ngân sách Học tập & Giáo dục con cái đã đạt 80.3% (12.050.000 ₫ / 15.000.000 ₫).',
+      message: `Ngân sách Học tập & Giáo dục con cái đã đạt 80.3% (12.050.000 ₫ / 15.000.000 ₫).`,
       time: '2 ngày trước',
       type: 'WARNING',
       read: false,
@@ -1394,17 +1421,49 @@ export const calculateDashboardSummary = (
 };
 
 export const mergeSeedTransactions = (existing: Transaction[], seed: Transaction[]): Transaction[] => {
-  const existingMap = new Map(existing.map((t) => [t.id, t]));
+  const seedMap = new Map(seed.map((s) => [s.id, s]));
+  const existingMap = new Map<number, Transaction>();
+
+  existing.forEach((t) => {
+    // Nếu là transaction mẫu thì cập nhật ngày giờ và tiêu đề thời gian thực mới nhất
+    if (seedMap.has(t.id)) {
+      const st = seedMap.get(t.id)!;
+      existingMap.set(t.id, {
+        ...t,
+        transactionDate: st.transactionDate,
+        actionTitle: st.actionTitle,
+      });
+    } else {
+      existingMap.set(t.id, t);
+    }
+  });
+
   seed.forEach((st) => {
     if (!existingMap.has(st.id)) {
       existingMap.set(st.id, st);
     }
   });
+
   return Array.from(existingMap.values()).sort(
     (a, b) =>
       new Date(b.transactionDate.includes('T') ? b.transactionDate : b.transactionDate.replace(' ', 'T')).getTime() -
       new Date(a.transactionDate.includes('T') ? a.transactionDate : a.transactionDate.replace(' ', 'T')).getTime()
   );
+};
+
+export const mergeRealtimeNotifications = (
+  savedNotifs: NotificationItem[] | undefined,
+  defaultNotifs: NotificationItem[]
+): NotificationItem[] => {
+  if (!savedNotifs || savedNotifs.length === 0) return defaultNotifs;
+  // Giữ lại các thông báo lời mời gia đình và thông báo động đặc biệt
+  const dynamicNotifs = savedNotifs.filter(
+    (n) => n.actionType === 'FAMILY_INVITATION' || n.id.startsWith('accepted-') || n.id.startsWith('member-joined-')
+  );
+  const notifMap = new Map<string, NotificationItem>();
+  defaultNotifs.forEach((dn) => notifMap.set(dn.id, dn));
+  dynamicNotifs.forEach((dyn) => notifMap.set(dyn.id, dyn));
+  return Array.from(notifMap.values());
 };
 
 interface AppState {
@@ -1469,6 +1528,7 @@ interface AppState {
   depositToGoal: (goalId: number, walletId: number, amount: number) => void;
 
   // Family actions
+  fetchFamilyMembers: () => Promise<void>;
   addFamilyMember: (member: Omit<FamilyMember, 'id' | 'joinedDate'>) => void;
   removeFamilyMember: (id: number) => void;
   updateMemberRole: (id: number, role: Role) => void;
@@ -1617,7 +1677,7 @@ const loadInitialAuthState = () => {
       const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
       const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
       const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
-      const loadedNotifs = personalSaved.notifications ?? FAMILY_SHARED_DATA.notifications;
+      const loadedNotifs = mergeRealtimeNotifications(personalSaved.notifications, FAMILY_SHARED_DATA.notifications);
       const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
       const loadedBot = personalSaved.botRecommendation ?? FAMILY_SHARED_DATA.botRecommendation;
 
@@ -1647,7 +1707,7 @@ const loadInitialAuthState = () => {
       const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
       const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
       const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
-      const loadedNotifs = saved.notifications ?? (defaultSet ? defaultSet.notifications : []);
+      const loadedNotifs = mergeRealtimeNotifications(saved.notifications, defaultSet ? defaultSet.notifications : []);
       const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
 
       return {
@@ -1816,7 +1876,7 @@ export const useStore = create<AppState>((set, get) => ({
         const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
         const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
         const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
-        const loadedNotifs = personalSaved.notifications ?? FAMILY_SHARED_DATA.notifications;
+        const loadedNotifs = mergeRealtimeNotifications(personalSaved.notifications, FAMILY_SHARED_DATA.notifications);
         const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
         const loadedBot = personalSaved.botRecommendation ?? FAMILY_SHARED_DATA.botRecommendation;
 
@@ -1835,6 +1895,7 @@ export const useStore = create<AppState>((set, get) => ({
         setTimeout(() => {
           get().fetchReceivedInvitations();
           get().fetchSentInvitations();
+          get().fetchFamilyMembers();
           get().fetchCoreData();
         }, 50);
         return;
@@ -1855,7 +1916,7 @@ export const useStore = create<AppState>((set, get) => ({
         const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
         const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
         const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
-        const loadedNotifs = saved.notifications ?? (defaultSet ? defaultSet.notifications : []);
+        const loadedNotifs = mergeRealtimeNotifications(saved.notifications, defaultSet ? defaultSet.notifications : []);
         const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
 
         set({
@@ -2306,6 +2367,20 @@ export const useStore = create<AppState>((set, get) => ({
       const updated = state.familyMembers.filter((m) => m.id !== id);
       const newState = { familyMembers: updated };
       persistCurrentUserData(state.currentUser, newState);
+
+      const famId = state.currentUser?.familyGroupId || 'FAM-HANHPHUC';
+      try {
+        const famKey = 'budglee_family_data_' + famId;
+        const famSavedStr = localStorage.getItem(famKey);
+        if (famSavedStr) {
+          const famSaved = JSON.parse(famSavedStr);
+          famSaved.familyMembers = updated;
+          localStorage.setItem(famKey, JSON.stringify(famSaved));
+        }
+      } catch (e) {}
+
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('budglee_invitation_update', { detail: { action: 'MEMBER_REMOVED', id } }));
       return newState;
     });
   },
@@ -2466,9 +2541,57 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  fetchReceivedInvitations: async () => {
+  fetchFamilyMembers: async () => {
     const user = get().currentUser;
     if (!user) return;
+    const isFamily = user.role === 'FAMILY_ADMIN' || user.role === 'FAMILY_MEMBER';
+    if (!isFamily) return;
+
+    const famId = user.familyGroupId || 'FAM-HANHPHUC';
+    let members: FamilyMember[] = [];
+
+    // 1. Thử lấy danh sách thành viên từ API backend
+    try {
+      const apiMembers = await FamilyApiService.getMembers();
+      if (apiMembers && Array.isArray(apiMembers) && apiMembers.length > 0) {
+        members = apiMembers.map((m: any) => ({
+          id: m.id || m.userId,
+          fullName: m.fullName || m.name || m.email,
+          email: m.email,
+          role: (m.role as Role) || 'FAMILY_MEMBER',
+          avatarUrl: m.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+          joinedDate: m.joinedDate || 'Hôm nay',
+          isOwner: m.isOwner || m.role === 'FAMILY_ADMIN',
+        }));
+      }
+    } catch (e) {}
+
+    // 2. Đồng bộ từ shared family storage local
+    const famKey = 'budglee_family_data_' + famId;
+    const famSavedStr = localStorage.getItem(famKey);
+    if (famSavedStr) {
+      try {
+        const famSaved = JSON.parse(famSavedStr);
+        if (famSaved.familyMembers && Array.isArray(famSaved.familyMembers)) {
+          famSaved.familyMembers.forEach((fm: FamilyMember) => {
+            if (!members.some((m) => m.email.toLowerCase() === fm.email.toLowerCase())) {
+              members.push(fm);
+            }
+          });
+        }
+      } catch (e) {}
+    }
+
+    if (members.length === 0) {
+      members = get().familyMembers.length > 0 ? get().familyMembers : FAMILY_SHARED_DATA.familyMembers;
+    }
+
+    set({ familyMembers: members });
+  },
+
+  fetchReceivedInvitations: async () => {
+    const user = get().currentUser;
+    if (!user || !user.email) return;
 
     let invites: FamilyInvitation[] = [];
     try {
@@ -2477,7 +2600,7 @@ export const useStore = create<AppState>((set, get) => ({
       // Backend request fallback
     }
 
-    // Kiểm tra thêm ở hàng đợi lời mời localStorage
+    // Kiểm tra thêm ở hàng đợi lời mời localStorage của tài khoản
     const localStr = localStorage.getItem('budglee_invitations_for_' + user.email.toLowerCase());
     if (localStr) {
       try {
@@ -2496,30 +2619,37 @@ export const useStore = create<AppState>((set, get) => ({
     const pendingInvites = invites.filter((i) => i.status === 'PENDING');
     if (pendingInvites.length > 0) {
       set((state) => {
-        const newNotifs = [...state.notifications];
+        let newNotifs = [...state.notifications];
+        let hasChanges = false;
         pendingInvites.forEach((inv) => {
           const notifId = 'invite-notif-' + inv.id;
-          if (!newNotifs.some((n) => n.id === notifId)) {
+          const existingIndex = newNotifs.findIndex((n) => n.id === notifId);
+          if (existingIndex < 0) {
             newNotifs.unshift({
               id: notifId,
               title: 'Lời mời tham gia Quỹ Gia đình',
               message: `${inv.invitedByName || 'Chủ hộ'} (${inv.invitedByEmail || 'chủ nhóm'}) đã gửi lời mời bạn tham gia nhóm gia đình "${inv.familyGroupName}". Hãy nhấn vào đây để xem và xác nhận!`,
-              time: 'Vừa xong',
+              time: 'Hôm nay',
               type: 'INFO',
               read: false,
               actionType: 'FAMILY_INVITATION',
               actionData: inv,
             });
+            hasChanges = true;
           }
         });
-        return { notifications: newNotifs };
+        if (hasChanges) {
+          persistCurrentUserData(user, { notifications: newNotifs });
+          return { notifications: newNotifs };
+        }
+        return {};
       });
     }
   },
 
   fetchSentInvitations: async () => {
     const user = get().currentUser;
-    if (!user) return;
+    if (!user || !user.email) return;
 
     let invites: FamilyInvitation[] = [];
     try {
@@ -2566,17 +2696,47 @@ export const useStore = create<AppState>((set, get) => ({
       };
     }
 
-    // Lưu vào hàng đợi local cho người nhận để test mượt trên localhost
+    // 1. Lưu vào hàng đợi local cho người nhận để người nhận có thể thấy ngay
     try {
       const recipientKey = 'budglee_invitations_for_' + trimmedEmail;
-      const existRecv = JSON.parse(localStorage.getItem(recipientKey) || '[]');
-      existRecv.unshift(invitation);
-      localStorage.setItem(recipientKey, JSON.stringify(existRecv));
+      const existRecv: FamilyInvitation[] = JSON.parse(localStorage.getItem(recipientKey) || '[]');
+      const filteredRecv = existRecv.filter((i) => i.id !== invitation.id && i.status === 'PENDING');
+      filteredRecv.unshift(invitation);
+      localStorage.setItem(recipientKey, JSON.stringify(filteredRecv));
 
+      // 2. Lưu vào danh sách lời mời đã gửi của người gửi
       const senderKey = 'budglee_sent_invitations_' + user.email.toLowerCase();
-      const existSent = JSON.parse(localStorage.getItem(senderKey) || '[]');
-      existSent.unshift(invitation);
-      localStorage.setItem(senderKey, JSON.stringify(existSent));
+      const existSent: FamilyInvitation[] = JSON.parse(localStorage.getItem(senderKey) || '[]');
+      const filteredSent = existSent.filter((i) => i.id !== invitation.id);
+      filteredSent.unshift(invitation);
+      localStorage.setItem(senderKey, JSON.stringify(filteredSent));
+
+      // 3. ĐẨY TRỰC TIẾP THÔNG BÁO VÀO CHUÔNG CỦA NGƯỜI NHẬN
+      const recipientDataKey = 'budglee_data_' + trimmedEmail;
+      const existDataStr = localStorage.getItem(recipientDataKey);
+      let existData = existDataStr ? JSON.parse(existDataStr) : {};
+      if (!Array.isArray(existData.notifications)) {
+        existData.notifications = [];
+      }
+      const notifId = 'invite-notif-' + invitation.id;
+      existData.notifications = existData.notifications.filter((n: any) => n.id !== notifId);
+      existData.notifications.unshift({
+        id: notifId,
+        title: 'Lời mời tham gia Quỹ Gia đình',
+        message: `${user.fullName} (${user.email}) đã gửi lời mời bạn tham gia nhóm gia đình "${invitation.familyGroupName}". Hãy nhấn vào đây để xem và xác nhận!`,
+        time: 'Hôm nay',
+        type: 'INFO',
+        read: false,
+        actionType: 'FAMILY_INVITATION',
+        actionData: invitation,
+      });
+      localStorage.setItem(recipientDataKey, JSON.stringify(existData));
+
+      // 4. Phát sự kiện storage và event tùy chỉnh để cập nhật chuông ngay lập tức trên các tab
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('budglee_invitation_update', {
+        detail: { email: trimmedEmail, invitation }
+      }));
     } catch (e) {}
 
     set((state) => ({
@@ -2620,25 +2780,68 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.setItem(recipientKey, JSON.stringify(updated));
     } catch (e) {}
 
-    // Thông báo thành công
-    const successNotif: NotificationItem = {
-      id: 'accepted-' + Date.now(),
-      title: 'Gia nhập gia đình thành công!',
-      message: `Chúc mừng bạn đã trở thành thành viên của "${groupName}". Bạn đã có thể bắt đầu xem và quản lý sổ quỹ chung!`,
-      time: 'Vừa xong',
-      type: 'SUCCESS',
-      read: false,
-    };
+    // Cập nhật trạng thái trong storage người gửi
+    if (inv?.invitedByEmail) {
+      try {
+        const senderKey = 'budglee_sent_invitations_' + inv.invitedByEmail.toLowerCase();
+        const existSent: FamilyInvitation[] = JSON.parse(localStorage.getItem(senderKey) || '[]');
+        const updatedSent = existSent.map((i) => (i.id === invitationId ? { ...i, status: 'ACCEPTED' as const } : i));
+        localStorage.setItem(senderKey, JSON.stringify(updatedSent));
+
+        // Gửi thông báo cho chủ hộ (người gửi)
+        const senderDataKey = 'budglee_data_' + inv.invitedByEmail.toLowerCase();
+        const senderDataStr = localStorage.getItem(senderDataKey);
+        let senderData = senderDataStr ? JSON.parse(senderDataStr) : {};
+        if (!Array.isArray(senderData.notifications)) senderData.notifications = [];
+        senderData.notifications.unshift({
+          id: 'member-joined-' + Date.now(),
+          title: 'Thành viên mới gia nhập',
+          message: `${user.fullName} (${user.email}) đã chấp nhận lời mời và chính thức gia nhập sổ quỹ gia đình "${groupName}"!`,
+          time: 'Hôm nay',
+          type: 'SUCCESS',
+          read: false,
+        });
+        localStorage.setItem(senderDataKey, JSON.stringify(senderData));
+      } catch (e) {}
+    }
 
     // Tạo member mới cho danh sách
     const newMember: FamilyMember = {
       id: user.id,
-      fullName: user.fullName + ' (Bạn)',
+      fullName: user.fullName,
       email: user.email,
       role: 'FAMILY_MEMBER',
-      avatarUrl: user.avatarUrl,
-      joinedDate: 'Vừa xong',
+      avatarUrl: user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+      joinedDate: 'Hôm nay',
       isOwner: false,
+    };
+
+    // Đồng bộ vào shared family data budglee_family_data_<groupId>
+    const famKey = 'budglee_family_data_' + groupId;
+    try {
+      const famDataStr = localStorage.getItem(famKey);
+      let famData = famDataStr ? JSON.parse(famDataStr) : {};
+      if (!Array.isArray(famData.familyMembers)) {
+        famData.familyMembers = [...FAMILY_SHARED_DATA.familyMembers];
+      }
+      if (!famData.familyMembers.some((m: FamilyMember) => m.email.toLowerCase() === user.email.toLowerCase())) {
+        famData.familyMembers.push(newMember);
+      }
+      localStorage.setItem(famKey, JSON.stringify(famData));
+
+      if (groupId === 'FAM-HANHPHUC') {
+        localStorage.setItem('budglee_family_data_FAM-HANHPHUC', JSON.stringify(famData));
+      }
+    } catch (e) {}
+
+    // Thông báo thành công cho người nhận
+    const successNotif: NotificationItem = {
+      id: 'accepted-' + Date.now(),
+      title: 'Gia nhập gia đình thành công!',
+      message: `Chúc mừng bạn đã trở thành thành viên của "${groupName}". Bạn đã có thể bắt đầu xem và quản lý sổ quỹ chung!`,
+      time: 'Hôm nay',
+      type: 'SUCCESS',
+      read: false,
     };
 
     set((s) => ({
@@ -2656,6 +2859,14 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     persistCurrentUserData(updatedUser, get());
+
+    // Phát sự kiện đồng bộ giữa các tab
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('budglee_invitation_update', {
+      detail: { status: 'ACCEPTED', invitationId }
+    }));
+
+    get().fetchFamilyMembers();
   },
 
   rejectFamilyInvitation: async (invitationId: number) => {
@@ -2701,5 +2912,8 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       sentInvitations: s.sentInvitations.filter((i) => i.id !== invitationId),
     }));
+
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('budglee_invitation_update', { detail: { action: 'INVITE_CANCELLED', invitationId } }));
   },
 }));

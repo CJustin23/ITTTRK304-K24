@@ -15,6 +15,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const {
     notifications,
+    receivedInvitations,
+    fetchReceivedInvitations,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     setSelectedInvitationForConfirm,
@@ -93,7 +95,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Notification Bell with Dropdown */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => {
+              const next = !showNotifications;
+              setShowNotifications(next);
+              if (next) {
+                fetchReceivedInvitations();
+              }
+            }}
             title="Thông báo ngân sách & Hệ thống"
             className={`relative p-2.5 rounded-xl border transition-colors ${
               showNotifications
@@ -143,10 +151,18 @@ export const Header: React.FC<HeaderProps> = ({
                       key={n.id}
                       onClick={() => {
                         markNotificationAsRead(n.id);
-                        if (n.actionType === 'FAMILY_INVITATION' && n.actionData) {
-                          setSelectedInvitationForConfirm(n.actionData);
-                          setConfirmInviteModalOpen(true);
-                          setShowNotifications(false);
+                        if (n.actionType === 'FAMILY_INVITATION') {
+                          let inv = n.actionData;
+                          if (!inv && receivedInvitations) {
+                            inv = receivedInvitations.find(
+                              (i) => `invite-notif-${i.id}` === n.id || n.id.includes(String(i.id))
+                            );
+                          }
+                          if (inv) {
+                            setSelectedInvitationForConfirm(inv);
+                            setConfirmInviteModalOpen(true);
+                            setShowNotifications(false);
+                          }
                         }
                       }}
                       className={`p-4 transition-colors cursor-pointer flex gap-3 ${
