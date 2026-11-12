@@ -136,12 +136,17 @@ public class AuthService {
         do { groupId = "BG-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT); }
         while (familyGroupRepository.existsById(groupId));
 
+        // MySQL V4 enforces a foreign key from users.family_group_id to family_groups.id.
+        // Insert the owner without that link first, then create the group (which references
+        // the owner), and finally attach the owner to the now-existing group.
         User owner = userRepository.save(User.builder()
                 .fullName(request.getFullName().trim()).email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.FAMILY_ADMIN).familyGroupId(groupId).build());
+                .role(Role.FAMILY_ADMIN).familyGroupId(null).build());
         familyGroupRepository.save(FamilyGroup.builder().id(groupId).name(request.getFamilyName().trim())
                 .createdBy(owner).build());
+        owner.setFamilyGroupId(groupId);
+        owner = userRepository.save(owner);
         log.info("Đăng ký chủ hộ id={} group={} email={}", owner.getId(), groupId, email);
         return AuthResponse.builder().id(owner.getId()).fullName(owner.getFullName()).email(email)
                 .role(Role.FAMILY_ADMIN).familyGroupId(groupId).build();

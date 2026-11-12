@@ -897,17 +897,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
-                  />
-                  <span>Ghi nhớ phiên đăng nhập (30 ngày)</span>
-                </label>
-              </div>
-
               <button
                 id="btn-login-submit"
                 type="submit"
