@@ -84,13 +84,16 @@ export const App: React.FC = () => {
       handleTabChange('overview');
     };
 
-    const isFamilyAdminWithGroup = currentUser?.role === 'FAMILY_ADMIN' && !!currentUser?.familyGroupId;
-
     const syncFamilyData = () => {
       const u = useStore.getState().currentUser;
-      if (u?.role === 'FAMILY_ADMIN' && u?.familyGroupId) {
-        fetchSentInvitations();
-        useStore.getState().fetchFamilyMembers?.();
+      if (u && u.role !== 'SYSTEM_ADMIN') {
+        fetchReceivedInvitations();
+        if (u.role === 'FAMILY_ADMIN' && u.familyGroupId) {
+          fetchSentInvitations();
+          useStore.getState().fetchFamilyMembers?.();
+        } else if (u.familyGroupId) {
+          useStore.getState().fetchFamilyMembers?.();
+        }
       }
     };
 
@@ -98,13 +101,15 @@ export const App: React.FC = () => {
       fetchReceivedInvitations();
       fetchCoreData();
 
-      if (isFamilyAdminWithGroup) {
-        fetchSentInvitations();
-        useStore.getState().fetchFamilyMembers?.();
-        intervalId = setInterval(syncFamilyData, 5000);
-      } else if (currentUser.familyGroupId) {
+      if (currentUser.familyGroupId) {
         useStore.getState().fetchFamilyMembers?.();
       }
+      if (currentUser.role === 'FAMILY_ADMIN' && currentUser.familyGroupId) {
+        fetchSentInvitations();
+      }
+
+      // Tự động kiểm tra lời mời gia đình mới định kỳ mỗi 4 giây
+      intervalId = setInterval(syncFamilyData, 4000);
 
       window.addEventListener('storage', syncFamilyData);
       window.addEventListener('budglee_invitation_update', syncFamilyData);
