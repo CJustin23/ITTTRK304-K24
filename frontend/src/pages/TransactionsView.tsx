@@ -23,18 +23,25 @@ export const TransactionsView: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
   // Filter transactions
-  const filtered = recentTransactions.filter((tx) => {
+  const baseFiltered = recentTransactions.filter((tx) => {
     const matchesSearch =
         tx.actionTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (tx.categoryName && tx.categoryName.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (tx.note && tx.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
         tx.amount.toString().includes(searchQuery);
 
-    const matchesType = filterType === 'ALL' || tx.transactionType === filterType;
     const matchesWallet = filterWalletId === 'ALL' || tx.walletId === Number(filterWalletId);
     const matchesCategory = filterCategory === 'ALL' || tx.categoryName === filterCategory;
 
-    return matchesSearch && matchesType && matchesWallet && matchesCategory;
+    return matchesSearch && matchesWallet && matchesCategory;
+  });
+
+  const allCount = baseFiltered.length;
+  const incomeCount = baseFiltered.filter((t) => t.transactionType === 'INCOME').length;
+  const expenseCount = baseFiltered.filter((t) => t.transactionType === 'EXPENSE').length;
+
+  const filtered = baseFiltered.filter((tx) => {
+    return filterType === 'ALL' || tx.transactionType === filterType;
   });
 
   // Calculate filtered totals
@@ -190,7 +197,7 @@ export const TransactionsView: React.FC = () => {
                       filterType === 'ALL' ? 'bg-white text-emerald-600 shadow-sm font-bold' : 'hover:text-slate-900'
                   }`}
               >
-                Tất cả ({filtered.length})
+                Tất cả ({allCount})
               </button>
               <button
                   onClick={() => setFilterType('INCOME')}
@@ -200,7 +207,7 @@ export const TransactionsView: React.FC = () => {
                           : 'hover:text-slate-900'
                   }`}
               >
-                Khoản Thu (+)
+                Khoản Thu (+) ({incomeCount})
               </button>
               <button
                   onClick={() => setFilterType('EXPENSE')}
@@ -210,7 +217,7 @@ export const TransactionsView: React.FC = () => {
                           : 'hover:text-slate-900'
                   }`}
               >
-                Khoản Chi (-)
+                Khoản Chi (-) ({expenseCount})
               </button>
             </div>
           </div>
