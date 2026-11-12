@@ -10,6 +10,7 @@ import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
 import com.budglee.finance.dto.VerifyOtpRequest;
 import com.budglee.finance.security.PasswordResetService;
+import com.budglee.finance.security.SingleAdminSessionRegistry;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.FamilyGroupRepository;
@@ -71,6 +72,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final LoginAttemptService loginAttemptService;
     private final TokenBlocklist tokenBlocklist;
+    private final SingleAdminSessionRegistry adminSessionRegistry;
     private final PasswordResetService passwordResetService;
     private final EmailService emailService;
 
@@ -136,12 +138,17 @@ public class AuthService {
         do { groupId = "BG-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT); }
         while (familyGroupRepository.existsById(groupId));
 
+        // MySQL V4 enforces a foreign key from users.family_group_id to family_groups.id.
+        // Insert the owner without that link first, then create the group (which references
+        // the owner), and finally attach the owner to the now-existing group.
         User owner = userRepository.save(User.builder()
                 .fullName(request.getFullName().trim()).email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.FAMILY_ADMIN).familyGroupId(groupId).build());
+                .role(Role.FAMILY_ADMIN).familyGroupId(null).build());
         familyGroupRepository.save(FamilyGroup.builder().id(groupId).name(request.getFamilyName().trim())
                 .createdBy(owner).build());
+        owner.setFamilyGroupId(groupId);
+        owner = userRepository.save(owner);
         log.info("Đăng ký chủ hộ id={} group={} email={}", owner.getId(), groupId, email);
         return AuthResponse.builder().id(owner.getId()).fullName(owner.getFullName()).email(email)
                 .role(Role.FAMILY_ADMIN).familyGroupId(groupId).build();
@@ -172,8 +179,16 @@ public class AuthService {
         User user = userRepository.findByEmail(principal.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
 
+        String token = tokenProvider.generateToken(authentication);
+        if (user.getRole() == Role.SYSTEM_ADMIN
+                && !adminSessionRegistry.startSession(user.getEmail(), tokenProvider.getIdFromToken(token),
+                        tokenProvider.getRemainingValidityMs(token))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Tài khoản quản trị đang được đăng nhập trên thiết bị khác. Hãy đăng xuất phiên đó rồi thử lại.");
+        }
+
         return AuthResponse.builder()
-                .token(tokenProvider.generateToken(authentication))
+                .token(token)
                 .type("Bearer")
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -196,7 +211,9 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn");
         }
         tokenBlocklist.block(token, tokenProvider.getRemainingValidityMs(token));
-        log.info("Thu hồi token của email={}", tokenProvider.getEmailFromToken(token));
+        String email = tokenProvider.getEmailFromToken(token);
+        adminSessionRegistry.endSession(email, tokenProvider.getIdFromToken(token));
+        log.info("Thu hồi token của email={}", email);
     }
 
     public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
