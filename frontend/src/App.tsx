@@ -31,6 +31,10 @@ import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-r
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState(() => {
+    // SYSTEM_ADMIN always starts in the dedicated admin shell, regardless of the last saved tab.
+    if (useStore.getState().currentUser?.role === 'SYSTEM_ADMIN') {
+      return 'admin';
+    }
     const savedTab = localStorage.getItem('budglee_active_tab');
     if (savedTab && savedTab !== 'auth') {
       return savedTab;
@@ -58,7 +62,8 @@ export const App: React.FC = () => {
   } = useStore();
 
   const handleTabChange = (tab: string) => {
-    const allowedTab = tab === 'admin' && currentUser?.role !== 'SYSTEM_ADMIN' ? 'overview' : tab;
+    const role = useStore.getState().currentUser?.role || currentUser?.role;
+    const allowedTab = role === 'SYSTEM_ADMIN' ? 'admin' : tab === 'admin' ? 'overview' : tab;
     setActiveTab(allowedTab);
     if (allowedTab !== 'auth') {
       localStorage.setItem('budglee_active_tab', allowedTab);
@@ -78,7 +83,7 @@ export const App: React.FC = () => {
       handleTabChange('overview');
     };
 
-    if (currentUser) {
+    if (currentUser && currentUser.role !== 'SYSTEM_ADMIN') {
       fetchReceivedInvitations();
       fetchSentInvitations();
       fetchCoreData();

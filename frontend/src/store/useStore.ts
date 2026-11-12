@@ -1777,6 +1777,25 @@ export const useStore = create<AppState>((set, get) => ({
     localStorage.setItem('budglee_token', token);
     localStorage.setItem('budglee_current_user', JSON.stringify(user));
 
+    // Platform admins use the dedicated administration area and must not load finance data.
+    if (user.role === 'SYSTEM_ADMIN') {
+      set({
+        currentUser: user,
+        token,
+        wallets: [],
+        recentTransactions: [],
+        budgets: [],
+        savingGoals: [],
+        familyMembers: [],
+        notifications: [],
+        receivedInvitations: [],
+        sentInvitations: [],
+        dashboardSummary: null,
+        botRecommendation: null,
+      });
+      return;
+    }
+
     const emailKey = user.email.toLowerCase();
     const isPersonalThanh = emailKey === 'thanhcanhan@gmail.com' || emailKey === 'demo@budglee.com';
     const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || user.familyGroupId === 'FAM-HANHPHUC';
