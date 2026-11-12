@@ -43,8 +43,8 @@ services:
   # 3. Backend Service: Spring Boot (Java 17/21)
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: budglee-backend
     restart: unless-stopped
     depends_on:

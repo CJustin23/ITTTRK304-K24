@@ -46,8 +46,8 @@ services:
   # 3. Spring Boot Backend - Maven / Java 17
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: budglee-backend
     restart: unless-stopped
     environment:
