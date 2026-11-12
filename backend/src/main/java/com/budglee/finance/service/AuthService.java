@@ -10,6 +10,7 @@ import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
 import com.budglee.finance.dto.VerifyOtpRequest;
 import com.budglee.finance.security.PasswordResetService;
+import com.budglee.finance.security.SingleAdminSessionRegistry;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
 import com.budglee.finance.repository.FamilyGroupRepository;
@@ -71,6 +72,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final LoginAttemptService loginAttemptService;
     private final TokenBlocklist tokenBlocklist;
+    private final SingleAdminSessionRegistry adminSessionRegistry;
     private final PasswordResetService passwordResetService;
     private final EmailService emailService;
 
@@ -177,8 +179,16 @@ public class AuthService {
         User user = userRepository.findByEmail(principal.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email hoặc mật khẩu không đúng"));
 
+        String token = tokenProvider.generateToken(authentication);
+        if (user.getRole() == Role.SYSTEM_ADMIN
+                && !adminSessionRegistry.startSession(user.getEmail(), tokenProvider.getIdFromToken(token),
+                        tokenProvider.getRemainingValidityMs(token))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Tài khoản quản trị đang được đăng nhập trên thiết bị khác. Hãy đăng xuất phiên đó rồi thử lại.");
+        }
+
         return AuthResponse.builder()
-                .token(tokenProvider.generateToken(authentication))
+                .token(token)
                 .type("Bearer")
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -201,7 +211,9 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token không hợp lệ hoặc đã hết hạn");
         }
         tokenBlocklist.block(token, tokenProvider.getRemainingValidityMs(token));
-        log.info("Thu hồi token của email={}", tokenProvider.getEmailFromToken(token));
+        String email = tokenProvider.getEmailFromToken(token);
+        adminSessionRegistry.endSession(email, tokenProvider.getIdFromToken(token));
+        log.info("Thu hồi token của email={}", email);
     }
 
     public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
