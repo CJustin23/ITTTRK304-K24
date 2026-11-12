@@ -48,6 +48,20 @@ export const FloatingChatWidget: React.FC = () => {
   const fetchCoreData = useStore((state) => state.fetchCoreData);
   const currentUser = useStore((state) => state.currentUser);
 
+  // Đăng ký API mở chat toàn cục để Sidebar hoặc nút khác có thể mở trực tiếp
+  useEffect(() => {
+    (window as any).openBudgleeChat = () => {
+      setIsOpen(true);
+    };
+    (window as any).toggleBudgleeChat = () => {
+      setIsOpen((prev) => !prev);
+    };
+    return () => {
+      delete (window as any).openBudgleeChat;
+      delete (window as any).toggleBudgleeChat;
+    };
+  }, []);
+
   // Khởi tạo phiên trò chuyện và tải lịch sử
   useEffect(() => {
     const cid = AiChatService.getConversationId();

@@ -27,7 +27,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
     { id: 'transactions', label: 'Giao dịch (Activities)', icon: ArrowLeftRight },
     { id: 'budgets', label: 'Ngân sách (Budgets)', icon: PieChart },
     { id: 'goals', label: 'Mục tiêu (Goals)', icon: Target },
-    { id: 'insights', label: 'Phân tích AI (Insights)', icon: Sparkles },
     { id: 'family', label: 'Quỹ gia đình (Family)', icon: Users },
     { id: 'settings', label: 'Cài đặt (Settings)', icon: Settings },
   ];
@@ -72,12 +71,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
           );
         })}
 
-        {/* AI Bot Recommendation Highlight */}
+        {/* AI Bot Launcher Highlight */}
         <div className="pt-6">
           <div className="flex items-center justify-between px-3 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Trợ lý AI</span>
-            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
-              Đang phát triển
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Trực tuyến
             </span>
           </div>
           <button
@@ -88,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
               <Sparkles className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
               <span>AI Cố vấn Tài chính</span>
             </div>
-            <span className="text-[10px] text-slate-400 group-hover:text-emerald-300">Beta</span>
+            <span className="text-[10px] text-emerald-300 font-bold px-1.5 py-0.5 rounded bg-emerald-500/20">PRO</span>
           </button>
         </div>
       </nav>

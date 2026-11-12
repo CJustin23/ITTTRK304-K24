@@ -12,12 +12,10 @@ import { TransactionsView } from './pages/TransactionsView';
 import { BudgetsView } from './pages/BudgetsView';
 import { SavingGoalsView } from './pages/SavingGoalsView';
 import { FamilyWorkspaceView } from './pages/FamilyWorkspaceView';
-import { InsightsView } from './pages/InsightsView';
 import { SettingsView } from './pages/SettingsView';
 import { AuthPage } from './pages/AuthPage';
 import { AdminView } from './pages/AdminView';
 
-import { BotInsightModal } from './components/BotInsightModal';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewWalletModal } from './components/NewWalletModal';
 import { NewBudgetModal } from './components/NewBudgetModal';
@@ -183,8 +181,6 @@ export const App: React.FC = () => {
         return <BudgetsView />;
       case 'goals':
         return <SavingGoalsView />;
-      case 'insights':
-        return <InsightsView />;
       case 'family':
         return <FamilyWorkspaceView />;
       case 'settings':
@@ -279,7 +275,13 @@ export const App: React.FC = () => {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
-        onOpenBot={() => setBotModalOpen(true)}
+        onOpenBot={() => {
+          if (typeof (window as any).openBudgleeChat === 'function') {
+            (window as any).openBudgleeChat();
+          } else {
+            setBotModalOpen(true);
+          }
+        }}
       />
 
       {/* 2. Main Content Area */}
@@ -294,12 +296,6 @@ export const App: React.FC = () => {
       </div>
 
       {/* All Application Modals */}
-      <BotInsightModal
-        isOpen={isBotModalOpen}
-        onClose={() => setBotModalOpen(false)}
-        recommendation={botRecommendation}
-      />
-
       <NewTransactionModal
         isOpen={isTransactionModalOpen}
         onClose={() => setTransactionModalOpen(false)}
