@@ -30,6 +30,7 @@ interface AuthPageProps {
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -56,6 +57,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [generatedDemoOtp, setGeneratedDemoOtp] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -768,19 +770,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="reset-confirm-password"
-                      type={showNewPassword ? 'text' : 'password'}
+                      type={showConfirmNewPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmNewPassword}
                       onChange={(e) => {
                         setConfirmNewPassword(e.target.value);
                         if (errors.confirmNewPassword) setErrors((prev) => ({ ...prev, confirmNewPassword: '' }));
                       }}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.confirmNewPassword
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showConfirmNewPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmNewPassword && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
@@ -1082,12 +1092,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                         setPassword(e.target.value);
                         if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                       }}
-                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.password
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.password && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
@@ -1105,19 +1123,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="reg-confirm-password"
-                      type={showPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: '' }));
                       }}
-                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.confirmPassword
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmPassword && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
