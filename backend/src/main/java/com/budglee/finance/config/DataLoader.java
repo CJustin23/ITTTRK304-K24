@@ -13,7 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"local", "dev", "test"})
+@Profile({"local", "dev", "test", "prod"})
 @RequiredArgsConstructor
 @Slf4j
 public class DataLoader implements CommandLineRunner {

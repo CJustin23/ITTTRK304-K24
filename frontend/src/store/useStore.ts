@@ -2090,6 +2090,9 @@ export const useStore = create<AppState>((set, get) => ({
       if (!state.currentUser) return state;
       const updatedUser = { ...state.currentUser, ...data };
       localStorage.setItem('budglee_current_user', JSON.stringify(updatedUser));
+    if (updatedUser.email) {
+      localStorage.setItem('budglee_user_' + updatedUser.email.toLowerCase(), JSON.stringify(updatedUser));
+    }
 
       if (updatedUser.email) {
         const userKey = 'budglee_user_' + updatedUser.email.toLowerCase();
@@ -2494,6 +2497,9 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       localStorage.setItem('budglee_current_user', JSON.stringify(updatedUser));
+    if (updatedUser.email) {
+      localStorage.setItem('budglee_user_' + updatedUser.email.toLowerCase(), JSON.stringify(updatedUser));
+    }
       if (updatedUser.email) {
         const userKey = 'budglee_user_' + updatedUser.email.toLowerCase();
         try {
@@ -2510,6 +2516,28 @@ export const useStore = create<AppState>((set, get) => ({
       };
 
       persistCurrentUserData(updatedUser, newState);
+      if (get().token) {
+        FamilyApiService.upgradeToFamilyAdmin(familyGroupName)
+          .then((res) => {
+            if (res && res.familyGroupId) {
+              set((s) => {
+                if (!s.currentUser) return s;
+                const syncedUser: User = {
+                  ...s.currentUser,
+                  role: 'FAMILY_ADMIN',
+                  familyGroupId: res.familyGroupId,
+                  familyGroupName: res.familyGroupName || familyGroupName,
+                };
+                localStorage.setItem('budglee_current_user', JSON.stringify(syncedUser));
+                if (syncedUser.email) {
+                  localStorage.setItem('budglee_user_' + syncedUser.email.toLowerCase(), JSON.stringify(syncedUser));
+                }
+                return { currentUser: syncedUser };
+              });
+            }
+          })
+          .catch(() => {});
+      }
       return newState;
     });
   },
@@ -2860,6 +2888,9 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     localStorage.setItem('budglee_current_user', JSON.stringify(updatedUser));
+    if (updatedUser.email) {
+      localStorage.setItem('budglee_user_' + updatedUser.email.toLowerCase(), JSON.stringify(updatedUser));
+    }
 
     // Cập nhật trạng thái trong storage người nhận
     const recipientKey = 'budglee_invitations_for_' + user.email.toLowerCase();

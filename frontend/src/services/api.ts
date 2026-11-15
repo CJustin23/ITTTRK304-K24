@@ -204,6 +204,10 @@ export const FamilyApiService = {
     const response = await api.delete(`/family/members/${memberId}`);
     return response.data.data;
   },
+  upgradeToFamilyAdmin: async (familyName: string): Promise<{ familyGroupId: string; familyGroupName: string; role: string }> => {
+    const response = await api.post('/family/upgrade', { familyName });
+    return response.data.data;
+  },
 };
 
 export interface AdminUser {
