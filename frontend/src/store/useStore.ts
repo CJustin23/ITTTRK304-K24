@@ -14,6 +14,7 @@ import {
   FamilyInvitation,
 } from '../types';
 import {
+  AuthService,
   FamilyApiService,
   WalletService,
   TransactionService,
@@ -2061,6 +2062,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   logout: () => {
+    const tokenToRevoke = get().token || localStorage.getItem('budglee_token');
+    if (tokenToRevoke) {
+      void AuthService.logout(tokenToRevoke);
+    }
     localStorage.removeItem('budglee_token');
     localStorage.removeItem('budglee_current_user');
     localStorage.removeItem('budglee_active_tab');

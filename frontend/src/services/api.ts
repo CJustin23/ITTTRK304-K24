@@ -20,9 +20,11 @@ const api = axios.create({
 // Interceptor gắn JWT token vào mỗi request
 api.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('budglee_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (!config.headers.Authorization) {
+        const token = localStorage.getItem('budglee_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
       }
       return config;
     },
@@ -42,9 +44,13 @@ export const AuthService = {
     const response = await api.post('/auth/login', { email, password });
     return response.data.data;
   },
-  logout: async (): Promise<void> => {
+  logout: async (token?: string | null): Promise<void> => {
     try {
-      await api.post('/auth/logout');
+      await api.post(
+        '/auth/logout',
+        {},
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
     } catch {
       // Ignore network errors on logout
     }

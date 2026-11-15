@@ -70,6 +70,10 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
+    if (currentUser?.role === 'SYSTEM_ADMIN' && activeTab !== 'admin') {
+      handleTabChange('admin');
+      return;
+    }
     if (activeTab === 'admin' && currentUser?.role !== 'SYSTEM_ADMIN') {
       handleTabChange('overview');
     }
