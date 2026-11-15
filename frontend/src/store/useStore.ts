@@ -19,6 +19,7 @@ import {
   TransactionService,
   BudgetService,
   DashboardService,
+  SavingGoalApiService,
 } from '../services/api';
 
 // ============================================================================
@@ -2148,13 +2149,25 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (get().token) {
       WalletService.create({
-        name: walletData.walletName,
-        walletType: walletData.type || 'BANK',
-        initialBalance: walletData.balance,
+        walletName: walletData.walletName,
+        type: walletData.type || 'BANK',
+        balance: walletData.balance,
         currency: walletData.currency || 'VND',
-        bankName: (walletData as any).bankName || '',
-        accountNumber: walletData.cardNumberMasked || '',
-      }).catch((e) => console.warn('Background sync wallet to API:', e?.message));
+        cardNumberMasked: walletData.cardNumberMasked || '',
+      })
+        .then((createdWallet: any) => {
+          if (createdWallet && createdWallet.id) {
+            set((state) => {
+              const updatedWallets = state.wallets.map((w) =>
+                w.id === newWallet.id ? { ...w, id: createdWallet.id } : w
+              );
+              const newState = { wallets: updatedWallets };
+              persistCurrentUserData(state.currentUser, newState);
+              return newState;
+            });
+          }
+        })
+        .catch((e) => console.warn('Background sync wallet to API:', e?.message));
     }
   },
 
@@ -2168,6 +2181,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addTransaction: (txData) => {
+    const createdLocalTxId = Date.now();
     set((state) => {
       const targetWallet =
         state.wallets.find((w) => w.id === txData.walletId) ||
@@ -2196,7 +2210,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const newTx: Transaction = {
         ...txData,
-        id: Date.now(),
+        id: createdLocalTxId,
         walletId: actualWalletId,
         walletName: actualWalletName,
         balanceAfter: actualBalanceAfter,
@@ -2230,11 +2244,25 @@ export const useStore = create<AppState>((set, get) => ({
       TransactionService.create({
         walletId: targetW ? targetW.id : txData.walletId,
         categoryId: txData.categoryId || 1,
+        actionTitle: txData.actionTitle || txData.note || 'Giao dịch',
         amount: txData.amount,
         transactionType: txData.transactionType,
         note: txData.note || txData.actionTitle || '',
         transactionDate: txData.transactionDate || new Date().toISOString(),
-      }).catch((e) => console.warn('Background sync transaction to API:', e?.message));
+      })
+        .then((createdTx: any) => {
+          if (createdTx && createdTx.id) {
+            set((state) => {
+              const updatedTxs = state.recentTransactions.map((t) =>
+                t.id === createdLocalTxId ? { ...t, id: createdTx.id } : t
+              );
+              const newState = { recentTransactions: updatedTxs };
+              persistCurrentUserData(state.currentUser, newState);
+              return newState;
+            });
+          }
+        })
+        .catch((e) => console.warn('Background sync transaction to API:', e?.message));
     }
   },
 
@@ -2300,20 +2328,29 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  addSavingGoal: (goalData) => {
-    const newGoal: SavingGoal = {
-      ...goalData,
-      id: Date.now(),
-    };
+  addSavingGoal: async (goalData) => {
+    let createdGoal: SavingGoal;
+    try {
+      createdGoal = await SavingGoalApiService.create(goalData);
+    } catch (e) {
+      createdGoal = {
+        ...goalData,
+        id: Date.now(),
+      };
+    }
     set((state) => {
-      const updatedGoals = [...state.savingGoals, newGoal];
+      const updatedGoals = [...state.savingGoals, createdGoal];
       const newState = { savingGoals: updatedGoals };
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
 
-  depositToGoal: (goalId, walletId, amount) => {
+  depositToGoal: async (goalId, walletId, amount) => {
+    try {
+      await SavingGoalApiService.deposit(goalId, amount, walletId);
+    } catch (e) {}
+
     set((state) => {
       const selectedWallet = state.wallets.find((w) => w.id === walletId);
       const selectedGoal = state.savingGoals.find((g) => g.id === goalId);
@@ -2489,23 +2526,24 @@ export const useStore = create<AppState>((set, get) => ({
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
 
-      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes] = await Promise.allSettled([
+      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes, goalsRes] = await Promise.allSettled([
         WalletService.getAll(),
         TransactionService.getAll(0, 100),
         BudgetService.getAll(month, year),
         DashboardService.getSummary(year, month),
         DashboardService.getRecommendations(year, month),
+        SavingGoalApiService.getAll(),
       ]);
 
       const updates: any = {};
       if (walletsRes.status === 'fulfilled' && Array.isArray(walletsRes.value) && walletsRes.value.length > 0) {
         updates.wallets = walletsRes.value.map((w: any) => ({
           id: w.id,
-          walletName: w.name || w.walletName,
+          walletName: w.walletName || w.name,
           cardNumberMasked: w.accountNumber || w.cardNumberMasked || '',
           balance: Number(w.balance || w.initialBalance || 0),
           currency: w.currency || 'VND',
-          type: w.walletType || w.type || 'BANK',
+          type: w.type || w.walletType || 'BANK',
           color: w.color || 'from-slate-900 to-indigo-950',
           bankName: w.bankName,
         }));
@@ -2515,10 +2553,10 @@ export const useStore = create<AppState>((set, get) => ({
         updates.recentTransactions = txsRes.value.content.map((t: any) => ({
           id: t.id,
           walletId: t.wallet?.id || t.walletId || 1,
-          walletName: t.wallet?.name || t.walletName || 'Ví',
+          walletName: t.wallet?.walletName || t.wallet?.name || t.walletName || 'Ví',
           categoryName: t.category?.name || t.categoryName || 'Chi tiêu',
           categoryIcon: t.category?.icon || t.categoryIcon || 'ShoppingBag',
-          actionTitle: t.note || t.actionTitle || 'Giao dịch',
+          actionTitle: t.actionTitle || t.note || 'Giao dịch',
           amount: Number(t.amount || 0),
           transactionType: t.transactionType,
           transactionDate: t.transactionDate,
@@ -2547,17 +2585,30 @@ export const useStore = create<AppState>((set, get) => ({
         updates.botRecommendation = botRes.value;
       }
 
+      if (goalsRes.status === 'fulfilled' && Array.isArray(goalsRes.value) && goalsRes.value.length > 0) {
+        updates.savingGoals = goalsRes.value.map((g: any) => ({
+          id: g.id,
+          goalName: g.goalName,
+          targetAmount: Number(g.targetAmount || 0),
+          currentAmount: Number(g.currentAmount || 0),
+          deadline: g.deadline,
+          status: g.status || 'IN_PROGRESS',
+        }));
+      }
+
       if (Object.keys(updates).length > 0) {
         set((state) => {
           const finalWallets = updates.wallets || state.wallets;
           const finalTxs = updates.recentTransactions || state.recentTransactions;
           const finalBudgets = updates.budgets || state.budgets;
+          const finalGoals = updates.savingGoals || state.savingGoals;
           const finalSummary = updates.dashboardSummary || calculateDashboardSummary(finalWallets, finalTxs, finalBudgets);
           const finalBot = updates.botRecommendation || state.botRecommendation;
           const newState = {
             wallets: finalWallets,
             recentTransactions: finalTxs,
             budgets: finalBudgets,
+            savingGoals: finalGoals,
             dashboardSummary: finalSummary,
             botRecommendation: finalBot,
           };
@@ -2679,6 +2730,10 @@ export const useStore = create<AppState>((set, get) => ({
   fetchSentInvitations: async () => {
     const user = get().currentUser;
     if (!user || !user.email) return;
+    if (user.role !== 'FAMILY_ADMIN' || !user.familyGroupId) {
+      set({ sentInvitations: [] });
+      return;
+    }
 
     let invites: FamilyInvitation[] = [];
     try {

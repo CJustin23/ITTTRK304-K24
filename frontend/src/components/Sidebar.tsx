@@ -27,7 +27,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
     { id: 'transactions', label: 'Giao dịch (Activities)', icon: ArrowLeftRight },
     { id: 'budgets', label: 'Ngân sách (Budgets)', icon: PieChart },
     { id: 'goals', label: 'Mục tiêu (Goals)', icon: Target },
-    { id: 'insights', label: 'Phân tích AI (Insights)', icon: Sparkles },
     { id: 'family', label: 'Quỹ gia đình (Family)', icon: Users },
     { id: 'settings', label: 'Cài đặt (Settings)', icon: Settings },
   ];
@@ -36,9 +35,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
   }
 
   return (
-    <aside className="w-64 bg-[#1E293B] text-slate-300 flex flex-col shrink-0 min-h-screen border-r border-slate-700">
+    <aside className="w-64 h-screen sticky top-0 bg-[#1E293B] text-slate-300 flex flex-col shrink-0 border-r border-slate-700 z-30">
       {/* Brand Logo */}
-      <div className="h-20 flex items-center px-6 gap-3 border-b border-slate-700/60">
+      <div className="h-20 shrink-0 flex items-center px-6 gap-3 border-b border-slate-700/60">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
           B
         </div>
@@ -49,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto min-h-0">
         <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 px-3 mb-2">
           Menu chính
         </div>
@@ -72,12 +71,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
           );
         })}
 
-        {/* AI Bot Recommendation Highlight */}
+        {/* AI Bot Launcher Highlight */}
         <div className="pt-6">
           <div className="flex items-center justify-between px-3 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Trợ lý AI</span>
-            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full">
-              Đang phát triển
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Trực tuyến
             </span>
           </div>
           <button
@@ -88,13 +88,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
               <Sparkles className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
               <span>AI Cố vấn Tài chính</span>
             </div>
-            <span className="text-[10px] text-slate-400 group-hover:text-emerald-300">Beta</span>
+            <span className="text-[10px] text-emerald-300 font-bold px-1.5 py-0.5 rounded bg-emerald-500/20">PRO</span>
           </button>
         </div>
       </nav>
 
-      {/* Footer / User Mini Profile */}
-      <div className="p-4 border-t border-slate-700/60 bg-slate-800/40">
+      {/* Footer / User Mini Profile - Cố định ở đáy Sidebar */}
+      <div className="shrink-0 p-4 border-t border-slate-700/60 bg-slate-800/40 mt-auto">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setActiveTab('settings')}

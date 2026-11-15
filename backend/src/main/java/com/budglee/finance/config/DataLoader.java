@@ -33,7 +33,7 @@ public class DataLoader implements CommandLineRunner {
                         .email("family@budglee.com")
                         .passwordHash(passwordEncoder.encode("Budglee@2026"))
                         .role(Role.FAMILY_ADMIN)
-                        .familyGroupId("FAM-001")
+                        .familyGroupId(null)
                         .enabled(true)
                         .build())
         );
@@ -45,6 +45,11 @@ public class DataLoader implements CommandLineRunner {
                         .createdBy(familyAdmin)
                         .build())
         );
+
+        if (familyAdmin.getFamilyGroupId() == null) {
+            familyAdmin.setFamilyGroupId("FAM-001");
+            userRepository.save(familyAdmin);
+        }
 
         // 2. Tài khoản Thành viên demo
         userRepository.findByEmail("member@budglee.com").orElseGet(() ->
@@ -109,7 +114,7 @@ public class DataLoader implements CommandLineRunner {
                         .email("thanhba@gmail.com")
                         .passwordHash(passwordEncoder.encode("123456"))
                         .role(Role.FAMILY_ADMIN)
-                        .familyGroupId("FAM-HANHPHUC")
+                        .familyGroupId(null)
                         .enabled(true)
                         .build())
         );
@@ -121,6 +126,11 @@ public class DataLoader implements CommandLineRunner {
                         .createdBy(thanhBa)
                         .build())
         );
+
+        if (thanhBa.getFamilyGroupId() == null) {
+            thanhBa.setFamilyGroupId("FAM-HANHPHUC");
+            userRepository.save(thanhBa);
+        }
 
         // 5.3. Tài khoản Mẹ
         userRepository.findByEmail("thanhme@gmail.com").orElseGet(() ->

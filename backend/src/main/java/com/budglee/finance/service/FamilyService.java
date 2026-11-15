@@ -399,15 +399,19 @@ public class FamilyService {
      * Lấy danh sách thành viên thuộc nhóm gia đình hiện tại.
      */
     @Transactional(readOnly = true)
-    public List<FamilyMemberResponse> getFamilyMembers(
-            Long currentUserId
-    ) {
-        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
+    public List<FamilyMemberResponse> getFamilyMembers(Long currentUserId) {
+        User user = getCurrentUser(currentUserId);
+        String groupId = user.getFamilyGroupId();
 
-        List<User> members =
-                userRepository.findByFamilyGroupId(familyGroup.getId());
+        if (groupId == null || groupId.isBlank()) {
+            if (user.getRole() == Role.FAMILY_ADMIN) {
+                groupId = getOwnedFamilyGroup(currentUserId).getId();
+            } else {
+                return List.of();
+            }
+        }
 
-        return members.stream()
+        return userRepository.findByFamilyGroupId(groupId).stream()
                 .map(this::toMemberResponse)
                 .toList();
     }

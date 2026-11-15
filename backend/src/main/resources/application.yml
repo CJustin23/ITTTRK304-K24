@@ -29,7 +29,7 @@ server:
 # JWT Token Configuration
 app:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   cors:
     # Danh sách origin trình duyệt được phép gọi API kèm credential, phân cách bởi dấu phẩy.
@@ -40,12 +40,24 @@ app:
       enabled: ${LOGIN_LOCKOUT_ENABLED:true}
     # Tra OTP quen mat khau trong response: CHI bat cho demo cuc bo (dev/local).
     # Mac dinh tat vi /auth/forgot-password la endpoint cong khai, lo ma la lo quyen doi mat khau.
+    expose-reset-otp: ${APP_SECURITY_EXPOSE_OTP:false}
     expose-otp: ${APP_SECURITY_EXPOSE_OTP:false}
+    system-admin:
+      email: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:admin@budglee.com}
+      password: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:Admin@Budglee2026}
   admin:
     chatbot-encryption-secret: ${CHATBOT_KEY_ENCRYPTION_SECRET:${JWT_SECRET:Budglee-dev-only-chatbot-encryption-secret}}
     backup-directory: ${ADMIN_BACKUP_DIRECTORY:/backups}
     backup-script: ${ADMIN_BACKUP_SCRIPT:./devops/scripts/backup.sh}
     restore-script: ${ADMIN_RESTORE_SCRIPT:./devops/scripts/restore.sh}
+  ai:
+    postgres:
+      url: ${AI_POSTGRES_URL:}
+      username: ${AI_POSTGRES_USERNAME:}
+      password: ${AI_POSTGRES_PASSWORD:}
+      enabled: ${AI_POSTGRES_ENABLED:false}
+    default-provider: ${AI_DEFAULT_PROVIDER:GEMINI}
+    default-model: ${AI_DEFAULT_MODEL:gemini-1.5-flash}
 
 # Swagger / OpenAPI
 springdoc:

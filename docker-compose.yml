@@ -54,7 +54,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-budglee_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-budglee_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-budglee_user}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-budglee_secret}
       SPRING_DATA_REDIS_HOST: redis

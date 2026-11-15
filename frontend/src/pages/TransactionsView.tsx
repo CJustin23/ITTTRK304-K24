@@ -36,6 +36,7 @@ export const TransactionsView: React.FC = () => {
     return matchesSearch && matchesWallet && matchesCategory;
   });
 
+  const allCount = baseFiltered.length;
   const incomeCount = baseFiltered.filter((tx) => tx.transactionType === 'INCOME').length;
   const expenseCount = baseFiltered.filter((tx) => tx.transactionType === 'EXPENSE').length;
 
@@ -197,7 +198,7 @@ export const TransactionsView: React.FC = () => {
                       filterType === 'ALL' ? 'bg-white text-emerald-600 shadow-sm font-bold' : 'hover:text-slate-900'
                   }`}
               >
-                Tất cả ({baseFiltered.length})
+                Tất cả ({allCount})
               </button>
               <button
                   onClick={() => setFilterType('INCOME')}
@@ -286,7 +287,7 @@ export const TransactionsView: React.FC = () => {
                         </span>
                           </td>
                           <td className="py-4 px-6 text-slate-600 font-medium">
-                            {t.walletName || 'Ví chính'}
+                            {t.walletName || wallets.find((w) => w.id === t.walletId)?.walletName || 'Ví'}
                           </td>
                           <td className="py-4 px-6 text-slate-400 text-xs font-mono">
                             {t.transactionDate}
