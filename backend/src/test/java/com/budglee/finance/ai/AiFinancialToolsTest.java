@@ -46,6 +46,9 @@ class AiFinancialToolsTest {
     @Mock
     private FinancialHealthService financialHealthService;
 
+    @Mock
+    private com.budglee.finance.service.WalletService walletService;
+
     private AiToolExecutorService toolExecutor;
 
     private User mockUser;
@@ -60,7 +63,8 @@ class AiFinancialToolsTest {
                 categoryRepository,
                 userRepository,
                 familyGroupRepository,
-                financialHealthService
+                financialHealthService,
+                walletService
         );
 
         mockUser = User.builder()
@@ -244,6 +248,38 @@ class AiFinancialToolsTest {
         assertThatThrownBy(() -> toolExecutor.executeConfirmedAction(1L, confirm.getConfirmationId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("hết hạn hoặc không tồn tại");
+    }
+
+    @Test
+    @DisplayName("AI Wallet Creation: Chuẩn bị và thực thi tạo ví mới thành công")
+    void prepareAndExecuteCreateWallet_createsWalletSuccessfully() {
+        Wallet createdWallet = Wallet.builder()
+                .id(99L)
+                .walletName("Ví Tiết Kiệm")
+                .type(WalletType.BANK)
+                .balance(new BigDecimal("5000000"))
+                .currency("VND")
+                .build();
+
+        when(walletService.create(eq(1L), any(com.budglee.finance.dto.WalletRequest.class))).thenReturn(createdWallet);
+
+        ToolConfirmationDto confirm = toolExecutor.prepareCreateWallet(
+                1L, "Ví Tiết Kiệm", WalletType.BANK, new BigDecimal("5000000"), "Tạo ví Tiết Kiệm 5 triệu"
+        );
+
+        assertThat(confirm.getActionType()).isEqualTo("CREATE_WALLET");
+        assertThat(confirm.getWalletName()).isEqualTo("Ví Tiết Kiệm");
+        assertThat(confirm.getAmount()).isEqualByComparingTo(new BigDecimal("5000000"));
+
+        Map<String, Object> result = toolExecutor.executeConfirmedAction(1L, confirm.getConfirmationId());
+
+        assertThat(result.get("status")).isEqualTo("success");
+        assertThat(result.get("walletName")).isEqualTo("Ví Tiết Kiệm");
+        verify(walletService).create(eq(1L), argThat(req -> 
+                "Ví Tiết Kiệm".equals(req.getWalletName()) &&
+                req.getType() == WalletType.BANK &&
+                req.getBalance().compareTo(new BigDecimal("5000000")) == 0
+        ));
     }
 }
 
