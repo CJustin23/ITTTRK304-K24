@@ -146,5 +146,54 @@ class AiFinancialToolsTest {
         assertThatThrownBy(() -> toolExecutor.executeConfirmedAction(2L, confirm.getConfirmationId()))
                 .isInstanceOf(SecurityException.class);
     }
+
+    @Test
+    @DisplayName("Quick Transaction: Khi người dùng nói 'thẻ vietinbank' nhưng chưa có ví riêng, tự động dùng ví ngân hàng hoặc ví khả dụng")
+    void prepareCreateTransaction_withBankCardFallback_handlesNonExactWalletName() {
+        Wallet mockBankWallet = Wallet.builder()
+                .id(20L)
+                .user(mockUser)
+                .walletName("Tài khoản Ngân hàng")
+                .balance(new BigDecimal("1000000"))
+                .type(WalletType.BANK)
+                .build();
+
+        when(walletRepository.findByUserId(1L)).thenReturn(List.of(mockWallet, mockBankWallet));
+
+        ToolConfirmationDto confirm = toolExecutor.prepareCreateTransaction(
+                1L, new BigDecimal("20000"), "EXPENSE", "cà phê", "thẻ vietinbank", "vừa tiêu cà phê 20000đ vào thẻ vietinbank"
+        );
+
+        assertThat(confirm).isNotNull();
+        assertThat(confirm.getAmount()).isEqualByComparingTo("20000");
+        assertThat(confirm.getWalletName()).isEqualTo("Tài khoản Ngân hàng");
+        assertThat(confirm.getCategoryName()).isEqualTo("cà phê");
+    }
+
+    @Test
+    @DisplayName("Category Mapping: 'cà phê' tự động map vào danh mục 'Food & Drinks'")
+    void executeConfirmedAction_mapsCoffeeCategoryToFoodAndDrinks() {
+        Category foodCategory = Category.builder()
+                .id(100L)
+                .name("Food & Drinks")
+                .type(CategoryType.EXPENSE)
+                .build();
+
+        when(walletRepository.findByUserId(1L)).thenReturn(List.of(mockWallet));
+        when(walletRepository.findById(10L)).thenReturn(Optional.of(mockWallet));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(categoryRepository.findAllAvailableForUser(1L)).thenReturn(List.of(foodCategory));
+
+        ToolConfirmationDto confirm = toolExecutor.prepareCreateTransaction(
+                1L, new BigDecimal("20000"), "EXPENSE", "cà phê", "Ví Tiền mặt", "vừa tiêu cà phê 20000đ"
+        );
+
+        Map<String, Object> result = toolExecutor.executeConfirmedAction(1L, confirm.getConfirmationId());
+
+        assertThat(result.get("status")).isEqualTo("success");
+        verify(transactionRepository).save(argThat(tx -> 
+                tx.getCategory() != null && "Food & Drinks".equals(tx.getCategory().getName())
+        ));
+    }
 }
 
