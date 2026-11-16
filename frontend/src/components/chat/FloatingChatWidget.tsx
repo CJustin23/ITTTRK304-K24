@@ -22,6 +22,7 @@ import {
 import { AiChatService, ChatMessage, ToolConfirmation, AiKeyStatus } from '../../services/aiChatService';
 import { useStore } from '../../store/useStore';
 import { ChatMessageReview } from './ChatMessageReview';
+import { TransactionConfirmationCard } from './TransactionConfirmationCard';
 
 export const FloatingChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,6 +43,7 @@ export const FloatingChatWidget: React.FC = () => {
   // Tool Confirmation Loading state
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [confirmedSuccessIds, setConfirmedSuccessIds] = useState<Set<string>>(new Set());
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -180,11 +182,21 @@ export const FloatingChatWidget: React.FC = () => {
     ]);
   };
 
-  // Xác nhận thực thi Tool (Human-in-the-loop)
-  const handleConfirmTool = async (confirmation: ToolConfirmation) => {
+  // Xác nhận thực thi Tool (Human-in-the-loop) có hỗ trợ chỉnh sửa nội dung (overrides)
+  const handleConfirmTool = async (
+    confirmation: ToolConfirmation,
+    overrides?: {
+      amount?: number;
+      walletId?: number;
+      walletName?: string;
+      categoryName?: string;
+      note?: string;
+      type?: string;
+    }
+  ) => {
     setConfirmingId(confirmation.confirmationId);
     try {
-      const res = await AiChatService.confirmToolAction(confirmation.confirmationId);
+      const res = await AiChatService.confirmToolAction(confirmation.confirmationId, overrides);
       setConfirmedSuccessIds((prev) => new Set([...prev, confirmation.confirmationId]));
 
       // Tự động làm mới dữ liệu ví và giao dịch trên giao diện chính của Budglee
@@ -214,6 +226,25 @@ export const FloatingChatWidget: React.FC = () => {
     } finally {
       setConfirmingId(null);
     }
+  };
+
+  // Hủy bỏ thực thi Tool
+  const handleCancelTool = async (confirmation: ToolConfirmation) => {
+    try {
+      await AiChatService.cancelToolAction(confirmation.confirmationId);
+    } catch {
+      // Bỏ qua lỗi mạng khi hủy
+    }
+    setCancelledIds((prev) => new Set([...prev, confirmation.confirmationId]));
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: 'cancel_' + Date.now(),
+        role: 'assistant',
+        content: 'Đã hủy thao tác ghi chép theo yêu cầu của bạn.',
+        timestamp: Date.now(),
+      },
+    ]);
   };
 
   // Lưu API Key cá nhân
@@ -500,103 +531,14 @@ export const FloatingChatWidget: React.FC = () => {
 
                         {/* Thẻ xác nhận Giao dịch Thu Chi (Human-in-the-loop) */}
                         {msg.confirmation && (
-                          <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-br from-emerald-50/90 to-teal-50/80 border border-emerald-200/90 text-slate-800 space-y-2.5 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
-                                {msg.confirmation.actionType === 'INCOME' ? (
-                                  <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                                    <ArrowUpRight className="w-3.5 h-3.5" />
-                                  </div>
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center">
-                                    <ArrowDownRight className="w-3.5 h-3.5" />
-                                  </div>
-                                )}
-                                <span>{msg.confirmation.title || 'Xác nhận ghi chép Giao dịch'}</span>
-                              </div>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                  msg.confirmation.actionType === 'INCOME'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : 'bg-rose-100 text-rose-800'
-                                }`}
-                              >
-                                {msg.confirmation.actionType === 'INCOME' ? 'Thu nhập' : 'Chi tiêu'}
-                              </span>
-                            </div>
-
-                            <div className="text-[11px] text-slate-700 bg-white p-3 rounded-xl border border-emerald-100/80 space-y-2 shadow-xs">
-                              <div className="flex justify-between items-baseline">
-                                <span className="text-slate-400 font-medium">Số tiền:</span>
-                                <span
-                                  className={`text-sm font-extrabold ${
-                                    msg.confirmation.actionType === 'INCOME' ? 'text-emerald-600' : 'text-rose-600'
-                                  }`}
-                                >
-                                  {msg.confirmation.actionType === 'INCOME' ? '+' : '-'}
-                                  {new Intl.NumberFormat('vi-VN').format(msg.confirmation.amount || 0)} ₫
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400 flex items-center gap-1">
-                                  <Wallet className="w-3 h-3 text-slate-400" /> Ví nguồn:
-                                </span>
-                                <span className="font-semibold text-slate-800">{msg.confirmation.walletName}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400 flex items-center gap-1">
-                                  <Tag className="w-3 h-3 text-slate-400" /> Danh mục:
-                                </span>
-                                <span className="font-medium text-slate-700">{msg.confirmation.categoryName}</span>
-                              </div>
-                              {msg.confirmation.note && (
-                                <div className="pt-1.5 border-t border-slate-100 flex justify-between items-start text-[11px]">
-                                  <span className="text-slate-400">Ghi chú:</span>
-                                  <span className="italic text-slate-600 text-right max-w-[65%]">{msg.confirmation.note}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <p className="text-[11px] text-slate-500 italic px-0.5">{msg.confirmation.description}</p>
-
-                            {confirmedSuccessIds.has(msg.confirmation.confirmationId) ? (
-                              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100/80 px-3 py-2 rounded-xl justify-center shadow-xs">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                <span>Đã ghi chép thành công vào ví</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 pt-1">
-                                <button
-                                  onClick={() => handleConfirmTool(msg.confirmation!)}
-                                  disabled={confirmingId === msg.confirmation.confirmationId}
-                                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
-                                >
-                                  {confirmingId === msg.confirmation.confirmationId ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <Check className="w-3.5 h-3.5" />
-                                  )}
-                                  <span>Xác nhận ghi chép</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setMessages((prev) => [
-                                      ...prev,
-                                      {
-                                        id: 'cancel_' + Date.now(),
-                                        role: 'assistant',
-                                        content: 'Đã hủy thao tác ghi chép theo yêu cầu của bạn.',
-                                        timestamp: Date.now(),
-                                      },
-                                    ]);
-                                  }}
-                                  className="py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-semibold text-xs transition-colors"
-                                >
-                                  Hủy bỏ
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <TransactionConfirmationCard
+                            confirmation={msg.confirmation}
+                            isConfirmed={confirmedSuccessIds.has(msg.confirmation.confirmationId)}
+                            isCancelled={cancelledIds.has(msg.confirmation.confirmationId)}
+                            isConfirming={confirmingId === msg.confirmation.confirmationId}
+                            onConfirm={handleConfirmTool}
+                            onCancel={handleCancelTool}
+                          />
                         )}
                       </div>
                       <span className="text-[10px] text-slate-400 px-1">

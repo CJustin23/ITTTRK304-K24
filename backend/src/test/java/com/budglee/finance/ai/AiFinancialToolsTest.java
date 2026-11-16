@@ -195,5 +195,55 @@ class AiFinancialToolsTest {
                 tx.getCategory() != null && "Food & Drinks".equals(tx.getCategory().getName())
         ));
     }
+
+    @Test
+    @DisplayName("Human-in-the-Loop Override: Người dùng chỉnh sửa số tiền và ghi chú trước khi xác nhận")
+    void executeConfirmedAction_withUserOverrides_updatesAmountAndNoteAndCategory() {
+        Category foodCategory = Category.builder()
+                .id(100L)
+                .name("Food & Drinks")
+                .type(CategoryType.EXPENSE)
+                .build();
+
+        when(walletRepository.findByUserId(1L)).thenReturn(List.of(mockWallet));
+        when(walletRepository.findById(10L)).thenReturn(Optional.of(mockWallet));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(mockUser));
+        when(categoryRepository.findAllAvailableForUser(1L)).thenReturn(List.of(foodCategory));
+
+        ToolConfirmationDto confirm = toolExecutor.prepareCreateTransaction(
+                1L, new BigDecimal("65000"), "EXPENSE", "ăn trưa", "Ví Tiền mặt", "Ghi chi ăn trưa 65.000đ"
+        );
+
+        // Người dùng chỉnh sửa số tiền từ 65.000 thành 70.000 và thêm ghi chú chi tiết
+        Map<String, Object> overrides = Map.of(
+                "amount", "70000",
+                "note", "Ăn trưa cùng nhóm bạn",
+                "categoryName", "Food & Drinks"
+        );
+
+        Map<String, Object> result = toolExecutor.executeConfirmedAction(1L, confirm.getConfirmationId(), overrides);
+
+        assertThat(result.get("status")).isEqualTo("success");
+        verify(transactionRepository).save(argThat(tx -> 
+                tx.getAmount().compareTo(new BigDecimal("70000")) == 0 &&
+                tx.getActionTitle().equals("Ăn trưa cùng nhóm bạn")
+        ));
+    }
+
+    @Test
+    @DisplayName("Cancel Tool Action: Hủy bỏ yêu cầu xác nhận giao dịch thành công")
+    void cancelAction_removesPendingActionSuccessfully() {
+        when(walletRepository.findByUserId(1L)).thenReturn(List.of(mockWallet));
+
+        ToolConfirmationDto confirm = toolExecutor.prepareCreateTransaction(
+                1L, new BigDecimal("65000"), "EXPENSE", "ăn trưa", "Ví Tiền mặt", "Ghi chi ăn trưa"
+        );
+
+        toolExecutor.cancelAction(confirm.getConfirmationId());
+
+        assertThatThrownBy(() -> toolExecutor.executeConfirmedAction(1L, confirm.getConfirmationId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("hết hạn hoặc không tồn tại");
+    }
 }
 
