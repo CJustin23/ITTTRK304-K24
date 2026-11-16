@@ -48,4 +48,21 @@ class InputGuardrailAndSecurityTest {
         String masked = securityService.maskKey(originalKey);
         assertThat(masked).contains("••••••••");
     }
+
+    @Test
+    @DisplayName("Hệ thống: Tự động dùng Default System Key cho tất cả tài khoản khi không có BYOK")
+    void securityService_fallsBackToSystemDefaultKey() {
+        String dummySystemKey = "system-mock-key-123456789";
+        AiKeySecurityService systemSecService = new AiKeySecurityService("budglee-secure-aes256-test-key-32b!", dummySystemKey);
+
+        // User 999 chưa từng nhập key
+        AiKeyStatusResponse status = systemSecService.getKeyStatus(999L, "session-999");
+        assertThat(status.isHasKey()).isTrue();
+        assertThat(status.getProvider()).isEqualTo("GEMINI");
+        assertThat(status.getModelName()).contains("gemini-3.5-flash");
+
+        // Resolve key trả về system default key
+        String resolved = systemSecService.resolveRawApiKey(999L, "session-999");
+        assertThat(resolved).isEqualTo(dummySystemKey);
+    }
 }

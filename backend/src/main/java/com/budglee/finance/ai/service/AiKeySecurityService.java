@@ -27,10 +27,18 @@ public class AiKeySecurityService {
     @Value("${app.admin.chatbot-encryption-secret:budglee-default-encryption-secret-2026-key}")
     private String encryptionSecret = "budglee-default-encryption-secret-2026-key";
 
+    @Value("${app.ai.gemini-api-key:${GEMINI_API_KEY:}}")
+    private String systemDefaultApiKey = "";
+
     public AiKeySecurityService() {}
 
     public AiKeySecurityService(String encryptionSecret) {
         this.encryptionSecret = encryptionSecret;
+    }
+
+    public AiKeySecurityService(String encryptionSecret, String systemDefaultApiKey) {
+        this.encryptionSecret = encryptionSecret;
+        this.systemDefaultApiKey = systemDefaultApiKey;
     }
 
     // Bộ nhớ lưu khóa đã mã hóa theo userId (nếu đã đăng nhập) hoặc sessionId (nếu là khách)
@@ -102,20 +110,32 @@ public class AiKeySecurityService {
     public AiKeyStatusResponse getKeyStatus(Long userId, String sessionId) {
         String lookupKey = buildLookupKey(userId, sessionId);
         EncryptedKeyRecord record = keyStore.get(lookupKey);
-        if (record == null) {
-            return AiKeyStatusResponse.builder().hasKey(false).build();
+        if (record != null) {
+            return AiKeyStatusResponse.builder()
+                    .hasKey(true)
+                    .provider(record.provider())
+                    .maskedKey(record.masked())
+                    .modelName(record.modelName())
+                    .build();
         }
-        return AiKeyStatusResponse.builder()
-                .hasKey(true)
-                .provider(record.provider())
-                .maskedKey(record.masked())
-                .modelName(record.modelName())
-                .build();
+        if (systemDefaultApiKey != null && !systemDefaultApiKey.isBlank()) {
+            return AiKeyStatusResponse.builder()
+                    .hasKey(true)
+                    .provider("GEMINI")
+                    .maskedKey(maskKey(systemDefaultApiKey))
+                    .modelName("gemini-3.5-flash (Hệ thống)")
+                    .build();
+        }
+        return AiKeyStatusResponse.builder().hasKey(false).build();
     }
 
     /**
      * Lấy API Key thô (đã giải mã) trong bộ nhớ phục vụ request LLM hiện tại.
      */
+    public String resolveRawApiKey(Long userId, String sessionId) {
+        return resolveRawApiKey(userId, sessionId, null);
+    }
+
     public String resolveRawApiKey(Long userId, String sessionId, String directKey) {
         if (directKey != null && !directKey.isBlank()) {
             return directKey.trim();
@@ -125,6 +145,9 @@ public class AiKeySecurityService {
         if (record != null) {
             return decrypt(record.ciphertext());
         }
+        if (systemDefaultApiKey != null && !systemDefaultApiKey.isBlank()) {
+            return systemDefaultApiKey.trim();
+        }
         return null;
     }
 
@@ -132,7 +155,14 @@ public class AiKeySecurityService {
      * Lấy thông tin Provider và Model của người dùng.
      */
     public EncryptedKeyRecord getKeyRecord(Long userId, String sessionId) {
-        return keyStore.get(buildLookupKey(userId, sessionId));
+        EncryptedKeyRecord record = keyStore.get(buildLookupKey(userId, sessionId));
+        if (record != null) {
+            return record;
+        }
+        if (systemDefaultApiKey != null && !systemDefaultApiKey.isBlank()) {
+            return new EncryptedKeyRecord("GEMINI", encrypt(systemDefaultApiKey), maskKey(systemDefaultApiKey), "gemini-3.5-flash");
+        }
+        return null;
     }
 
     /**

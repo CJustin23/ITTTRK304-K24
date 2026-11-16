@@ -351,17 +351,6 @@ export const FloatingChatWidget: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-1">
-              {/* Tab chuyển đổi Chat và Settings */}
-              <button
-                onClick={() => setActiveTab(activeTab === 'chat' ? 'settings' : 'chat')}
-                className={`p-1.5 rounded-xl transition-colors ${
-                  activeTab === 'settings' ? 'bg-white text-emerald-700 shadow-sm' : 'hover:bg-white/15 text-white'
-                }`}
-                title="Cài đặt khóa API cá nhân (BYOK)"
-              >
-                <Key className="w-4 h-4" />
-              </button>
-
               <button
                 onClick={handleResetConversation}
                 className="p-1.5 rounded-xl hover:bg-white/15 text-white transition-colors"

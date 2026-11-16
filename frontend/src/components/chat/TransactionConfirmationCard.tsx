@@ -443,28 +443,57 @@ export const TransactionConfirmationCard: React.FC<TransactionConfirmationCardPr
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            {/* Nút Hủy */}
-            <button
-              type="button"
-              onClick={() => onCancel(confirmation)}
-              disabled={isConfirming}
-              className="py-2.5 px-3.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Hủy</span>
-            </button>
+            {isEditing ? (
+              <>
+                {/* Nút Đóng sửa */}
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  disabled={isConfirming}
+                  className="py-2.5 px-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                  title="Đóng sửa và quay lại xem trước"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Đóng sửa</span>
+                </button>
 
-            {/* Nút Sửa (nếu đang ở View mode) */}
-            {!isEditing && (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                disabled={isConfirming}
-                className="py-2.5 px-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Sửa</span>
-              </button>
+                {/* Nút Hủy */}
+                <button
+                  type="button"
+                  onClick={() => onCancel(confirmation)}
+                  disabled={isConfirming}
+                  className="py-2.5 px-3 rounded-xl border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-semibold text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                  title="Hủy bỏ giao dịch"
+                >
+                  <span>Hủy</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Nút Hủy */}
+                <button
+                  type="button"
+                  onClick={() => onCancel(confirmation)}
+                  disabled={isConfirming}
+                  className="py-2.5 px-3.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                  title="Hủy bỏ giao dịch này"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Hủy</span>
+                </button>
+
+                {/* Nút Sửa */}
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  disabled={isConfirming}
+                  className="py-2.5 px-3 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                  title="Chỉnh sửa nội dung trước khi xác nhận"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Sửa</span>
+                </button>
+              </>
             )}
 
             {/* Nút Xác nhận */}
