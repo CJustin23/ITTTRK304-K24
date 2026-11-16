@@ -202,7 +202,7 @@ export const AiChatService = {
                 callbacks.onToken(parsed.token || '');
               } else if (eventName === 'status') {
                 callbacks.onStatus?.(parsed.status || '');
-              } else if (eventName === 'tool_confirmation') {
+              } else if (eventName === 'tool_confirmation' || eventName === 'confirmation') {
                 callbacks.onToolConfirm?.(parsed);
               } else if (eventName === 'done') {
                 callbacks.onDone(parsed.conversationId || conversationId);

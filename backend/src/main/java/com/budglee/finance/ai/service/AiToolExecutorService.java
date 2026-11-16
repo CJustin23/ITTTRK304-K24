@@ -269,33 +269,49 @@ public class AiToolExecutorService {
             throw new IllegalStateException("Bạn chưa có ví nào trong tài khoản. Hãy tạo ít nhất một ví trước khi ghi giao dịch.");
         }
 
-        Wallet targetWallet;
+        Wallet targetWallet = null;
         if (walletName != null && !walletName.isBlank()) {
             String search = walletName.trim().toLowerCase();
+            String cleanSearch = search.replaceAll("(?i)^(thẻ|ví|tài khoản|ngân hàng)\\s+", "").trim();
+
             targetWallet = wallets.stream()
                     .filter(w -> w.getWalletName().toLowerCase().contains(search) ||
-                            (w.getType() != null && w.getType().name().toLowerCase().contains(search)))
+                            (!cleanSearch.isBlank() && w.getWalletName().toLowerCase().contains(cleanSearch)) ||
+                            (w.getType() != null && w.getType().name().toLowerCase().contains(cleanSearch)))
                     .findFirst()
                     .orElse(null);
-            if (targetWallet == null) {
-                String existingNames = wallets.stream().map(Wallet::getWalletName).collect(Collectors.joining(", "));
-                throw new IllegalArgumentException(String.format(
-                        "Không tìm thấy ví nào phù hợp với '%s' trong tài khoản của bạn. Danh sách ví hiện có: %s.",
-                        walletName, existingNames
-                ));
+
+            // Nếu người dùng nói về thẻ/ngân hàng nhưng chưa có ví mang tên riêng đó, ưu tiên ví ngân hàng hoặc thẻ tín dụng
+            if (targetWallet == null && (search.contains("thẻ") || search.contains("ngân hàng") || search.contains("bank")
+                    || search.contains("vietin") || search.contains("vcb") || search.contains("tcb") || search.contains("mb") || search.contains("bidv"))) {
+                targetWallet = wallets.stream()
+                        .filter(w -> w.getType() == WalletType.BANK || w.getType() == WalletType.CREDIT_CARD)
+                        .findFirst()
+                        .orElse(null);
             }
-        } else {
+        }
+
+        if (targetWallet == null) {
             targetWallet = wallets.get(0);
         }
 
         if (type == TransactionType.EXPENSE && targetWallet.getType() != WalletType.CREDIT_CARD
                 && targetWallet.getBalance().compareTo(amount) < 0) {
-            throw new IllegalArgumentException(String.format(
-                    "Số dư ví '%s' hiện tại (%s) không đủ để chi tiêu %s.",
-                    targetWallet.getWalletName(),
-                    currencyFormatter.format(targetWallet.getBalance()),
-                    currencyFormatter.format(amount)
-            ));
+            // Thử kiểm tra xem có ví nào khác đủ tiền không
+            Wallet altWallet = wallets.stream()
+                    .filter(w -> w.getType() == WalletType.CREDIT_CARD || w.getBalance().compareTo(amount) >= 0)
+                    .findFirst()
+                    .orElse(null);
+            if (altWallet != null) {
+                targetWallet = altWallet;
+            } else {
+                throw new IllegalArgumentException(String.format(
+                        "Số dư các ví hiện tại không đủ để chi tiêu %s (Ví '%s' chỉ còn %s).",
+                        currencyFormatter.format(amount),
+                        targetWallet.getWalletName(),
+                        currencyFormatter.format(targetWallet.getBalance())
+                ));
+            }
         }
 
         String confirmationId = "tx_confirm_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
@@ -364,7 +380,7 @@ public class AiToolExecutorService {
 
             Category category = categoryRepository.findAllAvailableForUser(userId).stream()
                     .filter(c -> c.getName().equalsIgnoreCase(categoryName)
-                            || ("Food & Drinks".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("ăn") || categoryName.toLowerCase().contains("food")))
+                            || ("Food & Drinks".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("ăn") || categoryName.toLowerCase().contains("food") || categoryName.toLowerCase().contains("cà phê") || categoryName.toLowerCase().contains("cafe") || categoryName.toLowerCase().contains("coffee") || categoryName.toLowerCase().contains("uống") || categoryName.toLowerCase().contains("trà") || categoryName.toLowerCase().contains("nước")))
                             || ("Salary".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("lương") || categoryName.toLowerCase().contains("salary")))
                             || ("Shopping".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("mua") || categoryName.toLowerCase().contains("shop")))
                             || ("Travel & Transport".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("xe") || categoryName.toLowerCase().contains("xăng") || categoryName.toLowerCase().contains("di chuyển")))

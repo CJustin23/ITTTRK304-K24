@@ -172,6 +172,7 @@ public class AiChatService {
                 // Nếu có yêu cầu xác nhận thao tác (Human-in-the-loop)
                 if (result.confirmation != null) {
                     recordMessage(convId, "assistant", result.replyText, result.confirmation);
+                    emitter.send(SseEmitter.event().name("tool_confirmation").data(result.confirmation));
                     emitter.send(SseEmitter.event().name("confirmation").data(result.confirmation));
                 } else {
                     recordMessage(convId, "assistant", result.replyText, null);
@@ -423,7 +424,9 @@ public class AiChatService {
         BigDecimal amount = extractAmount(lower);
         if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0 &&
                 (lower.contains("chi") || lower.contains("ăn") || lower.contains("mua") || lower.contains("trả") ||
-                 lower.contains("tiêu") || lower.contains("đổ xăng") || lower.contains("thu") || lower.contains("lương") || lower.contains("thưởng"))) {
+                 lower.contains("tiêu") || lower.contains("đổ xăng") || lower.contains("thu") || lower.contains("lương") || lower.contains("thưởng") ||
+                 lower.contains("hóa đơn") || lower.contains("thêm") || lower.contains("ghi") || lower.contains("cà phê") || lower.contains("cafe") ||
+                 lower.contains("coffee") || lower.contains("tạo giao dịch") || lower.contains("chi tiêu"))) {
             try {
                 String type = (lower.contains("thu") || lower.contains("lương") || lower.contains("thưởng") || lower.contains("nhận")) ? "INCOME" : "EXPENSE";
                 String cat = guessCategory(lower, type);
@@ -669,16 +672,37 @@ public class AiChatService {
     }
 
     private String guessWalletName(String lower) {
-        Pattern p = Pattern.compile("(?i)(?:từ\\s+ví|vào\\s+ví|bằng\\s+ví|ở\\s+ví|tại\\s+ví)\\s+([^,.;!?\\n]+)");
+        Pattern p = Pattern.compile("(?i)(?:từ|vào|bằng|ở|tại|qua)\\s+(?:ví|thẻ|tài khoản|ngân hàng|app)?\\s*([a-zA-Z0-9_\\s\\u00C0-\\u1EF9]+)");
         Matcher m = p.matcher(lower);
         if (m.find()) {
-            return m.group(1).trim();
+            String extracted = m.group(1).trim();
+            extracted = extracted.replaceAll("(?i)\\s+(ngay|cho|giúp|nhé|nha|với|nhá|hộ|đi|luôn|nhanh).*$", "").trim();
+            if (!extracted.isBlank() && extracted.length() >= 2) {
+                return extracted;
+            }
         }
 
         if (lower.contains("thẻ tín dụng") || lower.contains("credit")) return "Thẻ Tín Dụng";
-        if (lower.contains("tiền mặt")) return "Ví Tiền mặt";
-        if (lower.contains("ngân hàng") || lower.contains("vietcombank") || lower.contains("techcombank") || lower.contains("mbbank")) return "Ngân hàng";
-        if (lower.contains("momo") || lower.contains("vnpay") || lower.contains("zalopay")) return "Ví điện tử";
+        if (lower.contains("tiền mặt") || lower.contains("cash")) return "Ví Tiền mặt";
+        if (lower.contains("vietinbank") || lower.contains("vietin")) return "VietinBank";
+        if (lower.contains("vietcombank") || lower.contains("vcb")) return "Vietcombank";
+        if (lower.contains("techcombank") || lower.contains("tcb")) return "Techcombank";
+        if (lower.contains("mbbank") || lower.contains("mb bank") || lower.contains("quân đội")) return "MBBank";
+        if (lower.contains("bidv")) return "BIDV";
+        if (lower.contains("agribank")) return "Agribank";
+        if (lower.contains("tpbank")) return "TPBank";
+        if (lower.contains("vpbank")) return "VPBank";
+        if (lower.contains("acb")) return "ACB";
+        if (lower.contains("sacombank")) return "Sacombank";
+        if (lower.contains("hdbank")) return "HDBank";
+        if (lower.contains("shb")) return "SHB";
+        if (lower.contains("vib")) return "VIB";
+        if (lower.contains("timo")) return "Timo";
+        if (lower.contains("cake")) return "Cake";
+        if (lower.contains("momo")) return "MoMo";
+        if (lower.contains("vnpay")) return "VNPay";
+        if (lower.contains("zalopay")) return "ZaloPay";
+        if (lower.contains("ngân hàng") || lower.contains("bank") || lower.contains("thẻ")) return "Ngân hàng";
         return null;
     }
 
@@ -689,7 +713,10 @@ public class AiChatService {
             if (lower.contains("đầu tư")) return "Investment";
             return "Other Income";
         }
-        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("cafe") || lower.contains("trà sữa") || lower.contains("phở") || lower.contains("bánh") || lower.contains("bún")) {
+        if (lower.contains("ăn") || lower.contains("uống") || lower.contains("cơm") || lower.contains("cafe") ||
+            lower.contains("cà phê") || lower.contains("ca phe") || lower.contains("coffee") || lower.contains("càfe") ||
+            lower.contains("trà sữa") || lower.contains("trà") || lower.contains("phở") || lower.contains("bánh") ||
+            lower.contains("bún") || lower.contains("nước")) {
             return "Food & Drinks";
         }
         if (lower.contains("xăng") || lower.contains("xe") || lower.contains("grab") || lower.contains("taxi") || lower.contains("đi lại")) {
