@@ -1,9 +1,11 @@
 package com.budglee.finance.ai.service;
 
 import com.budglee.finance.ai.dto.ToolConfirmationDto;
+import com.budglee.finance.dto.WalletRequest;
 import com.budglee.finance.entity.*;
 import com.budglee.finance.repository.*;
 import com.budglee.finance.service.FinancialHealthService;
+import com.budglee.finance.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +39,7 @@ public class AiToolExecutorService {
     private final UserRepository userRepository;
     private final FamilyGroupRepository familyGroupRepository;
     private final FinancialHealthService financialHealthService;
+    private final WalletService walletService;
 
     // Cache lưu trữ các yêu cầu giao dịch chờ người dùng bấm [Xác nhận] (Human-in-the-loop)
     private final Map<String, PendingAction> pendingActions = new ConcurrentHashMap<>();
@@ -345,6 +348,49 @@ public class AiToolExecutorService {
     }
 
     /**
+     * Tool 9: Chuẩn bị thông tin tạo ví mới và chờ xác nhận (Human-in-the-loop)
+     */
+    public ToolConfirmationDto prepareCreateWallet(
+            Long userId, String walletName, WalletType walletType, BigDecimal initialBalance, String rawQuery
+    ) {
+        String cleanName = (walletName != null && !walletName.isBlank()) ? walletName.trim() : "Ví mới";
+        WalletType type = walletType != null ? walletType : WalletType.CASH;
+        BigDecimal balance = (initialBalance != null && initialBalance.compareTo(BigDecimal.ZERO) >= 0)
+                ? initialBalance : BigDecimal.ZERO;
+
+        String confirmationId = "wallet_confirm_" + UUID.randomUUID();
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("walletName", cleanName);
+        params.put("walletType", type.name());
+        params.put("balance", balance);
+
+        PendingAction pending = new PendingAction(
+                confirmationId,
+                userId,
+                "CREATE_WALLET",
+                params,
+                System.currentTimeMillis() + 300_000
+        );
+        pendingActions.put(confirmationId, pending);
+
+        String typeLabel = type == WalletType.BANK ? "Ngân hàng" : (type == WalletType.CREDIT_CARD ? "Thẻ tín dụng" : "Tiền mặt");
+
+        return ToolConfirmationDto.builder()
+                .confirmationId(confirmationId)
+                .toolName("create_wallet")
+                .actionType("CREATE_WALLET")
+                .title("Xác nhận Tạo Ví Mới")
+                .walletName(cleanName)
+                .categoryName(typeLabel)
+                .amount(balance)
+                .parameters(params)
+                .description(String.format("Xác nhận tạo ví mới '%s' (%s) với số dư khởi tạo %s",
+                        cleanName, typeLabel, currencyFormatter.format(balance)))
+                .build();
+    }
+
+    /**
      * Hủy bỏ yêu cầu thực thi Tool đang chờ xác nhận
      */
     public void cancelAction(String confirmationId) {
@@ -497,6 +543,69 @@ public class AiToolExecutorService {
                             currencyFormatter.format(newBalance)),
                     "newBalance", newBalance,
                     "newBalanceFormatted", currencyFormatter.format(newBalance)
+            );
+        }
+
+        if ("CREATE_WALLET".equals(action.actionType())) {
+            String walletName = (overrides != null && overrides.get("walletName") != null && !overrides.get("walletName").toString().isBlank())
+                    ? overrides.get("walletName").toString().trim()
+                    : (String) action.params().get("walletName");
+
+            BigDecimal balance = BigDecimal.ZERO;
+            if (overrides != null && overrides.get("amount") != null && !overrides.get("amount").toString().isBlank()) {
+                try {
+                    balance = new BigDecimal(overrides.get("amount").toString().trim());
+                } catch (Exception ignored) {}
+            } else if (overrides != null && overrides.get("balance") != null && !overrides.get("balance").toString().isBlank()) {
+                try {
+                    balance = new BigDecimal(overrides.get("balance").toString().trim());
+                } catch (Exception ignored) {}
+            } else if (action.params().get("balance") != null) {
+                balance = (BigDecimal) action.params().get("balance");
+            }
+
+            WalletType type = WalletType.CASH;
+            String typeStr = (overrides != null && overrides.get("walletType") != null && !overrides.get("walletType").toString().isBlank())
+                    ? overrides.get("walletType").toString().trim()
+                    : (overrides != null && overrides.get("type") != null && !overrides.get("type").toString().isBlank())
+                    ? overrides.get("type").toString().trim()
+                    : (String) action.params().get("walletType");
+            if (typeStr != null) {
+                try {
+                    type = WalletType.valueOf(typeStr.toUpperCase());
+                } catch (Exception ignored) {
+                    if (typeStr.toLowerCase().contains("ngân hàng") || typeStr.toLowerCase().contains("bank")) {
+                        type = WalletType.BANK;
+                    } else if (typeStr.toLowerCase().contains("tín dụng") || typeStr.toLowerCase().contains("credit")) {
+                        type = WalletType.CREDIT_CARD;
+                    }
+                }
+            }
+
+            WalletRequest req = new WalletRequest();
+            req.setWalletName(walletName);
+            req.setType(type);
+            req.setBalance(balance);
+            req.setCurrency("VND");
+
+            Wallet created = walletService.create(userId, req);
+
+            String typeDisplay = created.getType() == WalletType.BANK ? "Ngân hàng"
+                    : (created.getType() == WalletType.CREDIT_CARD ? "Thẻ tín dụng" : "Tiền mặt");
+
+            log.info("Budglee AI: Đã tạo thành công ví id={} tên='{}' loại={} cho user={}",
+                    created.getId(), created.getWalletName(), created.getType(), userId);
+
+            return Map.of(
+                    "status", "success",
+                    "message", String.format("Đã tạo thành công ví '%s' (%s) với số dư khởi tạo %s.",
+                            created.getWalletName(),
+                            typeDisplay,
+                            currencyFormatter.format(created.getBalance())),
+                    "walletId", created.getId(),
+                    "walletName", created.getWalletName(),
+                    "balance", created.getBalance(),
+                    "balanceFormatted", currencyFormatter.format(created.getBalance())
             );
         }
 

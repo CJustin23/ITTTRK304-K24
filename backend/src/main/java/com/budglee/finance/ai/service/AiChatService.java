@@ -3,6 +3,7 @@ package com.budglee.finance.ai.service;
 import com.budglee.finance.ai.dto.AiChatRequest;
 import com.budglee.finance.ai.dto.AiChatResponse;
 import com.budglee.finance.ai.dto.ToolConfirmationDto;
+import com.budglee.finance.entity.WalletType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -287,7 +288,24 @@ public class AiChatService {
 
                     ToolConfirmationDto confirm = toolExecutor.prepareCreateTransaction(userId, amount, type, cat, wallet, note);
                     return new LlmExecutionResult(
-                            "Tôi đã chuẩn bị xong thông tin giao dịch của bạn. Vui lòng kiểm tra chi tiết bên dưới và bấm nút **[Xác nhận]** để cập nhật số dư ví:",
+                            "Tôi đã chuẩn bị giao dịch bên dưới. Bạn có thể kiểm tra, chỉnh sửa hoặc bấm **Xác nhận & Ghi vào Sổ**:",
+                            confirm
+                    );
+                }
+
+                // Tool Tạo Ví mới (Human-in-the-loop)
+                if ("prepare_create_wallet".equals(fnName) || "create_wallet".equals(fnName)) {
+                    String walletName = args.has("wallet_name") ? args.path("wallet_name").asText("Ví mới") : "Ví mới";
+                    String walletTypeStr = args.has("wallet_type") ? args.path("wallet_type").asText("CASH") : "CASH";
+                    WalletType wType = WalletType.CASH;
+                    try {
+                        wType = WalletType.valueOf(walletTypeStr.toUpperCase());
+                    } catch (Exception ignored) {}
+                    BigDecimal initBal = BigDecimal.valueOf(args.path("initial_balance").asDouble(0));
+
+                    ToolConfirmationDto confirm = toolExecutor.prepareCreateWallet(userId, walletName, wType, initBal, "Tạo ví " + walletName);
+                    return new LlmExecutionResult(
+                            "Tôi đã chuẩn bị thông tin tạo ví mới bên dưới. Bạn có thể kiểm tra, chỉnh sửa hoặc bấm **Xác nhận & Tạo ví**:",
                             confirm
                     );
                 }
@@ -419,6 +437,28 @@ public class AiChatService {
      */
     private LlmExecutionResult executeWithSmartLocalEngine(Long userId, String userMsg, String ragContext) {
         String lower = userMsg.toLowerCase().trim();
+
+        // 0. Ý định Tạo ví / Thêm ví mới (Human-in-the-loop)
+        if (lower.contains("tạo ví") || lower.contains("thêm ví") || lower.contains("mở ví")
+                || lower.contains("tạo thêm ví") || lower.contains("thêm tài khoản ví")
+                || lower.contains("tạo tài khoản ngân hàng") || lower.contains("thêm tài khoản ngân hàng")
+                || lower.contains("tạo ví mới") || lower.contains("thêm ví mới")) {
+            try {
+                BigDecimal initialBalance = extractAmount(lower);
+                if (initialBalance == null) {
+                    initialBalance = BigDecimal.ZERO;
+                }
+                WalletType type = guessWalletType(lower);
+                String walletName = extractNewWalletName(userMsg, lower);
+                ToolConfirmationDto confirm = toolExecutor.prepareCreateWallet(userId, walletName, type, initialBalance, userMsg);
+                return new LlmExecutionResult(
+                        "Tôi đã chuẩn bị thông tin tạo ví mới bên dưới. Bạn có thể kiểm tra, chỉnh sửa hoặc bấm **Xác nhận & Tạo ví**:",
+                        confirm
+                );
+            } catch (Exception ex) {
+                return new LlmExecutionResult("⚠️ " + ex.getMessage(), null);
+            }
+        }
 
         // 1. Ý định Ghi nhận giao dịch chi tiêu hoặc thu nhập (Human-in-the-loop)
         BigDecimal amount = extractAmount(lower);
@@ -625,6 +665,19 @@ public class AiChatService {
                                 )
                         ),
                         Map.of(
+                                "name", "prepare_create_wallet",
+                                "description", "Chuẩn bị tạo một ví tiền hoặc tài khoản ngân hàng mới cho người dùng (cần người dùng xác nhận).",
+                                "parameters", Map.of(
+                                        "type", "OBJECT",
+                                        "properties", Map.of(
+                                                "wallet_name", Map.of("type", "STRING", "description", "Tên ví mới (VD: 'Ví Tiết Kiệm', 'Techcombank')"),
+                                                "wallet_type", Map.of("type", "STRING", "description", "Loại ví: 'CASH' (tiền mặt), 'BANK' (ngân hàng), hoặc 'CREDIT_CARD' (thẻ tín dụng)"),
+                                                "initial_balance", Map.of("type", "NUMBER", "description", "Số dư khởi tạo ban đầu (VNĐ, mặc định 0)")
+                                        ),
+                                        "required", List.of("wallet_name")
+                                )
+                        ),
+                        Map.of(
                                 "name", "lookup_budget_overview",
                                 "description", "Tra cứu tình hình hạn mức và tiến độ chi tiêu ngân sách tháng này.",
                                 "parameters", Map.of("type", "OBJECT", "properties", Map.of())
@@ -706,6 +759,41 @@ public class AiChatService {
         if (lower.contains("zalopay")) return "ZaloPay";
         if (lower.contains("ngân hàng") || lower.contains("bank") || lower.contains("thẻ")) return "Ngân hàng";
         return null;
+    }
+
+    private WalletType guessWalletType(String lower) {
+        if (lower.contains("tín dụng") || lower.contains("credit") || lower.contains("visa") || lower.contains("mastercard")) {
+            return WalletType.CREDIT_CARD;
+        }
+        if (lower.contains("ngân hàng") || lower.contains("bank") || lower.contains("vietin") || lower.contains("vietcom")
+                || lower.contains("bidv") || lower.contains("techcom") || lower.contains("mb") || lower.contains("acb")
+                || lower.contains("vpbank") || lower.contains("vib") || lower.contains("tpbank") || lower.contains("agribank")
+                || lower.contains("sacombank") || lower.contains("shb") || lower.contains("hdbank") || lower.contains("msb")
+                || lower.contains("ocb") || lower.contains("seabank") || lower.contains("bản việt") || lower.contains("timo") || lower.contains("cake")) {
+            return WalletType.BANK;
+        }
+        return WalletType.CASH;
+    }
+
+    private String extractNewWalletName(String rawMsg, String lower) {
+        Pattern p = Pattern.compile("(?i)(?:tạo|thêm|mở)\\s+(?:cho\\s+(?:tôi|t|mình)\\s+)?(?:một\\s+)?(?:ví|tài\\s+khoản)\\s+(?:mới\\s+)?(?:tên\\s+(?:là|:\\s*)?)?([a-zA-Z0-9_\\s\\u00C0-\\u1EF9]+?)(?:\\s+(?:với\\s+)?(?:số\\s+dư|có|loại|hạn\\s+mức|khoảng|\\d)|$)", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(rawMsg);
+        if (m.find()) {
+            String name = m.group(1).trim();
+            name = name.replaceAll("(?i)^(cho\\s+tôi|cho\\s+t|cho\\s+mình|ví|tài\\s+khoản|mới)\\s+", "").trim();
+            if (!name.isBlank() && name.length() >= 2) {
+                return name;
+            }
+        }
+        for (String bank : VN_BANKS) {
+            if (lower.contains(bank.toLowerCase())) {
+                return "Ngân hàng " + bank;
+            }
+        }
+        if (lower.contains("tiết kiệm")) return "Ví Tiết Kiệm";
+        if (lower.contains("tiền mặt")) return "Ví Tiền mặt";
+        if (lower.contains("tín dụng")) return "Thẻ Tín Dụng";
+        return "Ví mới";
     }
 
     private String guessCategory(String lower, String type) {
