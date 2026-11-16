@@ -31,6 +31,22 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+// Interceptor tự động xử lý khi token đăng nhập hết hạn sau 24h hoặc bị thu hồi (401 Unauthorized)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error?.response?.status === 401) {
+        // Xóa sạch trạng thái đăng nhập khi token 24h đã hết hạn
+        localStorage.removeItem('budglee_token');
+        localStorage.removeItem('budglee_token_created_at');
+        localStorage.removeItem('budglee_token_expires_at');
+        localStorage.removeItem('budglee_current_user');
+        window.dispatchEvent(new CustomEvent('budglee:auth-expired'));
+      }
+      return Promise.reject(error);
+    }
+);
+
 export const AuthService = {
   register: async (data: { fullName: string; email: string; password: string }): Promise<{ id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
     const response = await api.post('/auth/register', { ...data, role: 'INDIVIDUAL_USER' });

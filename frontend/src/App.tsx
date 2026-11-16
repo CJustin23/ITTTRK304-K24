@@ -25,7 +25,7 @@ import { InviteFamilyModal } from './components/InviteFamilyModal';
 import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
 import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
 
-import { useStore } from './store/useStore';
+import { useStore, isTokenExpired } from './store/useStore';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -88,6 +88,21 @@ export const App: React.FC = () => {
       handleTabChange('overview');
     };
 
+    // Lắng nghe sự kiện token hết hạn sau 24h hoặc từ 401 response
+    const handleAuthExpired = () => {
+      logout();
+      handleTabChange('auth');
+    };
+    window.addEventListener('budglee:auth-expired', handleAuthExpired);
+
+    // Kiểm tra định kỳ mỗi 30s xem token 24h đã hết hạn chưa
+    const checkExpiryInterval = setInterval(() => {
+      const currentToken = useStore.getState().token || localStorage.getItem('budglee_token');
+      if (currentToken && isTokenExpired(currentToken)) {
+        handleAuthExpired();
+      }
+    }, 30000);
+
     const syncFamilyData = () => {
       const u = useStore.getState().currentUser;
       if (u && u.role !== 'SYSTEM_ADMIN') {
@@ -121,6 +136,8 @@ export const App: React.FC = () => {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
+      clearInterval(checkExpiryInterval);
+      window.removeEventListener('budglee:auth-expired', handleAuthExpired);
       window.removeEventListener('storage', syncFamilyData);
       window.removeEventListener('budglee_invitation_update', syncFamilyData);
     };
