@@ -416,9 +416,6 @@ public class AiChatService {
             return new LlmExecutionResult(formatToolResultNaturally(fnName, toolResult), null);
         }
     }
-        }
-        return new LlmExecutionResult(formatToolResultNaturally(fnName, toolResult), null);
-    }
 
     /**
      * Gọi OpenAI Chat Completions với Tool Calling.
