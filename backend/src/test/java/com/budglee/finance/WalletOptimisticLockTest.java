@@ -64,7 +64,7 @@ class WalletOptimisticLockTest {
     private String token;
 
     private String loginNewUser() throws Exception {
-        String email = "lock." + UUID.randomUUID() + "@budglee.dev";
+        String email = "lock." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Người dùng khoá phiên bản");
         body.put("email", email);

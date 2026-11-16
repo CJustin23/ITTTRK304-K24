@@ -2,6 +2,7 @@ package com.budglee.finance.controller;
 
 import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.TransactionRequest;
+import com.budglee.finance.dto.TransactionUpdateRequest;
 import com.budglee.finance.entity.Transaction;
 import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.TransactionService;
@@ -48,5 +49,24 @@ public class TransactionController {
         Page<Transaction> result = transactionService.getUserTransactions(
                 currentUser.getId(), PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE)));
         return ResponseEntity.ok(ApiResponse.ok(result, "Lấy danh sách giao dịch thành công"));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Cập nhật thông tin giao dịch và điều chỉnh lại số dư ví")
+    public ResponseEntity<ApiResponse<Transaction>> updateTransaction(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id,
+            @Valid @RequestBody TransactionUpdateRequest request) {
+        Transaction tx = transactionService.updateTransaction(currentUser.getId(), id, request);
+        return ResponseEntity.ok(ApiResponse.ok(tx, "Cập nhật giao dịch thành công"));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Xóa giao dịch và hoàn lại số dư ví")
+    public ResponseEntity<ApiResponse<Void>> deleteTransaction(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id) {
+        transactionService.deleteTransaction(currentUser.getId(), id);
+        return ResponseEntity.ok(ApiResponse.ok(null, "Xóa giao dịch và hoàn số dư thành công"));
     }
 }

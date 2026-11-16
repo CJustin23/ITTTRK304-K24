@@ -15,6 +15,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const {
     notifications,
+    receivedInvitations,
+    fetchReceivedInvitations,
     markNotificationAsRead,
     markAllNotificationsAsRead,
     setSelectedInvitationForConfirm,
@@ -24,7 +26,26 @@ export const Header: React.FC<HeaderProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Tự động gộp các lời mời gia đình đang chờ duyệt (PENDING) lên đầu danh sách thông báo của chuông
+  const pendingReceived = (receivedInvitations || []).filter((i) => i.status === 'PENDING');
+
+  const inviteNotifications = pendingReceived.map((inv) => ({
+    id: `invite-notif-${inv.id}`,
+    title: 'Lời mời tham gia Quỹ Gia đình',
+    message: `${inv.invitedByName || 'Chủ hộ'} (${inv.invitedByEmail || 'chủ nhóm'}) đã gửi lời mời bạn tham gia nhóm gia đình "${inv.familyGroupName}". Nhấn vào đây để xem và xác nhận!`,
+    time: 'Mới nhận',
+    type: 'INFO' as const,
+    read: false,
+    actionType: 'FAMILY_INVITATION',
+    actionData: inv,
+  }));
+
+  const otherNotifications = (notifications || []).filter(
+    (n) => !n.id.startsWith('invite-notif-')
+  );
+
+  const allNotifications = [...inviteNotifications, ...otherNotifications];
+  const unreadCount = allNotifications.filter((n) => !n.read).length;
 
   // Close when clicking outside
   useEffect(() => {
@@ -93,7 +114,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Notification Bell with Dropdown */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => {
+              const next = !showNotifications;
+              setShowNotifications(next);
+              if (next) {
+                fetchReceivedInvitations();
+              }
+            }}
             title="Thông báo ngân sách & Hệ thống"
             className={`relative p-2.5 rounded-xl border transition-colors ${
               showNotifications
@@ -133,20 +160,28 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {notifications.length === 0 ? (
+                {allNotifications.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
                     Không có thông báo mới
                   </div>
                 ) : (
-                  notifications.map((n) => (
+                  allNotifications.map((n) => (
                     <div
                       key={n.id}
                       onClick={() => {
                         markNotificationAsRead(n.id);
-                        if (n.actionType === 'FAMILY_INVITATION' && n.actionData) {
-                          setSelectedInvitationForConfirm(n.actionData);
-                          setConfirmInviteModalOpen(true);
-                          setShowNotifications(false);
+                        if (n.actionType === 'FAMILY_INVITATION') {
+                          let inv = n.actionData;
+                          if (!inv && receivedInvitations) {
+                            inv = receivedInvitations.find(
+                              (i) => `invite-notif-${i.id}` === n.id || n.id.includes(String(i.id))
+                            );
+                          }
+                          if (inv) {
+                            setSelectedInvitationForConfirm(inv);
+                            setConfirmInviteModalOpen(true);
+                            setShowNotifications(false);
+                          }
                         }
                       }}
                       className={`p-4 transition-colors cursor-pointer flex gap-3 ${

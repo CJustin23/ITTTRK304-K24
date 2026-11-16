@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, DollarSign, AlertCircle } from 'lucide-react';
 import { TransactionType, Wallet } from '../types';
 
@@ -30,19 +30,30 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [note, setNote] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    if (isOpen && wallets.length > 0) {
+      if (!wallets.some((w) => w.id === walletId)) {
+        setWalletId(wallets[0].id);
+      }
+    }
+  }, [isOpen, wallets, walletId]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
     const numAmount = parseFloat(amount);
+    const activeWalletId = wallets.some((w) => w.id === walletId)
+      ? walletId
+      : (wallets[0]?.id || walletId);
 
     if (!amount.trim()) {
       errs.amount = 'Vui lòng nhập số tiền giao dịch';
     } else if (isNaN(numAmount) || numAmount <= 0) {
       errs.amount = 'Số tiền giao dịch phải lớn hơn 0 ₫';
     } else if (transactionType === 'EXPENSE') {
-      const selectedWallet = wallets.find((w) => w.id === walletId);
+      const selectedWallet = wallets.find((w) => w.id === activeWalletId);
       if (selectedWallet && numAmount > selectedWallet.balance) {
         errs.amount = `Số tiền chi tiêu vượt quá số dư ví (${new Intl.NumberFormat('vi-VN').format(selectedWallet.balance)} ₫)`;
       }
@@ -60,7 +71,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     }
 
     onSubmit({
-      walletId,
+      walletId: activeWalletId,
       actionTitle: actionTitle.trim(),
       amount: numAmount,
       transactionType,
@@ -182,7 +193,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Nguồn tiền (Ví / Thẻ)</label>
             <select
-              value={walletId}
+              value={wallets.some((w) => w.id === walletId) ? walletId : (wallets[0]?.id || '')}
               onChange={(e) => {
                 setWalletId(Number(e.target.value));
                 if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));

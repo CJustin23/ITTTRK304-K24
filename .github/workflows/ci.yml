@@ -198,6 +198,8 @@ jobs:
           JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
           DB_PASSWORD: test_password
           DB_ROOT_PASSWORD: test_root_password
+          MAIL_USERNAME: test@example.com
+          MAIL_PASSWORD: test_password
         run: |
           docker compose config
           docker compose -f docker-compose.prod.yml config
@@ -269,6 +271,7 @@ jobs:
               echo "Pulling latest changes from branch $BRANCH..."
               git fetch origin "$BRANCH"
               git checkout -B "$BRANCH" "origin/$BRANCH"
+              sudo bash deploy/ensure-admin.sh /opt/budglee/deploy/.env.production
               echo "Rebuilding and restarting updated containers..."
               docker compose -f deploy/docker-compose.vps.yml --env-file deploy/.env.production up -d --build
               echo "Pruning dangling images to save disk space on 30GB VPS..."

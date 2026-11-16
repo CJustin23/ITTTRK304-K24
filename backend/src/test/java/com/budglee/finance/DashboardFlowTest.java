@@ -57,7 +57,7 @@ class DashboardFlowTest {
     }
 
     private String loginNewUser() throws Exception {
-        String email = "dashboard." + UUID.randomUUID() + "@budglee.dev";
+        String email = "dashboard." + UUID.randomUUID() + "@gmail.com";
         mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(Map.of(

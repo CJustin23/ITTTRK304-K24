@@ -83,7 +83,7 @@ class RbacAdminAccessTest {
     }
 
     private Account register(Role role, String familyGroupId) throws Exception {
-        String email = "rbac." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Thành viên " + role);
         body.put("email", email);
@@ -103,7 +103,7 @@ class RbacAdminAccessTest {
      * Vai trò đặc quyền không đăng ký qua API được (DUAN-39), nên dựng thẳng trong CSDL rồi lấy token.
      */
     private Account createAccount(Role role, String familyGroupId) throws Exception {
-        String email = "rbac." + role.name().toLowerCase() + "." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac." + role.name().toLowerCase() + "." + UUID.randomUUID() + "@gmail.com";
         userRepository.save(User.builder()
                 .fullName("Quản trị " + role)
                 .email(email)
@@ -267,7 +267,7 @@ class RbacAdminAccessTest {
 
     @Test
     void bootstrapCreatesTheFirstSystemAdminAndThatAdminCanGrantRoles() throws Exception {
-        String email = "rbac.bootstrap." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac.bootstrap." + UUID.randomUUID() + "@gmail.com";
 
         new SystemAdminBootstrap(userRepository, passwordEncoder, email.toUpperCase(Locale.ROOT), PASSWORD)
                 .run(null);
@@ -292,7 +292,7 @@ class RbacAdminAccessTest {
 
     @Test
     void bootstrapRefusesToCreateAdminWithAWeakPassword() throws Exception {
-        String email = "rbac.weak." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac.weak." + UUID.randomUUID() + "@gmail.com";
         long before = userRepository.count();
 
         new SystemAdminBootstrap(userRepository, passwordEncoder, email, "123").run(null);
@@ -343,7 +343,7 @@ class RbacAdminAccessTest {
     void registrationWithUnknownFamilyGroupCodeIsRejectedBeforeTheDatabase() throws Exception {
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Người đăng ký");
-        body.put("email", "rbac.group." + UUID.randomUUID() + "@budglee.dev");
+        body.put("email", "rbac.group." + UUID.randomUUID() + "@gmail.com");
         body.put("password", PASSWORD);
         body.put("role", Role.FAMILY_MEMBER.name());
         body.put("familyGroupId", "KHONG-TON-TAI-" + UUID.randomUUID());
@@ -372,7 +372,7 @@ class RbacAdminAccessTest {
 
     @Test
     void publicFamilyOwnerRegistrationCreatesAnOwnedGroupAndCanLogInWithRealJwt() throws Exception {
-        String email = "family.owner." + UUID.randomUUID() + "@budglee.dev";
+        String email = "family.owner." + UUID.randomUUID() + "@gmail.com";
         MvcResult registered = mvc.perform(post("/api/v1/auth/register/family-owner")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(om.writeValueAsString(Map.of("fullName", "Chủ hộ mới", "email", email,

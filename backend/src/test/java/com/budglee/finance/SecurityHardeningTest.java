@@ -42,7 +42,7 @@ class SecurityHardeningTest {
     }
 
     private String registerAndGetToken(String password) throws Exception {
-        String email = "hard." + UUID.randomUUID() + "@budglee.dev";
+        String email = "hard." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Người dùng hardening");
         body.put("email", email);
@@ -136,7 +136,7 @@ class SecurityHardeningTest {
     private MvcResult registerRaw(String password) throws Exception {
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Người dùng hardening");
-        body.put("email", "weak." + UUID.randomUUID() + "@budglee.dev");
+        body.put("email", "weak." + UUID.randomUUID() + "@gmail.com");
         body.put("password", password);
         return mvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

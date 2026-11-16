@@ -45,13 +45,29 @@ export const calculateTrendsFromTransactions = (
         'Chủ nhật': 0,
       };
 
-      // Ưu tiên các giao dịch tháng hiện tại để biểu diễn chu kỳ tuần
       const now = new Date();
-      const currentMonthTxs = expenseTxs.filter((t) => {
+      // Xác định khoảng thời gian tuần hiện tại (từ Thứ 2 đến Chủ nhật)
+      const currentDay = now.getDay(); // 0: Chủ nhật, 1: Thứ 2...
+      const diffToMonday = (currentDay + 6) % 7;
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday, 0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek.getTime() + 7 * 86400000);
+
+      // Lọc các giao dịch trong tuần hiện tại
+      const thisWeekTxs = expenseTxs.filter((t) => {
         const d = parseTxDate(t.transactionDate);
-        return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return d && d >= startOfWeek && d < endOfWeek;
       });
-      const txsForDaily = currentMonthTxs.length > 0 ? currentMonthTxs : expenseTxs;
+
+      // Nếu trong tuần hiện tại có giao dịch, dùng tuần này; nếu chưa đủ, lấy các giao dịch trong 7 ngày gần nhất
+      let txsForDaily = thisWeekTxs;
+      if (txsForDaily.length === 0) {
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+        const recentTxs = expenseTxs.filter((t) => {
+          const d = parseTxDate(t.transactionDate);
+          return d && d >= sevenDaysAgo;
+        });
+        txsForDaily = recentTxs.length > 0 ? recentTxs : expenseTxs;
+      }
 
       txsForDaily.forEach((t) => {
         const d = parseTxDate(t.transactionDate);

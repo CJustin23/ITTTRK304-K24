@@ -43,8 +43,8 @@ services:
   # 3. Backend Service: Spring Boot (Java 17/21)
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: budglee-backend
     restart: unless-stopped
     depends_on:
@@ -54,15 +54,15 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-budglee_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-budglee_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-budglee_user}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-budglee_secret}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      APP_SECURITY_SYSTEM_ADMIN_EMAIL: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-}
-      APP_SECURITY_SYSTEM_ADMIN_PASSWORD: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-}
+      APP_SECURITY_SYSTEM_ADMIN_EMAIL: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:-admin@budglee.com}
+      APP_SECURITY_SYSTEM_ADMIN_PASSWORD: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:-Admin@Budglee2026}
     ports:
       - "${SERVER_PORT:-8080}:8080"
     networks:

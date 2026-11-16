@@ -12,12 +12,10 @@ import { TransactionsView } from './pages/TransactionsView';
 import { BudgetsView } from './pages/BudgetsView';
 import { SavingGoalsView } from './pages/SavingGoalsView';
 import { FamilyWorkspaceView } from './pages/FamilyWorkspaceView';
-import { InsightsView } from './pages/InsightsView';
 import { SettingsView } from './pages/SettingsView';
 import { AuthPage } from './pages/AuthPage';
 import { AdminView } from './pages/AdminView';
 
-import { BotInsightModal } from './components/BotInsightModal';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewWalletModal } from './components/NewWalletModal';
 import { NewBudgetModal } from './components/NewBudgetModal';
@@ -25,6 +23,7 @@ import { NewGoalModal } from './components/NewGoalModal';
 import { DepositGoalModal } from './components/DepositGoalModal';
 import { InviteFamilyModal } from './components/InviteFamilyModal';
 import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
+import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
 
 import { useStore } from './store/useStore';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
@@ -71,6 +70,10 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
+    if (currentUser?.role === 'SYSTEM_ADMIN' && activeTab !== 'admin') {
+      handleTabChange('admin');
+      return;
+    }
     if (activeTab === 'admin' && currentUser?.role !== 'SYSTEM_ADMIN') {
       handleTabChange('overview');
     }
@@ -78,16 +81,49 @@ export const App: React.FC = () => {
     (window as any).toggleAuthPage = () => {
       handleTabChange(activeTab === 'auth' ? 'overview' : 'auth');
     };
+    let intervalId: any;
     (window as any).handleLogout = () => {
+      if (intervalId) clearInterval(intervalId);
       logout();
       handleTabChange('overview');
     };
 
+    const syncFamilyData = () => {
+      const u = useStore.getState().currentUser;
+      if (u && u.role !== 'SYSTEM_ADMIN') {
+        fetchReceivedInvitations();
+        if (u.role === 'FAMILY_ADMIN' && u.familyGroupId) {
+          fetchSentInvitations();
+          useStore.getState().fetchFamilyMembers?.();
+        } else if (u.familyGroupId) {
+          useStore.getState().fetchFamilyMembers?.();
+        }
+      }
+    };
+
     if (currentUser && currentUser.role !== 'SYSTEM_ADMIN') {
       fetchReceivedInvitations();
-      fetchSentInvitations();
       fetchCoreData();
+
+      if (currentUser.familyGroupId) {
+        useStore.getState().fetchFamilyMembers?.();
+      }
+      if (currentUser.role === 'FAMILY_ADMIN' && currentUser.familyGroupId) {
+        fetchSentInvitations();
+      }
+
+      // Tự động kiểm tra lời mời gia đình mới định kỳ mỗi 4 giây
+      intervalId = setInterval(syncFamilyData, 4000);
+
+      window.addEventListener('storage', syncFamilyData);
+      window.addEventListener('budglee_invitation_update', syncFamilyData);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('storage', syncFamilyData);
+      window.removeEventListener('budglee_invitation_update', syncFamilyData);
+    };
   }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations, fetchCoreData]);
 
   const handleCreateTransaction = (data: {
@@ -98,7 +134,9 @@ export const App: React.FC = () => {
     categoryName: string;
     note?: string;
   }) => {
-    const selectedWallet = wallets.find((w) => w.id === data.walletId);
+    const selectedWallet = wallets.find((w) => w.id === data.walletId) || wallets[0];
+    const actualWalletId = selectedWallet ? selectedWallet.id : data.walletId;
+    const actualWalletName = selectedWallet ? selectedWallet.walletName : 'Ví chính';
     const currentBalance = selectedWallet ? selectedWallet.balance : 0;
     const newBalance =
       data.transactionType === 'INCOME'
@@ -106,8 +144,8 @@ export const App: React.FC = () => {
         : currentBalance - data.amount;
 
     addTransaction({
-      walletId: data.walletId,
-      walletName: selectedWallet?.walletName || 'Techcombank Primary',
+      walletId: actualWalletId,
+      walletName: actualWalletName,
       categoryName: data.categoryName,
       actionTitle: data.actionTitle,
       amount: data.amount,
@@ -152,8 +190,6 @@ export const App: React.FC = () => {
         return <BudgetsView />;
       case 'goals':
         return <SavingGoalsView />;
-      case 'insights':
-        return <InsightsView />;
       case 'family':
         return <FamilyWorkspaceView />;
       case 'settings':
@@ -243,16 +279,22 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* 1. Sidebar */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={handleTabChange}
-        onOpenBot={() => setBotModalOpen(true)}
+        onOpenBot={() => {
+          if (typeof (window as any).openBudgleeChat === 'function') {
+            (window as any).openBudgleeChat();
+          } else {
+            setBotModalOpen(true);
+          }
+        }}
       />
 
       {/* 2. Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         <Header
           onNewTransaction={() => setTransactionModalOpen(true)}
           searchQuery={searchQuery}
@@ -263,12 +305,6 @@ export const App: React.FC = () => {
       </div>
 
       {/* All Application Modals */}
-      <BotInsightModal
-        isOpen={isBotModalOpen}
-        onClose={() => setBotModalOpen(false)}
-        recommendation={botRecommendation}
-      />
-
       <NewTransactionModal
         isOpen={isTransactionModalOpen}
         onClose={() => setTransactionModalOpen(false)}
@@ -282,6 +318,9 @@ export const App: React.FC = () => {
       <DepositGoalModal />
       <InviteFamilyModal />
       <ConfirmFamilyInviteModal />
+
+      {/* 3. Floating AI Chat Widget */}
+      <FloatingChatWidget />
     </div>
   );
 };

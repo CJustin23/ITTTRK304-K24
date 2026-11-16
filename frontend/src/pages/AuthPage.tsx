@@ -30,6 +30,7 @@ interface AuthPageProps {
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -56,6 +57,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [generatedDemoOtp, setGeneratedDemoOtp] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -78,6 +80,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
     if (!emailRegex.test(val.trim())) return 'Địa chỉ email không đúng định dạng (VD: example@domain.com)';
+    return '';
+  };
+
+  const validateRegistrationEmail = (val: string) => {
+    if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
+    // Regex chặt: chỉ chấp nhận đúng dạng xxx@gmail.com (không cho @g.com, @gmail.co, v.v.)
+    const gmailRegex = /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i;
+    if (!gmailRegex.test(val.trim())) {
+      return 'Vui lòng sử dụng địa chỉ Gmail có dạng example@gmail.com';
+    }
     return '';
   };
 
@@ -302,13 +314,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     setErrors({});
     setIsLoading(true);
     try {
-      const account = await AuthService.login(email.trim().toLowerCase(), password);
+      const account = await AuthService.login( email.trim().toLowerCase(), password);
+      const trimmedLoginEmail = email.trim().toLowerCase();
+      let savedLocalUser: Partial<User> = {};
+      try {
+        const raw = localStorage.getItem('budglee_user_' + trimmedLoginEmail);
+        if (raw) savedLocalUser = JSON.parse(raw);
+      } catch {}
+      const resolvedRole: Role =
+        account.role && account.role !== 'INDIVIDUAL_USER'
+          ? account.role
+          : (savedLocalUser.role as Role) || account.role || 'INDIVIDUAL_USER';
       const user: User = {
         id: account.id,
         fullName: account.fullName,
         email: account.email,
-        role: account.role,
-        familyGroupId: account.familyGroupId,
+        role: resolvedRole,
+        familyGroupId: account.familyGroupId || savedLocalUser.familyGroupId,
+        familyGroupName: savedLocalUser.familyGroupName,
       };
       setAuth(user, account.token, false);
       if (onSuccess) onSuccess();
@@ -326,7 +349,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     const nameErr = validateFullName(fullName);
     if (nameErr) errs.fullName = nameErr;
 
-    const emailErr = validateEmail(email);
+    const emailErr = validateRegistrationEmail(email);
     if (emailErr) errs.email = emailErr;
 
     const passErr = validatePassword(password);
@@ -362,14 +385,38 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     try {
       const trimmedEmail = email.trim().toLowerCase();
       const registration = { fullName: fullName.trim(), email: trimmedEmail, password };
+      let registered: { id?: number; fullName?: string; email?: string; role?: Role; familyGroupId?: string } | undefined;
       if (role === 'FAMILY_ADMIN') {
-        await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+        try {
+          registered = await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+        } catch (familyRegErr: any) {
+          const status = familyRegErr?.response?.status;
+          // Nếu kết nối tới backend cũ chưa có /auth/register/family-owner (404/405), fallback sang /auth/register
+          if (status === 404 || status === 405) {
+            registered = await AuthService.register(registration);
+          } else {
+            throw familyRegErr;
+          }
+        }
       } else {
-        await AuthService.register(registration);
+        registered = await AuthService.register(registration);
       }
       const account = await AuthService.login(trimmedEmail, password);
-      const user: User = { id: account.id, fullName: account.fullName, email: account.email,
-        role: account.role, familyGroupId: account.familyGroupId };
+      const finalRole: Role = role === 'FAMILY_ADMIN' ? 'FAMILY_ADMIN' : (account.role || registered?.role || 'INDIVIDUAL_USER');
+      const finalGroupId =
+        account.familyGroupId ||
+        registered?.familyGroupId ||
+        (finalRole === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined);
+      const finalGroupName = finalRole === 'FAMILY_ADMIN' ? familyName.trim() : undefined;
+      const user: User = {
+        id: account.id ?? registered?.id ?? Date.now(),
+        fullName: account.fullName || fullName.trim(),
+        email: account.email || trimmedEmail,
+        role: finalRole,
+        familyGroupId: finalGroupId,
+        familyGroupName: finalGroupName,
+      };
+      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(user));
       setAuth(user, account.token, true);
       if (onSuccess) onSuccess();
     } catch (error: any) {
@@ -759,19 +806,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="reset-confirm-password"
-                      type={showNewPassword ? 'text' : 'password'}
+                      type={showConfirmNewPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmNewPassword}
                       onChange={(e) => {
                         setConfirmNewPassword(e.target.value);
                         if (errors.confirmNewPassword) setErrors((prev) => ({ ...prev, confirmNewPassword: '' }));
                       }}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.confirmNewPassword
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showConfirmNewPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmNewPassword && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
@@ -897,17 +952,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
-                  />
-                  <span>Ghi nhớ phiên đăng nhập (30 ngày)</span>
-                </label>
-              </div>
-
               <button
                 id="btn-login-submit"
                 type="submit"
@@ -966,7 +1010,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="reg-email"
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder="ban@gmail.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -1084,12 +1128,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                         setPassword(e.target.value);
                         if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                       }}
-                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.password
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.password && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
@@ -1107,19 +1159,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="reg-confirm-password"
-                      type={showPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: '' }));
                       }}
-                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.confirmPassword
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmPassword && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">

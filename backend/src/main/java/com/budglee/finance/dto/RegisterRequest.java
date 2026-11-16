@@ -14,6 +14,8 @@ public class RegisterRequest {
 
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không đúng định dạng")
+    @Pattern(regexp = "^[^@\\s]+@gmail\\.com$", flags = Pattern.Flag.CASE_INSENSITIVE,
+            message = "Vui lòng sử dụng địa chỉ Gmail có dạng example@gmail.com")
     private String email;
 
     /**
