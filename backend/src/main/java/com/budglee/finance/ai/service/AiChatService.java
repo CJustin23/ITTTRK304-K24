@@ -433,7 +433,7 @@ public class AiChatService {
                 String walletName = guessWalletName(lower);
                 ToolConfirmationDto confirm = toolExecutor.prepareCreateTransaction(userId, amount, type, cat, walletName, userMsg);
                 return new LlmExecutionResult(
-                        "Tôi đã chuẩn bị xong thông tin giao dịch tài chính cho bạn. Hãy kiểm tra thẻ chi tiết bên dưới và bấm nút **[Xác nhận]** để ghi vào sổ ví nhé:",
+                        "Tôi đã chuẩn bị giao dịch bên dưới. Bạn có thể kiểm tra, chỉnh sửa hoặc bấm **Xác nhận & Ghi vào Sổ**:",
                         confirm
                 );
             } catch (Exception ex) {
@@ -477,29 +477,29 @@ public class AiChatService {
             return new LlmExecutionResult(formatToolResultNaturally("lookup_family_finance", fam), null);
         }
 
-        // 8. Tra cứu cơ sở tri thức RAG (Quy tắc 50/30/20, chính sách bảo mật, hướng dẫn sử dụng)
+        // 8. Tra cứu cơ sở tri thức RAG (Quy tắc 50/30/20, 6 chiếc lọ, hạn mức, bảo mật)
         var chunks = ragVectorService.retrieveRelevantChunks(userMsg, 2);
         if (!chunks.isEmpty()) {
             StringBuilder sb = new StringBuilder();
-            sb.append("Dưới đây là thông tin hướng dẫn và kiến thức tài chính từ Budglee:\n\n");
-            for (var c : chunks) {
-                sb.append("📌 **").append(c.topic()).append(":**\n");
-                sb.append(c.content()).append("\n\n");
+            for (int i = 0; i < chunks.size(); i++) {
+                var c = chunks.get(i);
+                sb.append("📌 **").append(c.topic()).append("**\n");
+                sb.append(c.content().trim());
+                if (i < chunks.size() - 1) {
+                    sb.append("\n\n");
+                }
             }
-            sb.append("💡 *Bạn có thể hỏi tôi để tra cứu số dư ví, xem giao dịch hoặc ghi nhanh khoản chi tiêu mới bất cứ lúc nào!*");
             return new LlmExecutionResult(sb.toString(), null);
         }
 
-        // Phản hồi định hướng người dùng theo đúng nghiệp vụ quản lý tài chính
-        String guide = "Chào bạn! Tôi là **Budglee AI Financial Advisor** - Trợ lý Quản lý Thu Chi & Tài chính Cá nhân của bạn. 👋\n\n" +
-                "Tôi có thể hỗ trợ bạn các công việc thực tế sau:\n" +
-                "1. 💰 **Tra cứu số dư ví**: Xem tổng số dư và số dư từng ví (tiền mặt, ngân hàng, ví điện tử).\n" +
-                "2. 📋 **Xem lịch sử giao dịch**: Danh sách các khoản thu/chi gần đây của bạn.\n" +
-                "3. 📝 **Ghi nhanh giao dịch thu/chi**: Chỉ cần nhắn ví dụ *\"Tôi vừa chi 50k ăn trưa từ ví tiền mặt\"*, tôi sẽ lập thẻ xác nhận để bạn lưu vào sổ.\n" +
-                "4. 🎯 **Kiểm tra hạn mức ngân sách**: Theo dõi ngân sách tháng này, cảnh báo vượt mức.\n" +
-                "5. 🏆 **Đánh giá sức khỏe tài chính**: Chấm điểm tài chính cá nhân và đưa ra lời khuyên tiết kiệm.\n" +
-                "6. 👨‍👩‍👧 **Sổ quỹ gia đình & Quy tắc 50/30/20**: Hướng dẫn phân bổ chi tiêu khoa học.\n\n" +
-                "Bạn có thể bấm vào các gợi ý nhanh bên dưới hoặc nhắn trực tiếp cho tôi nhé!";
+        // Phản hồi ngắn gọn, thân thiện theo nghiệp vụ tài chính Budglee
+        String guide = "Chào bạn! Tôi là **Budglee AI** - Trợ lý Tài chính Cá nhân của bạn. 👋\n\n" +
+                "Tôi có thể hỗ trợ bạn:\n" +
+                "• 💰 **Xem số dư** ví tổng và từng tài khoản\n" +
+                "• 📝 **Ghi nhanh thu/chi** *(vd: \"Ăn trưa 45k ví tiền mặt\")*\n" +
+                "• 🎯 **Kiểm tra ngân sách** & cảnh báo chi tiêu\n" +
+                "• 🏆 **Sức khỏe tài chính** & quy tắc 50/30/20, 6 chiếc lọ\n\n" +
+                "Bạn muốn tra cứu hay ghi chép khoản nào hôm nay?";
         return new LlmExecutionResult(guide, null);
     }
 
@@ -508,14 +508,14 @@ public class AiChatService {
 
         if ("lookup_wallet_balances".equals(toolName)) {
             if ("success".equals(data.get("status"))) {
-                sb.append("📊 **Thông tin số dư tài khoản của bạn:**\n\n");
-                sb.append(String.format("👉 **Tổng số dư khả dụng:** `%s`\n\n", data.get("totalFormatted")));
-                sb.append("**Chi tiết từng ví:**\n");
+                sb.append(String.format("📊 **Tổng số dư: %s**\n\n", data.get("totalFormatted")));
                 List<Map<String, Object>> wallets = (List<Map<String, Object>>) data.get("wallets");
-                for (Map<String, Object> w : wallets) {
-                    sb.append(String.format("- **%s:** `%s` *(Loại: %s)*\n", w.get("name"), w.get("balanceFormatted"), w.get("type")));
+                if (wallets != null && !wallets.isEmpty()) {
+                    for (Map<String, Object> w : wallets) {
+                        sb.append(String.format("• **%s:** `%s`\n", w.get("name"), w.get("balanceFormatted")));
+                    }
                 }
-                return sb.toString();
+                return sb.toString().trim();
             }
             return (String) data.get("message");
         }
@@ -523,65 +523,67 @@ public class AiChatService {
         if ("lookup_recent_transactions".equals(toolName)) {
             List<Map<String, Object>> txs = (List<Map<String, Object>>) data.get("transactions");
             if (txs == null || txs.isEmpty()) return "Hiện bạn chưa có giao dịch nào gần đây.";
-            sb.append("📋 **Lịch sử giao dịch gần đây của bạn:**\n\n");
+            sb.append("📋 **Giao dịch gần đây:**\n\n");
             for (Map<String, Object> t : txs) {
-                sb.append(String.format("• **%s** (%s): `%s` | *%s - %s*\n",
-                        t.get("title"), t.get("category"), t.get("amountFormatted"), t.get("wallet"), t.get("date")));
+                sb.append(String.format("• **%s**: `%s` *(%s • %s)*\n",
+                        t.get("title"), t.get("amountFormatted"), t.get("category"), t.get("wallet")));
             }
-            return sb.toString();
+            return sb.toString().trim();
         }
 
         if ("lookup_budget_overview".equals(toolName)) {
             if ("success".equals(data.get("status"))) {
-                sb.append(String.format("🎯 **Tiến độ hạn mức ngân sách tháng %s/%s:**\n\n", data.get("month"), data.get("year")));
+                sb.append(String.format("🎯 **Ngân sách tháng %s/%s:**\n\n", data.get("month"), data.get("year")));
                 List<Map<String, Object>> budgets = (List<Map<String, Object>>) data.get("budgets");
-                for (Map<String, Object> b : budgets) {
-                    boolean isEx = Boolean.TRUE.equals(b.get("isExceeded"));
-                    String icon = isEx ? "🚨 VƯỢT HẠN MỨC" : "✅ An toàn";
-                    sb.append(String.format("- **%s:** Đã chi `%s` / Hạn mức `%s` *(Đạt %s - %s)*\n",
-                            b.get("category"), b.get("spent"), b.get("limit"), b.get("percentUsed"), icon));
+                if (budgets != null && !budgets.isEmpty()) {
+                    for (Map<String, Object> b : budgets) {
+                        boolean isEx = Boolean.TRUE.equals(b.get("isExceeded"));
+                        String tag = isEx ? "🚨 Vượt hạn mức" : "✅ An toàn";
+                        sb.append(String.format("• **%s**: `%s` / `%s` *(%s • %s)*\n",
+                                b.get("category"), b.get("spent"), b.get("limit"), b.get("percentUsed"), tag));
+                    }
                 }
-                return sb.toString();
+                return sb.toString().trim();
             }
             return (String) data.get("message");
         }
 
         if ("lookup_financial_health".equals(toolName)) {
             if ("success".equals(data.get("status"))) {
-                sb.append(String.format("🏆 **Điểm Sức Khỏe Tài Chính: %s/100 (Hạng: %s)**\n\n",
+                sb.append(String.format("🏆 **Sức khỏe tài chính: %s/100 (Hạng %s)**\n\n",
                         data.get("overallScore"), data.get("grade")));
                 sb.append(String.format("📝 *%s*\n\n", data.get("summary")));
-                sb.append("**Lời khuyên hành động:**\n");
+                sb.append("**Gợi ý hành động:**\n");
                 List<String> advice = (List<String>) data.get("actionableAdvice");
                 if (advice != null && !advice.isEmpty()) {
-                    for (String a : advice) sb.append("- ").append(a).append("\n");
+                    for (String a : advice) sb.append("• ").append(a).append("\n");
                 } else {
-                    sb.append("- Tiếp tục duy trì thói quen ghi chép chi tiêu và cân đối dòng tiền hàng ngày.\n");
+                    sb.append("• Tiếp tục duy trì thói quen ghi chép chi tiêu đều đặn hàng ngày.\n");
                 }
-                return sb.toString();
+                return sb.toString().trim();
             }
             return (String) data.get("message");
         }
 
         if ("lookup_categories".equals(toolName)) {
             if ("success".equals(data.get("status"))) {
-                sb.append("🏷️ **Danh mục chi tiêu & thu nhập khả dụng:**\n\n");
+                sb.append("🏷️ **Danh mục tài chính khả dụng:**\n\n");
                 List<String> expense = (List<String>) data.get("expenseCategories");
                 List<String> income = (List<String>) data.get("incomeCategories");
-                sb.append("🔴 **Chi tiêu:** ").append(String.join(", ", expense)).append("\n\n");
-                sb.append("🟢 **Thu nhập:** ").append(String.join(", ", income)).append("\n");
-                return sb.toString();
+                if (expense != null) sb.append("• **Chi tiêu:** ").append(String.join(", ", expense)).append("\n");
+                if (income != null) sb.append("• **Thu nhập:** ").append(String.join(", ", income)).append("\n");
+                return sb.toString().trim();
             }
             return (String) data.get("message");
         }
 
         if ("lookup_family_finance".equals(toolName)) {
             if ("success".equals(data.get("status"))) {
-                sb.append(String.format("👨‍👩‍👧 **Sổ quỹ nhóm gia đình: %s**\n\n", data.get("groupName")));
-                sb.append(String.format("• Số lượng thành viên: **%s**\n", data.get("memberCount")));
+                sb.append(String.format("👨‍👩‍👧 **Sổ quỹ gia đình: %s**\n\n", data.get("groupName")));
+                sb.append(String.format("• Số thành viên: **%s**\n", data.get("memberCount")));
                 List<String> members = (List<String>) data.get("members");
-                sb.append("• Danh sách thành viên: ").append(String.join(", ", members)).append("\n");
-                return sb.toString();
+                if (members != null) sb.append("• Thành viên: ").append(String.join(", ", members)).append("\n");
+                return sb.toString().trim();
             }
             return (String) data.get("message");
         }

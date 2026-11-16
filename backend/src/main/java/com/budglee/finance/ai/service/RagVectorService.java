@@ -23,62 +23,69 @@ public class RagVectorService {
 
     // Bộ tài liệu tri thức chuẩn hóa về Quản lý Tài chính của Budglee Platform
     private final List<KnowledgeChunk> knowledgeBase = List.of(
-            new KnowledgeChunk(1, "FINANCIAL_METHOD", "Quy tắc quản lý tài chính 50/30/20",
-                    "Quy tắc quản lý tài chính 50/30/20: Đây là phương pháp phân bổ thu nhập hàng tháng đơn giản và hiệu quả nhất: " +
-                    "50% thu nhập dành cho Nhu cầu thiết yếu (tiền thuê nhà, ăn uống cơ bản, điện nước, xăng xe, học phí); " +
-                    "30% dành cho Mong muốn cá nhân (mua sắm, giải trí, du lịch, ăn ngoài, sở thích); " +
-                    "20% dành cho Tích lũy và Đầu tư (tiết kiệm khẩn cấp, trả nợ nhanh, quỹ hưu trí, đầu tư sinh lời).",
+            new KnowledgeChunk(1, "FINANCIAL_METHOD", "Quy tắc 50/30/20",
+                    "Phân bổ thu nhập hàng tháng:\n" +
+                    "• **50% Thiết yếu**: Tiền nhà, ăn uống, điện nước, xăng xe, học phí\n" +
+                    "• **30% Mong muốn**: Mua sắm, giải trí, ăn ngoài, sở thích\n" +
+                    "• **20% Tích lũy**: Tiết kiệm khẩn cấp, trả nợ, đầu tư sinh lời",
                     List.of("50/30/20", "quy tắc", "quản lý tài chính", "tiết kiệm", "phân bổ thu nhập", "thiết yếu", "mong muốn")),
 
             new KnowledgeChunk(2, "FINANCIAL_METHOD", "Phương pháp 6 chiếc lọ (JARS)",
-                    "Phương pháp 6 chiếc lọ (JARS): Chia thu nhập ròng thành 6 quỹ: " +
-                    "1. Quỹ Nhu cầu thiết yếu NEC (55%), 2. Quỹ Tiết kiệm dài hạn LTSS (10%), " +
-                    "3. Quỹ Giáo dục phát triển bản thân EDU (10%), 4. Quỹ Hưởng thụ PLAY (10%), " +
-                    "5. Quỹ Tự do tài chính FFA (10%), 6. Quỹ Cho đi GIVE (5%). " +
-                    "Phương pháp này giúp bạn quản lý dòng tiền toàn diện mà không lo thiếu hụt.",
+                    "Phân bổ thu nhập ròng vào 6 quỹ:\n" +
+                    "• **55% Thiết yếu (NEC)**: Sinh hoạt hàng ngày\n" +
+                    "• **10% Tiết kiệm dài hạn (LTSS)**: Mua sắm lớn, dự phòng\n" +
+                    "• **10% Phát triển bản thân (EDU)**: Học tập, sách vở\n" +
+                    "• **10% Hưởng thụ (PLAY)**: Vui chơi, du lịch\n" +
+                    "• **10% Tự do tài chính (FFA)**: Đầu tư tạo thu nhập thụ động\n" +
+                    "• **5% Cho đi (GIVE)**: Giúp đỡ người thân, từ thiện",
                     List.of("6 chiếc lọ", "jars", "quỹ", "tự do tài chính", "hưởng thụ", "giáo dục", "cho đi")),
 
-            new KnowledgeChunk(3, "FINANCIAL_METHOD", "Điểm Sức Khỏe Tài Chính (Financial Health Score)",
-                    "Cách tính và tối ưu Điểm Sức Khỏe Tài Chính (Financial Health Score): Hệ thống Budglee chấm điểm sức khỏe tài chính " +
-                    "dựa trên 4 trụ cột: Tỷ lệ tiết kiệm (nên đạt trên 20%), Tỷ lệ nợ trên thu nhập (dưới 30%), " +
-                    "Quỹ dự phòng khẩn cấp (đủ chi trả 3-6 tháng sinh hoạt phí), và Tình trạng tuân thủ ngân sách (không chi vượt hạn mức).",
+            new KnowledgeChunk(3, "FINANCIAL_METHOD", "Điểm Sức Khỏe Tài Chính",
+                    "Đánh giá sức khỏe tài chính qua 4 chỉ số:\n" +
+                    "• **Tỷ lệ tiết kiệm**: Nên đạt từ **20%** thu nhập\n" +
+                    "• **Tỷ lệ nợ/thu nhập**: Dưới mức **30%**\n" +
+                    "• **Quỹ khẩn cấp**: Đủ chi trả **3 - 6 tháng** sinh hoạt\n" +
+                    "• **Kỷ luật ngân sách**: Không chi tiêu vượt hạn mức đã đặt",
                     List.of("sức khỏe tài chính", "điểm tài chính", "quỹ khẩn cấp", "tỷ lệ tiết kiệm", "nợ", "lời khuyên")),
 
             new KnowledgeChunk(4, "USER_GUIDE", "Quản lý và phân loại ví tiền",
-                    "Hướng dẫn phân loại và quản lý ví tiền: Trên Budglee, bạn nên tạo các ví tiền tương ứng với đời thực: " +
-                    "Ví Tiền mặt (cho chi tiêu nhỏ hàng ngày), Tài khoản Ngân hàng (lưu trữ lương và thanh toán chuyển khoản), " +
-                    "Ví điện tử MoMo/VNPay/ZaloPay (thanh toán online) và Thẻ tín dụng Credit (ghi nhận công nợ). " +
-                    "Việc phân chia ví giúp bạn đối soát tiền chính xác từng đồng.",
+                    "Gợi ý phân loại ví thực tế trên Budglee:\n" +
+                    "• **Ví Tiền mặt**: Chi tiêu lặt vặt hàng ngày\n" +
+                    "• **Tài khoản Ngân hàng**: Nhận lương, chuyển khoản, tiết kiệm\n" +
+                    "• **Ví điện tử (MoMo/VNPay)**: Thanh toán online, ăn uống nhanh\n" +
+                    "• **Thẻ tín dụng**: Chi tiêu trước trả sau và nhận hoàn tiền",
                     List.of("ví tiền", "tiền mặt", "ngân hàng", "ví điện tử", "thẻ tín dụng", "số dư", "quản lý ví")),
 
             new KnowledgeChunk(5, "USER_GUIDE", "Thiết lập hạn mức ngân sách tháng",
-                    "Cách thiết lập và theo dõi Hạn mức Ngân sách tháng: Vào mục Ngân sách -> chọn Thêm ngân sách -> chọn Danh mục " +
-                    "(ví dụ Ăn uống, Mua sắm) và nhập số tiền giới hạn trong tháng. Khi chi tiêu vượt 80% hạn mức, Budglee sẽ hiển thị " +
-                    "cảnh báo màu vàng; khi vượt 100%, hệ thống sẽ báo động màu đỏ để bạn điều chỉnh ngay trước khi thâm hụt tài chính.",
+                    "Cách thiết lập và theo dõi hạn mức chi tiêu:\n" +
+                    "• **Cách làm**: Vào **Ngân sách** ➔ **Thêm ngân sách** ➔ Chọn danh mục & số tiền hạn mức.\n" +
+                    "• **Cảnh báo**: Màu vàng khi chi tiêu vượt **80%**; Màu đỏ khi vượt **100%** hạn mức.",
                     List.of("ngân sách", "hạn mức", "vượt hạn mức", "cảnh báo", "chi tiêu", "đặt ngân sách")),
 
-            new KnowledgeChunk(6, "USER_GUIDE", "Ghi chép giao dịch cùng Trợ lý AI",
-                    "Ghi chép giao dịch nhanh cùng Trợ lý AI: Bạn có thể nhắn tin trực tiếp với Budglee AI bằng ngôn ngữ tự nhiên như: " +
-                    "\"Vừa ăn trưa 45k từ ví tiền mặt\", \"Đổ xăng 70k\", \"Nhận lương 15 triệu vào ngân hàng\". AI sẽ tự động phân loại " +
-                    "danh mục, chọn đúng ví và hiển thị thẻ xác nhận để bạn chỉ cần bấm [Xác nhận] là tiền được cập nhật vào sổ ví tức thì.",
+            new KnowledgeChunk(6, "USER_GUIDE", "Ghi chép giao dịch nhanh qua AI",
+                    "Chỉ cần nhắn ngôn ngữ tự nhiên:\n" +
+                    "• *\"Ăn trưa 45k ví tiền mặt\"*, *\"Đổ xăng 70k\"*, *\"Nhận lương 15tr vào VietinBank\"*\n" +
+                    "• AI tự phân loại danh mục, chọn ví và hiển thị thẻ xác nhận ngay tức thì.",
                     List.of("ghi chép", "ai", "thu chi", "xác nhận", "tự động", "thêm giao dịch")),
 
             new KnowledgeChunk(7, "FAMILY_GUIDE", "Sổ quỹ Gia đình (Family Group)",
-                    "Tính năng Sổ quỹ Gia đình (Family Group): Cho phép các thành viên trong gia đình hoặc nhóm bạn ở chung cùng ghi chép " +
-                    "và theo dõi chi tiêu chung minh bạch. Chủ hộ (Family Owner) có thể tạo nhóm và gửi lời mời qua email. Các thành viên có thể " +
-                    "xem biểu đồ thu chi cả nhà và cùng nhau đóng góp vào quỹ chung.",
+                    "Quản lý tài chính chung minh bạch:\n" +
+                    "• **Chủ hộ (Owner)**: Tạo nhóm và gửi lời mời qua email thành viên.\n" +
+                    "• **Thành viên**: Cùng theo dõi biểu đồ chi tiêu chung và đóng góp quỹ.",
                     List.of("gia đình", "family", "quỹ chung", "thành viên", "chia sẻ chi tiêu", "mời")),
 
-            new KnowledgeChunk(8, "SECURITY_POLICY", "Bảo mật dữ liệu tài chính người dùng",
-                    "Cam kết an toàn và bảo mật dữ liệu tài chính: Budglee áp dụng chuẩn mã hóa đối xứng AES-256-GCM để bảo vệ khóa API cá nhân (BYOK) " +
-                    "và thông tin tài chính nhạy cảm của người dùng. Mật khẩu được băm an toàn bằng BCrypt. Dữ liệu tài chính của từng người dùng " +
-                    "được phân tách và cô lập tuyệt đối (chống lỗ hổng IDOR), cam kết không bao giờ chia sẻ số dư hay lịch sử giao dịch cho bên thứ ba.",
+            new KnowledgeChunk(8, "SECURITY_POLICY", "Bảo mật dữ liệu tài chính",
+                    "Cam kết an toàn thông tin tại Budglee:\n" +
+                    "• **Mã hóa AES-256-GCM** bảo vệ khóa API cá nhân (BYOK).\n" +
+                    "• **BCrypt** bảo vệ mật khẩu đăng nhập.\n" +
+                    "• Phân tách dữ liệu đa người dùng tuyệt đối (chống rò rỉ IDOR).",
                     List.of("bảo mật", "aes-256", "idor", "an toàn", "bcrypt", "mã hóa", "dữ liệu")),
 
-            new KnowledgeChunk(9, "BRANCH_INFO", "Kênh hỗ trợ và thông tin liên hệ",
-                    "Kênh hỗ trợ chính thức của Budglee: Trụ sở chính tại Tầng 8, Tòa nhà PTIT, 96A Trần Phú, Quận Hà Đông, TP. Hà Nội. " +
-                    "Chi nhánh TP.HCM tại 180 Nguyễn Đình Chiểu, Quận 3. Hotline hỗ trợ: 1900-6868. Email hỗ trợ: support@budglee.vn. " +
-                    "Hệ thống AI Chatbot sẵn sàng hỗ trợ bạn 24/7 trên ứng dụng web https://quanlythuchi.duckdns.org.",
+            new KnowledgeChunk(9, "BRANCH_INFO", "Kênh hỗ trợ và liên hệ",
+                    "Hỗ trợ Budglee 24/7:\n" +
+                    "• **Hotline**: 1900-6868 | **Email**: support@budglee.vn\n" +
+                    "• **Địa chỉ**: Tầng 8, Tòa nhà PTIT, 96A Trần Phú, Hà Đông, Hà Nội\n" +
+                    "• **Ứng dụng**: https://quanlythuchi.duckdns.org",
                     List.of("hỗ trợ", "hotline", "liên hệ", "địa chỉ", "trụ sở", "email", "cskh"))
     );
 
