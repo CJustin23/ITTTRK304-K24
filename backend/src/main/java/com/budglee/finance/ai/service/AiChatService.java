@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -44,6 +45,9 @@ public class AiChatService {
     private final RagVectorService ragVectorService;
     private final AiToolExecutorService toolExecutor;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.ai.gemini-model:${GEMINI_MODEL:gemini-3.5-flash}}")
+    private String geminiModel = "gemini-3.5-flash";
 
     // Lưu trữ lịch sử hội thoại trong bộ nhớ theo conversationId (Sliding Window Memory)
     private final Map<String, List<MessageRecord>> conversationMemory = new ConcurrentHashMap<>();
@@ -237,15 +241,16 @@ public class AiChatService {
     private LlmExecutionResult callGeminiWithTools(
             String apiKey, Long userId, String convId, String userMsg, String ragContext
     ) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+        String activeModel = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel.trim() : "gemini-3.5-flash";
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + activeModel + ":generateContent?key=" + apiKey;
 
         String systemInstruction = "Bạn là Budglee AI - Trợ lý Quản lý Thu Chi & Tài chính Cá nhân thông minh của nền tảng Budglee.\n" +
                 "QUY TẮC BẮT BUỘC:\n" +
-                "1. Trả lời bằng tiếng Việt lịch sự, thân thiện, súc tích và có cấu trúc rõ ràng.\n" +
+                "1. Trả lời bằng tiếng Việt lịch sự, thân thiện, súc tích và có cấu trúc rõ ràng. Giữ câu trả lời ngắn gọn, trực diện (2-3 câu hoặc gạch đầu dòng ngắn), không viết đoạn văn dài lê thê.\n" +
                 "2. CHỈ trả lời và thực thi các nghiệp vụ thuộc phạm vi Quản lý Tài chính của Budglee: số dư ví, giao dịch thu chi, tạo/thêm ví mới, ngân sách chi tiêu, sức khỏe tài chính, danh mục tài chính, quỹ nhóm gia đình, và các nguyên tắc quản lý tài chính thông minh (như quy tắc 50/30/20, 6 chiếc lọ).\n" +
                 "3. Khi người dùng hỏi về số dư ví, giao dịch gần đây, ngân sách, sức khỏe tài chính -> BẮT BUỘC gọi Function Call tương ứng để lấy dữ liệu thực tế.\n" +
-                "4. GHI CHÉP GIAO DỊCH (Human-in-the-loop): Khi người dùng yêu cầu ghi nhận chi tiêu hoặc thu nhập, BẮT BUỘC phải gọi function `prepare_transaction` để hệ thống hiển thị thẻ xác nhận cho người dùng bấm đồng ý trước khi thực thi.\n" +
-                "5. TẠO VÍ MỚI (Human-in-the-loop): Khi người dùng yêu cầu tạo ví, thêm ví, mở ví mới (kể cả chỉ nhắn ngắn gọn như 'thêm ví', 'tạo ví mới'), BẮT BUỘC phải gọi function `prepare_create_wallet` để hệ thống hiển thị thẻ xác nhận tạo ví cho người dùng kiểm tra, chỉnh sửa và tạo.\n" +
+                "4. GHI CHÉP GIAO DỊCH (Human-in-the-loop): Khi người dùng yêu cầu ghi nhận chi tiêu hoặc thu nhập (ví dụ: 'chi cà phê 20k', 'ăn trưa 65k', 'thêm hóa đơn chi tiêu cà phê 20000đ vào thẻ vietinbank'), BẮT BUỘC phải gọi function `prepare_transaction` để hệ thống hiển thị thẻ xác nhận cho người dùng bấm đồng ý trước khi thực thi.\n" +
+                "5. TẠO VÍ MỚI (Human-in-the-loop): Khi người dùng yêu cầu tạo ví, thêm ví, mở ví mới (kể cả chỉ nhắn ngắn gọn như 'thêm ví', 'tạo ví mới', 'thêm tài khoản'), BẮT BUỘC phải gọi function `prepare_create_wallet` để hệ thống hiển thị thẻ xác nhận tạo ví cho người dùng kiểm tra, chỉnh sửa và tạo.\n" +
                 "6. Tuyệt đối từ chối các câu hỏi không liên quan đến tài chính, lập trình, hoặc các chủ đề ngoài lề và hướng dẫn người dùng quay lại các tính năng quản lý tài chính của Budglee.\n" +
                 "7. Thông tin tri thức bổ trợ được cung cấp trong thẻ <rag_context>.\n\n" + ragContext;
 
@@ -275,13 +280,26 @@ public class AiChatService {
         if (resp.statusCode() == 200) {
             JsonNode root = objectMapper.readTree(resp.body());
             JsonNode candidate = root.path("candidates").get(0);
-            JsonNode part = candidate.path("content").path("parts").get(0);
+            JsonNode parts = candidate.path("content").path("parts");
+
+            JsonNode fnCallPart = null;
+            StringBuilder textBuf = new StringBuilder();
+
+            if (parts.isArray()) {
+                for (JsonNode p : parts) {
+                    if (p.has("functionCall")) {
+                        fnCallPart = p.path("functionCall");
+                        break;
+                    } else if (p.has("text")) {
+                        textBuf.append(p.path("text").asText());
+                    }
+                }
+            }
 
             // Kiểm tra xem Gemini có gọi Function Call không
-            if (part.has("functionCall")) {
-                JsonNode fnCall = part.path("functionCall");
-                String fnName = fnCall.path("name").asText();
-                JsonNode args = fnCall.path("args");
+            if (fnCallPart != null) {
+                String fnName = fnCallPart.path("name").asText();
+                JsonNode args = fnCallPart.path("args");
 
                 log.info("Gemini Function Call detected: name={}, args={}", fnName, args);
 
@@ -324,12 +342,11 @@ public class AiChatService {
                 Map<String, Object> toolResultData = executeReadTool(fnName, args, userId);
 
                 // Gửi lượt thứ hai (Second-turn) để Gemini sinh câu trả lời tự nhiên
-                return sendFunctionResponseToGemini(apiKey, contents, fnName, toolResultData);
+                return sendFunctionResponseToGemini(apiKey, contents, parts, fnName, toolResultData);
             }
 
             // Trả về câu trả lời tự nhiên dạng text
-            String reply = part.path("text").asText();
-            return new LlmExecutionResult(reply, null);
+            return new LlmExecutionResult(textBuf.toString().trim(), null);
         } else {
             log.warn("Gemini API error status {}: {}", resp.statusCode(), resp.body());
             return executeWithSmartLocalEngine(userId, userMsg, ragContext);
@@ -340,14 +357,21 @@ public class AiChatService {
      * Lượt thứ hai (Second-turn) gửi kết quả Function Call về cho Gemini để tổng hợp câu trả lời tự nhiên.
      */
     private LlmExecutionResult sendFunctionResponseToGemini(
-            String apiKey, List<Map<String, Object>> contents, String fnName, Map<String, Object> toolResult
+            String apiKey, List<Map<String, Object>> contents, JsonNode modelPartsNode, String fnName, Map<String, Object> toolResult
     ) {
         try {
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+            String activeModel = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel.trim() : "gemini-3.5-flash";
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + activeModel + ":generateContent?key=" + apiKey;
 
             List<Map<String, Object>> updatedContents = new ArrayList<>(contents);
+            List<Object> modelPartsList = objectMapper.convertValue(modelPartsNode, List.class);
             updatedContents.add(Map.of(
-                    "role", "function",
+                    "role", "model",
+                    "parts", modelPartsList
+            ));
+
+            updatedContents.add(Map.of(
+                    "role", "user",
                     "parts", List.of(Map.of(
                             "functionResponse", Map.of(
                                     "name", fnName,
@@ -356,7 +380,10 @@ public class AiChatService {
                     ))
             ));
 
-            Map<String, Object> reqBody = Map.of("contents", updatedContents);
+            Map<String, Object> reqBody = new HashMap<>();
+            reqBody.put("contents", updatedContents);
+            reqBody.put("tools", buildGeminiToolsDeclaration());
+
             String json = objectMapper.writeValueAsString(reqBody);
 
             HttpRequest request = HttpRequest.newBuilder()
@@ -369,11 +396,26 @@ public class AiChatService {
             HttpResponse<String> resp = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (resp.statusCode() == 200) {
                 JsonNode root = objectMapper.readTree(resp.body());
-                String text = root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
-                return new LlmExecutionResult(text, null);
+                JsonNode candidate = root.path("candidates").get(0);
+                JsonNode parts = candidate.path("content").path("parts");
+                StringBuilder reply = new StringBuilder();
+                if (parts.isArray()) {
+                    for (JsonNode p : parts) {
+                        if (p.has("text")) {
+                            reply.append(p.path("text").asText());
+                        }
+                    }
+                }
+                return new LlmExecutionResult(reply.toString().trim(), null);
+            } else {
+                log.warn("Gemini second-turn error status {}: {}", resp.statusCode(), resp.body());
+                return new LlmExecutionResult(formatToolResultNaturally(fnName, toolResult), null);
             }
         } catch (Exception ex) {
             log.error("Lỗi gửi function response về Gemini: {}", ex.getMessage());
+            return new LlmExecutionResult(formatToolResultNaturally(fnName, toolResult), null);
+        }
+    }
         }
         return new LlmExecutionResult(formatToolResultNaturally(fnName, toolResult), null);
     }

@@ -57,7 +57,9 @@ app:
       password: ${AI_POSTGRES_PASSWORD:}
       enabled: ${AI_POSTGRES_ENABLED:false}
     default-provider: ${AI_DEFAULT_PROVIDER:GEMINI}
-    default-model: ${AI_DEFAULT_MODEL:gemini-1.5-flash}
+    default-model: ${AI_DEFAULT_MODEL:gemini-3.5-flash}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:gemini-3.5-flash}
 
 # Swagger / OpenAPI
 springdoc:
