@@ -93,3 +93,15 @@ docker volume rm budglee_mysql_data                           # CHU Y: xoa toan 
   file moi hon sang so ke tiep, khong xoa cua nguoi khac.
 - Tai khoan demo co mat khau `password` (hash co san trong V6/V9) — chi dung cho dev/demo,
   khong dung tai khoan nay cho du lieu that.
+
+## 8. Tu dong hoa CI/CD qua GitHub Actions (Continuous Deployment)
+
+Domain chinh thuc: [https://quanlythuchi.duckdns.org](https://quanlythuchi.duckdns.org)
+
+Moi khi commit duoc merge vao nhanh `develop` hoac `main`, GitHub Actions se tu dong test, build va deploy len VPS neu da cau hinh cac Repository Secrets duoi day:
+
+Vao **Settings** -> **Secrets and variables** -> **Actions** tren GitHub repo, them:
+- `VPS_HOST`: `103.178.235.68` (hoac `quanlythuchi.duckdns.org`)
+- `VPS_USERNAME`: `root`
+- `VPS_PASSWORD`: Mat khau VPS
+- `VPS_PORT`: `22` (hoac tuy chon `VPS_SSH_KEY`)
