@@ -281,9 +281,10 @@ export const FloatingChatWidget: React.FC = () => {
   // Các câu hỏi gợi ý nhanh chuẩn theo nghiệp vụ Quản lý Tài chính Budglee
   const quickPrompts = [
     { label: '💰 Số dư các ví', text: 'Số dư các ví hiện tại của tôi là bao nhiêu?' },
+    { label: '➕ Tạo ví mới', text: 'Tạo cho tôi một ví mới tên là Ví Tiết Kiệm số dư 5.000.000đ' },
+    { label: '🍔 Ghi chi tiêu ăn trưa 45k', text: 'Tôi vừa chi 45.000đ ăn trưa từ Ví Tiền mặt, hãy ghi chép lại giúp tôi' },
     { label: '📋 Giao dịch gần đây', text: 'Cho tôi xem lịch sử giao dịch thu chi gần đây' },
     { label: '🎯 Kiểm tra ngân sách', text: 'Kiểm tra ngân sách tháng này xem có khoản nào vượt hạn mức không' },
-    { label: '🍔 Ghi chi tiêu ăn trưa 45k', text: 'Tôi vừa chi 45.000đ ăn trưa từ Ví Tiền mặt, hãy ghi chép lại giúp tôi' },
     { label: '🏆 Sức khỏe tài chính', text: 'Đánh giá điểm sức khỏe tài chính của tôi' },
     { label: '💡 Quy tắc 50/30/20', text: 'Quy tắc quản lý tài chính 50/30/20 là gì và áp dụng thế nào?' },
     { label: '👨‍👩‍👧 Sổ quỹ gia đình', text: 'Sổ quỹ gia đình hoạt động như thế nào?' },

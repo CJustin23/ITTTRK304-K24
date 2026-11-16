@@ -50,6 +50,12 @@ public class AiChatService {
 
     public record MessageRecord(String role, String content, Long timestamp, ToolConfirmationDto confirmation) {}
 
+    private static final List<String> VN_BANKS = List.of(
+            "Vietcombank", "VietinBank", "BIDV", "Agribank", "Techcombank",
+            "MB Bank", "ACB", "VPBank", "TPBank", "VIB", "Sacombank",
+            "HDBank", "SHB", "MSB", "OCB", "SeABank", "Timo", "Cake", "MoMo", "ZaloPay"
+    );
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(12))
             .build();
@@ -236,11 +242,12 @@ public class AiChatService {
         String systemInstruction = "Bạn là Budglee AI - Trợ lý Quản lý Thu Chi & Tài chính Cá nhân thông minh của nền tảng Budglee.\n" +
                 "QUY TẮC BẮT BUỘC:\n" +
                 "1. Trả lời bằng tiếng Việt lịch sự, thân thiện, súc tích và có cấu trúc rõ ràng.\n" +
-                "2. CHỈ trả lời và thực thi các nghiệp vụ thuộc phạm vi Quản lý Tài chính của Budglee: số dư ví, giao dịch thu chi, ngân sách chi tiêu, sức khỏe tài chính, danh mục tài chính, quỹ nhóm gia đình, và các nguyên tắc quản lý tài chính thông minh (như quy tắc 50/30/20, 6 chiếc lọ).\n" +
+                "2. CHỈ trả lời và thực thi các nghiệp vụ thuộc phạm vi Quản lý Tài chính của Budglee: số dư ví, giao dịch thu chi, tạo/thêm ví mới, ngân sách chi tiêu, sức khỏe tài chính, danh mục tài chính, quỹ nhóm gia đình, và các nguyên tắc quản lý tài chính thông minh (như quy tắc 50/30/20, 6 chiếc lọ).\n" +
                 "3. Khi người dùng hỏi về số dư ví, giao dịch gần đây, ngân sách, sức khỏe tài chính -> BẮT BUỘC gọi Function Call tương ứng để lấy dữ liệu thực tế.\n" +
                 "4. GHI CHÉP GIAO DỊCH (Human-in-the-loop): Khi người dùng yêu cầu ghi nhận chi tiêu hoặc thu nhập, BẮT BUỘC phải gọi function `prepare_transaction` để hệ thống hiển thị thẻ xác nhận cho người dùng bấm đồng ý trước khi thực thi.\n" +
-                "5. Tuyệt đối từ chối các câu hỏi không liên quan đến tài chính, lập trình, hoặc các chủ đề ngoài lề và hướng dẫn người dùng quay lại các tính năng quản lý tài chính của Budglee.\n" +
-                "6. Thông tin tri thức bổ trợ được cung cấp trong thẻ <rag_context>.\n\n" + ragContext;
+                "5. TẠO VÍ MỚI (Human-in-the-loop): Khi người dùng yêu cầu tạo ví, thêm ví, mở ví mới (kể cả chỉ nhắn ngắn gọn như 'thêm ví', 'tạo ví mới'), BẮT BUỘC phải gọi function `prepare_create_wallet` để hệ thống hiển thị thẻ xác nhận tạo ví cho người dùng kiểm tra, chỉnh sửa và tạo.\n" +
+                "6. Tuyệt đối từ chối các câu hỏi không liên quan đến tài chính, lập trình, hoặc các chủ đề ngoài lề và hướng dẫn người dùng quay lại các tính năng quản lý tài chính của Budglee.\n" +
+                "7. Thông tin tri thức bổ trợ được cung cấp trong thẻ <rag_context>.\n\n" + ragContext;
 
         Map<String, Object> reqBody = new HashMap<>();
         reqBody.put("systemInstruction", Map.of("parts", List.of(Map.of("text", systemInstruction))));
@@ -295,13 +302,16 @@ public class AiChatService {
 
                 // Tool Tạo Ví mới (Human-in-the-loop)
                 if ("prepare_create_wallet".equals(fnName) || "create_wallet".equals(fnName)) {
-                    String walletName = args.has("wallet_name") ? args.path("wallet_name").asText("Ví mới") : "Ví mới";
-                    String walletTypeStr = args.has("wallet_type") ? args.path("wallet_type").asText("CASH") : "CASH";
+                    String walletName = (args != null && args.has("wallet_name") && !args.path("wallet_name").asText().isBlank())
+                            ? args.path("wallet_name").asText("Ví mới") : "Ví mới";
+                    String walletTypeStr = (args != null && args.has("wallet_type"))
+                            ? args.path("wallet_type").asText("CASH") : "CASH";
                     WalletType wType = WalletType.CASH;
                     try {
                         wType = WalletType.valueOf(walletTypeStr.toUpperCase());
                     } catch (Exception ignored) {}
-                    BigDecimal initBal = BigDecimal.valueOf(args.path("initial_balance").asDouble(0));
+                    BigDecimal initBal = (args != null && args.has("initial_balance"))
+                            ? BigDecimal.valueOf(args.path("initial_balance").asDouble(0)) : BigDecimal.ZERO;
 
                     ToolConfirmationDto confirm = toolExecutor.prepareCreateWallet(userId, walletName, wType, initBal, "Tạo ví " + walletName);
                     return new LlmExecutionResult(
@@ -666,15 +676,14 @@ public class AiChatService {
                         ),
                         Map.of(
                                 "name", "prepare_create_wallet",
-                                "description", "Chuẩn bị tạo một ví tiền hoặc tài khoản ngân hàng mới cho người dùng (cần người dùng xác nhận).",
+                                "description", "Chuẩn bị tạo một ví tiền hoặc tài khoản ngân hàng mới cho người dùng khi người dùng muốn thêm hoặc tạo ví (cần người dùng xác nhận).",
                                 "parameters", Map.of(
                                         "type", "OBJECT",
                                         "properties", Map.of(
-                                                "wallet_name", Map.of("type", "STRING", "description", "Tên ví mới (VD: 'Ví Tiết Kiệm', 'Techcombank')"),
+                                                "wallet_name", Map.of("type", "STRING", "description", "Tên ví mới (VD: 'Ví Tiết Kiệm', 'Techcombank', mặc định 'Ví mới')"),
                                                 "wallet_type", Map.of("type", "STRING", "description", "Loại ví: 'CASH' (tiền mặt), 'BANK' (ngân hàng), hoặc 'CREDIT_CARD' (thẻ tín dụng)"),
                                                 "initial_balance", Map.of("type", "NUMBER", "description", "Số dư khởi tạo ban đầu (VNĐ, mặc định 0)")
-                                        ),
-                                        "required", List.of("wallet_name")
+                                        )
                                 )
                         ),
                         Map.of(
