@@ -118,16 +118,32 @@ export const AiChatService = {
     });
   },
 
-  async confirmToolAction(confirmationId: string): Promise<any> {
+  async confirmToolAction(confirmationId: string, overrides?: Record<string, any>): Promise<any> {
     const token = useStore.getState().token;
     const res = await axios.post(
       `${API_BASE_URL}/ai/tools/confirm`,
-      { confirmationId },
+      { confirmationId, ...overrides },
       {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }
     );
     return res.data?.data;
+  },
+
+  async cancelToolAction(confirmationId: string): Promise<any> {
+    const token = useStore.getState().token;
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/ai/tools/cancel`,
+        { confirmationId },
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
+      return res.data?.data;
+    } catch {
+      return null;
+    }
   },
 
   /**

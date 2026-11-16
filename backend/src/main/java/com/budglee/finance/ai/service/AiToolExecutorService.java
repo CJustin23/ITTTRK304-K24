@@ -345,10 +345,20 @@ public class AiToolExecutorService {
     }
 
     /**
+     * Hủy bỏ yêu cầu thực thi Tool đang chờ xác nhận
+     */
+    public void cancelAction(String confirmationId) {
+        if (confirmationId != null) {
+            pendingActions.remove(confirmationId);
+        }
+    }
+
+    /**
      * Tool 8: Thực thi ghi chép giao dịch thật sự vào Database sau khi người dùng bấm [Xác nhận].
+     * Hỗ trợ overrides nếu người dùng đã tùy chỉnh nội dung (số tiền, ví, danh mục, loại giao dịch, ghi chú).
      */
     @Transactional
-    public Map<String, Object> executeConfirmedAction(Long userId, String confirmationId) {
+    public Map<String, Object> executeConfirmedAction(Long userId, String confirmationId, Map<String, Object> overrides) {
         PendingAction action = pendingActions.remove(confirmationId);
         if (action == null) {
             throw new IllegalArgumentException("Yêu cầu xác nhận giao dịch đã hết hạn hoặc không tồn tại. Vui lòng thao tác lại!");
@@ -360,14 +370,83 @@ public class AiToolExecutorService {
         }
 
         if ("CREATE_TRANSACTION".equals(action.actionType())) {
-            Long walletId = ((Number) action.params().get("walletId")).longValue();
-            BigDecimal amount = (BigDecimal) action.params().get("amount");
-            TransactionType type = TransactionType.valueOf((String) action.params().get("type"));
-            String categoryName = (String) action.params().get("categoryName");
-            String note = (String) action.params().get("note");
+            Long walletId = null;
+            if (overrides != null && overrides.get("walletId") != null && !overrides.get("walletId").toString().isBlank()) {
+                try {
+                    walletId = Long.valueOf(overrides.get("walletId").toString());
+                } catch (Exception ignored) {}
+            }
+            if (walletId == null && action.params().get("walletId") != null) {
+                walletId = ((Number) action.params().get("walletId")).longValue();
+            }
 
-            Wallet wallet = walletRepository.findById(walletId)
-                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ví đã chọn."));
+            BigDecimal amount = null;
+            if (overrides != null && overrides.get("amount") != null && !overrides.get("amount").toString().isBlank()) {
+                try {
+                    amount = new BigDecimal(overrides.get("amount").toString().trim());
+                } catch (Exception ignored) {}
+            }
+            if (amount == null && action.params().get("amount") != null) {
+                amount = (BigDecimal) action.params().get("amount");
+            }
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Số tiền giao dịch không hợp lệ.");
+            }
+
+            TransactionType type = null;
+            String typeStr = null;
+            if (overrides != null && overrides.get("type") != null) {
+                typeStr = overrides.get("type").toString();
+            } else if (overrides != null && overrides.get("actionType") != null) {
+                typeStr = overrides.get("actionType").toString();
+            } else if (action.params().get("type") != null) {
+                typeStr = (String) action.params().get("type");
+            }
+            if (typeStr != null) {
+                try {
+                    type = TransactionType.valueOf(typeStr.toUpperCase());
+                } catch (Exception e) {
+                    type = TransactionType.EXPENSE;
+                }
+            } else {
+                type = TransactionType.EXPENSE;
+            }
+
+            final String finalCategoryName = (overrides != null && overrides.get("categoryName") != null && !overrides.get("categoryName").toString().isBlank())
+                    ? overrides.get("categoryName").toString().trim()
+                    : (String) action.params().get("categoryName");
+
+            String note = null;
+            if (overrides != null && overrides.get("note") != null && !overrides.get("note").toString().isBlank()) {
+                note = overrides.get("note").toString().trim();
+            } else if (action.params().get("note") != null) {
+                note = (String) action.params().get("note");
+            }
+            if (note == null || note.isBlank()) {
+                note = "Giao dịch " + (type == TransactionType.INCOME ? "thu nhập" : "chi tiêu");
+            }
+
+            Wallet wallet = null;
+            if (walletId != null) {
+                wallet = walletRepository.findById(walletId).orElse(null);
+            }
+            if (wallet == null) {
+                String walletName = (overrides != null && overrides.get("walletName") != null)
+                        ? overrides.get("walletName").toString()
+                        : (String) action.params().get("walletName");
+                if (walletName != null && !walletName.isBlank()) {
+                    String wNameLower = walletName.toLowerCase();
+                    wallet = walletRepository.findByUserId(userId).stream()
+                            .filter(w -> w.getWalletName().equalsIgnoreCase(walletName) || w.getWalletName().toLowerCase().contains(wNameLower))
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+            if (wallet == null) {
+                wallet = walletRepository.findByUserId(userId).stream()
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ví khả dụng của người dùng."));
+            }
 
             BigDecimal newBalance = type == TransactionType.INCOME
                     ? wallet.getBalance().add(amount)
@@ -378,16 +457,20 @@ public class AiToolExecutorService {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
 
-            Category category = categoryRepository.findAllAvailableForUser(userId).stream()
-                    .filter(c -> c.getName().equalsIgnoreCase(categoryName)
-                            || ("Food & Drinks".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("ăn") || categoryName.toLowerCase().contains("food") || categoryName.toLowerCase().contains("cà phê") || categoryName.toLowerCase().contains("cafe") || categoryName.toLowerCase().contains("coffee") || categoryName.toLowerCase().contains("uống") || categoryName.toLowerCase().contains("trà") || categoryName.toLowerCase().contains("nước")))
-                            || ("Salary".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("lương") || categoryName.toLowerCase().contains("salary")))
-                            || ("Shopping".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("mua") || categoryName.toLowerCase().contains("shop")))
-                            || ("Travel & Transport".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("xe") || categoryName.toLowerCase().contains("xăng") || categoryName.toLowerCase().contains("di chuyển")))
-                            || ("Bills & Utilities".equalsIgnoreCase(c.getName()) && (categoryName.toLowerCase().contains("điện") || categoryName.toLowerCase().contains("nước") || categoryName.toLowerCase().contains("tiện ích")))
-                    )
-                    .findFirst()
-                    .orElse(null);
+            Category category = null;
+            if (finalCategoryName != null) {
+                String catLower = finalCategoryName.toLowerCase();
+                category = categoryRepository.findAllAvailableForUser(userId).stream()
+                        .filter(c -> c.getName().equalsIgnoreCase(finalCategoryName)
+                                || (c.getName().equalsIgnoreCase("Food & Drinks") && (catLower.contains("ăn") || catLower.contains("food") || catLower.contains("cà phê") || catLower.contains("cafe") || catLower.contains("coffee") || catLower.contains("uống") || catLower.contains("trà") || catLower.contains("nước")))
+                                || (c.getName().equalsIgnoreCase("Salary") && (catLower.contains("lương") || catLower.contains("salary")))
+                                || (c.getName().equalsIgnoreCase("Shopping") && (catLower.contains("mua") || catLower.contains("shop")))
+                                || (c.getName().equalsIgnoreCase("Travel & Transport") && (catLower.contains("xe") || catLower.contains("xăng") || catLower.contains("di chuyển")))
+                                || (c.getName().equalsIgnoreCase("Bills & Utilities") && (catLower.contains("điện") || catLower.contains("nước") || catLower.contains("tiện ích")))
+                        )
+                        .findFirst()
+                        .orElse(null);
+            }
 
             Transaction tx = Transaction.builder()
                     .user(user)
@@ -418,5 +501,10 @@ public class AiToolExecutorService {
         }
 
         return Map.of("status", "error", "message", "Loại hành động không được hỗ trợ.");
+    }
+
+    @Transactional
+    public Map<String, Object> executeConfirmedAction(Long userId, String confirmationId) {
+        return executeConfirmedAction(userId, confirmationId, null);
     }
 }

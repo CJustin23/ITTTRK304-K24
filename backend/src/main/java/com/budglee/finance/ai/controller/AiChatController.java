@@ -64,9 +64,9 @@ public class AiChatController {
     @PostMapping("/tools/confirm")
     public ResponseEntity<ApiResponse<Map<String, Object>>> confirmToolAction(
             @AuthenticationPrincipal UserPrincipal principal,
-            @RequestBody Map<String, String> body
+            @RequestBody Map<String, Object> body
     ) {
-        String confirmationId = body.get("confirmationId");
+        String confirmationId = body != null ? (String) body.get("confirmationId") : null;
         if (confirmationId == null || confirmationId.isBlank()) {
             throw new IllegalArgumentException("Mã xác nhận (confirmationId) không được để trống");
         }
@@ -74,8 +74,21 @@ public class AiChatController {
         if (userId == null) {
             throw new IllegalStateException("Cần đăng nhập tài khoản để xác nhận thực thi thao tác tài chính.");
         }
-        Map<String, Object> result = toolExecutor.executeConfirmedAction(userId, confirmationId);
+        Map<String, Object> result = toolExecutor.executeConfirmedAction(userId, confirmationId, body);
         return ResponseEntity.ok(ApiResponse.ok(result, (String) result.get("message")));
+    }
+
+    @Operation(summary = "Hủy bỏ yêu cầu thực thi Tool")
+    @PostMapping("/tools/cancel")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cancelToolAction(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        String confirmationId = body != null ? (String) body.get("confirmationId") : null;
+        if (confirmationId != null && !confirmationId.isBlank()) {
+            toolExecutor.cancelAction(confirmationId);
+        }
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("status", "cancelled"), "Đã hủy bỏ thao tác thành công."));
     }
 
     @Operation(summary = "Lấy lịch sử tin nhắn của cuộc trò chuyện (Sliding Window Memory)")
