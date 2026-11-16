@@ -123,7 +123,7 @@ public class AiKeySecurityService {
                     .hasKey(true)
                     .provider("GEMINI")
                     .maskedKey(maskKey(systemDefaultApiKey))
-                    .modelName("gemini-3.5-flash (Hệ thống)")
+                    .modelName("gemini-3.5-flash-lite (Hệ thống)")
                     .build();
         }
         return AiKeyStatusResponse.builder().hasKey(false).build();
@@ -160,7 +160,7 @@ public class AiKeySecurityService {
             return record;
         }
         if (systemDefaultApiKey != null && !systemDefaultApiKey.isBlank()) {
-            return new EncryptedKeyRecord("GEMINI", encrypt(systemDefaultApiKey), maskKey(systemDefaultApiKey), "gemini-3.5-flash");
+            return new EncryptedKeyRecord("GEMINI", encrypt(systemDefaultApiKey), maskKey(systemDefaultApiKey), "gemini-3.5-flash-lite");
         }
         return null;
     }

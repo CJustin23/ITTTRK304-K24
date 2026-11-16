@@ -46,8 +46,8 @@ public class AiChatService {
     private final AiToolExecutorService toolExecutor;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.ai.gemini-model:${GEMINI_MODEL:gemini-3.5-flash}}")
-    private String geminiModel = "gemini-3.5-flash";
+    @Value("${app.ai.gemini-model:${GEMINI_MODEL:gemini-3.5-flash-lite}}")
+    private String geminiModel = "gemini-3.5-flash-lite";
 
     // Lưu trữ lịch sử hội thoại trong bộ nhớ theo conversationId (Sliding Window Memory)
     private final Map<String, List<MessageRecord>> conversationMemory = new ConcurrentHashMap<>();
@@ -61,7 +61,7 @@ public class AiChatService {
     );
 
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(12))
+            .connectTimeout(Duration.ofSeconds(15))
             .build();
 
     private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -207,10 +207,11 @@ public class AiChatService {
     }
 
     private void streamWords(SseEmitter emitter, String text) throws IOException, InterruptedException {
+        if (text == null || text.isBlank()) return;
         String[] words = text.split("(?<=\\s)");
         for (String word : words) {
             emitter.send(SseEmitter.event().name("token").data(Map.of("token", word)));
-            Thread.sleep(18); // Nhịp gõ tự nhiên ~18ms/từ
+            Thread.sleep(12); // Tốc độ phản hồi mượt mà 12ms/từ
         }
     }
 
@@ -241,7 +242,7 @@ public class AiChatService {
     private LlmExecutionResult callGeminiWithTools(
             String apiKey, Long userId, String convId, String userMsg, String ragContext
     ) throws Exception {
-        String activeModel = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel.trim() : "gemini-3.5-flash";
+        String activeModel = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel.trim() : "gemini-3.5-flash-lite";
         String url = "https://generativelanguage.googleapis.com/v1beta/models/" + activeModel + ":generateContent?key=" + apiKey;
 
         String systemInstruction = "Bạn là Budglee AI - Trợ lý Quản lý Thu Chi & Tài chính Cá nhân thông minh của nền tảng Budglee.\n" +
@@ -273,7 +274,7 @@ public class AiChatService {
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
-                .timeout(Duration.ofSeconds(20))
+                .timeout(Duration.ofSeconds(30))
                 .build();
 
         HttpResponse<String> resp = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -306,7 +307,8 @@ public class AiChatService {
                 // Tool Ghi nhận Giao dịch Thu Chi (Human-in-the-loop)
                 if ("prepare_transaction".equals(fnName)) {
                     BigDecimal amount = BigDecimal.valueOf(args.path("amount").asDouble(0));
-                    String type = args.path("type").asText("EXPENSE");
+                    String rawType = args.path("type").asText("EXPENSE");
+                    String type = (rawType.toLowerCase().contains("thu") || rawType.toLowerCase().contains("income") || rawType.toLowerCase().contains("lương")) ? "INCOME" : "EXPENSE";
                     String cat = args.has("categoryName") ? args.path("categoryName").asText(null) : null;
                     String wallet = args.has("walletName") ? args.path("walletName").asText(null) : null;
                     String note = args.has("note") ? args.path("note").asText("Giao dịch tạo qua AI") : "Giao dịch tạo qua AI";
@@ -324,10 +326,7 @@ public class AiChatService {
                             ? args.path("wallet_name").asText("Ví mới") : "Ví mới";
                     String walletTypeStr = (args != null && args.has("wallet_type"))
                             ? args.path("wallet_type").asText("CASH") : "CASH";
-                    WalletType wType = WalletType.CASH;
-                    try {
-                        wType = WalletType.valueOf(walletTypeStr.toUpperCase());
-                    } catch (Exception ignored) {}
+                    WalletType wType = guessWalletType(walletTypeStr.toLowerCase());
                     BigDecimal initBal = (args != null && args.has("initial_balance"))
                             ? BigDecimal.valueOf(args.path("initial_balance").asDouble(0)) : BigDecimal.ZERO;
 
@@ -360,7 +359,7 @@ public class AiChatService {
             String apiKey, List<Map<String, Object>> contents, JsonNode modelPartsNode, String fnName, Map<String, Object> toolResult
     ) {
         try {
-            String activeModel = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel.trim() : "gemini-3.5-flash";
+            String activeModel = (geminiModel != null && !geminiModel.isBlank()) ? geminiModel.trim() : "gemini-3.5-flash-lite";
             String url = "https://generativelanguage.googleapis.com/v1beta/models/" + activeModel + ":generateContent?key=" + apiKey;
 
             List<Map<String, Object>> updatedContents = new ArrayList<>(contents);
@@ -390,7 +389,7 @@ public class AiChatService {
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(Duration.ofSeconds(25))
                     .build();
 
             HttpResponse<String> resp = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
