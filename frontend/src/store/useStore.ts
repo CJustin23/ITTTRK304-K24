@@ -1620,6 +1620,46 @@ export const persistCurrentUserData = (
   }
 };
 
+// Kiểm tra xem JWT token hoặc phiên đăng nhập đã hết hạn trong vòng 24h chưa
+export const isTokenExpired = (token: string | null): boolean => {
+  if (!token) return true;
+
+  // 1. Kiểm tra payload exp của token JWT nếu đúng định dạng
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const parsed = JSON.parse(jsonPayload);
+      if (typeof parsed.exp === 'number') {
+        return Date.now() >= parsed.exp * 1000;
+      }
+    }
+  } catch {}
+
+  // 2. Kiểm tra mốc hết hạn 24h lưu trữ cục bộ
+  const expiresAtStr = localStorage.getItem('budglee_token_expires_at');
+  if (expiresAtStr) {
+    const expiresAt = parseInt(expiresAtStr, 10);
+    if (!isNaN(expiresAt) && Date.now() >= expiresAt) return true;
+  }
+
+  // 3. Fallback: Thời điểm tạo + 24 giờ (86.400.000 ms)
+  const createdAtStr = localStorage.getItem('budglee_token_created_at');
+  if (createdAtStr) {
+    const createdAt = parseInt(createdAtStr, 10);
+    if (!isNaN(createdAt) && Date.now() - createdAt >= 24 * 60 * 60 * 1000) return true;
+  }
+
+  return false;
+};
+
 // Khôi phục trạng thái đăng nhập từ localStorage khi reload / F5 trang
 const loadInitialAuthState = () => {
   if (typeof window === 'undefined') {
@@ -1642,7 +1682,12 @@ const loadInitialAuthState = () => {
   const storedUserStr = localStorage.getItem('budglee_current_user');
   const storedToken = localStorage.getItem('budglee_token');
 
-  if (!storedUserStr || !storedToken) {
+  // Kiểm tra token có tồn tại và còn hạn trong 24h hay không
+  if (!storedUserStr || !storedToken || isTokenExpired(storedToken)) {
+    localStorage.removeItem('budglee_token');
+    localStorage.removeItem('budglee_token_created_at');
+    localStorage.removeItem('budglee_token_expires_at');
+    localStorage.removeItem('budglee_current_user');
     return {
       currentUser: null,
       token: null,
@@ -1836,7 +1881,11 @@ export const useStore = create<AppState>((set, get) => ({
   selectedInvitationForConfirm: null,
 
   setAuth: (user, token, isNewRegistration, initialMembers) => {
+    const now = Date.now();
+    const expiresInMs = 24 * 60 * 60 * 1000; // Thời hạn token: 24 giờ
     localStorage.setItem('budglee_token', token);
+    localStorage.setItem('budglee_token_created_at', now.toString());
+    localStorage.setItem('budglee_token_expires_at', (now + expiresInMs).toString());
     localStorage.setItem('budglee_current_user', JSON.stringify(user));
 
     // Platform admins use the dedicated administration area and must not load finance data.
@@ -2067,6 +2116,8 @@ export const useStore = create<AppState>((set, get) => ({
       void AuthService.logout(tokenToRevoke);
     }
     localStorage.removeItem('budglee_token');
+    localStorage.removeItem('budglee_token_created_at');
+    localStorage.removeItem('budglee_token_expires_at');
     localStorage.removeItem('budglee_current_user');
     localStorage.removeItem('budglee_active_tab');
     set({

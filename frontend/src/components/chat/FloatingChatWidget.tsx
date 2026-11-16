@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { AiChatService, ChatMessage, ToolConfirmation, AiKeyStatus } from '../../services/aiChatService';
 import { useStore } from '../../store/useStore';
+import { ChatMessageReview } from './ChatMessageReview';
 
 export const FloatingChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -490,13 +491,12 @@ export const FloatingChatWidget: React.FC = () => {
                             : 'bg-white text-slate-800 border border-slate-200/70 rounded-bl-none'
                         }`}
                       >
-                        {/* Hiển thị nội dung văn bản (hỗ trợ xuống dòng và định dạng cơ bản) */}
-                        <div className="whitespace-pre-wrap break-words space-y-1">
-                          {msg.content}
-                          {msg.isStreaming && (
-                            <span className="inline-block w-1.5 h-3 bg-emerald-600 animate-pulse ml-1"></span>
-                          )}
-                        </div>
+                        {/* Hiển thị nội dung tin nhắn dạng Review (không để lộ markdown thô) */}
+                        {isUser ? (
+                          <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                        ) : (
+                          <ChatMessageReview content={msg.content} isStreaming={msg.isStreaming} />
+                        )}
 
                         {/* Thẻ xác nhận Giao dịch Thu Chi (Human-in-the-loop) */}
                         {msg.confirmation && (
