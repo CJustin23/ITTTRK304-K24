@@ -160,4 +160,17 @@ public class FamilyController {
                 ApiResponse.ok(response, "Thêm thành viên vào sổ quỹ thành công")
         );
     }
+
+    @PostMapping("/upgrade")
+    @Operation(summary = "Nâng cấp tài khoản cá nhân lên Chủ hộ (FAMILY_ADMIN) và tạo nhóm gia đình")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> upgradeToFamilyAdmin(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestBody(required = false) java.util.Map<String, String> body
+    ) {
+        String familyName = body != null ? body.get("familyName") : null;
+        java.util.Map<String, Object> result = familyService.upgradeToFamilyAdmin(currentUser.getId(), familyName);
+        return ResponseEntity.ok(
+                ApiResponse.ok(result, "Kích hoạt sổ quỹ gia đình thành công")
+        );
+    }
 }

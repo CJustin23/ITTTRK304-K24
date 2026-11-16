@@ -164,6 +164,25 @@ class AuthRegistrationTest {
     }
 
     @Test
+    void nonGmailAddressesAreRejectedAtBothRegistrationEndpoints() throws Exception {
+        for (String badEmail : new String[]{"xuanvinh@g.com", "xuanvinh@mail.com", "xuanvinh@yahoo.com", "xuanvinh@gmail.co"}) {
+            MvcResult res = register(payload("Xuân Vinh", badEmail, "MatKhau123"));
+            assertThat(res.getResponse().getStatus()).as("register với %s", badEmail).isEqualTo(400);
+            assertThat(om.readTree(textOf(res)).at("/message").asText()).contains("example@gmail.com");
+            assertThat(userRepository.findByEmail(badEmail)).isEmpty();
+
+            Map<String, Object> familyBody = payload("Xuân Vinh", badEmail, "MatKhau123");
+            familyBody.put("familyName", "Gia đình Vinh");
+            MvcResult famRes = mvc.perform(post("/api/v1/auth/register/family-owner")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(om.writeValueAsString(familyBody)))
+                    .andReturn();
+            assertThat(famRes.getResponse().getStatus()).as("register/family-owner với %s", badEmail).isEqualTo(400);
+            assertThat(om.readTree(textOf(famRes)).at("/message").asText()).contains("example@gmail.com");
+        }
+    }
+
+    @Test
     void validationFailureIsReportedInApiEnvelope() throws Exception {
         MvcResult result = register(payload("Ai đó", newEmail(), "123"));
 

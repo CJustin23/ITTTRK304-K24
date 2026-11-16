@@ -403,7 +403,15 @@ export const SettingsView: React.FC = () => {
                 <input
                   type="text"
                   disabled
-                  value={currentUser?.role || ''}
+                  value={
+                    currentUser?.role === 'FAMILY_ADMIN'
+                      ? 'Chủ hộ · Quản trị Sổ quỹ Gia đình'
+                      : currentUser?.role === 'FAMILY_MEMBER'
+                      ? 'Thành viên · Sổ quỹ Gia đình'
+                      : currentUser?.role === 'SYSTEM_ADMIN'
+                      ? 'Quản trị hệ thống'
+                      : 'Người dùng · Quản lý Cá nhân'
+                  }
                   className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 font-medium cursor-not-allowed"
                 />
               </div>

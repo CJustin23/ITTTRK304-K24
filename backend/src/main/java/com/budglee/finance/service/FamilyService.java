@@ -553,4 +553,53 @@ public class FamilyService {
         return toMemberResponse(savedUser);
     }
 
+    /**
+     * Nâng cấp tài khoản cá nhân lên Chủ hộ (FAMILY_ADMIN) và khởi tạo nhóm hộ gia đình mới.
+     */
+    public java.util.Map<String, Object> upgradeToFamilyAdmin(Long currentUserId, String familyName) {
+        User currentUser = getCurrentUser(currentUserId);
+        if (currentUser.getRole() == Role.SYSTEM_ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quản trị viên hệ thống không thuộc nhóm hộ gia đình");
+        }
+        String trimmedName = (familyName == null || familyName.isBlank())
+                ? ("Gia đình của " + currentUser.getFullName())
+                : familyName.trim();
+
+        if (currentUser.getFamilyGroupId() != null && !currentUser.getFamilyGroupId().isBlank()) {
+            var existingGroup = familyGroupRepository.findById(currentUser.getFamilyGroupId()).orElse(null);
+            if (existingGroup != null) {
+                if (currentUser.getRole() != Role.FAMILY_ADMIN) {
+                    currentUser.setRole(Role.FAMILY_ADMIN);
+                    userRepository.save(currentUser);
+                }
+                return java.util.Map.of(
+                        "familyGroupId", existingGroup.getId(),
+                        "familyGroupName", existingGroup.getName(),
+                        "role", Role.FAMILY_ADMIN.name()
+                );
+            }
+        }
+
+        String groupId;
+        do {
+            groupId = "BG-" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(java.util.Locale.ROOT);
+        } while (familyGroupRepository.existsById(groupId));
+
+        familyGroupRepository.save(FamilyGroup.builder()
+                .id(groupId)
+                .name(trimmedName)
+                .createdBy(currentUser)
+                .build());
+
+        currentUser.setRole(Role.FAMILY_ADMIN);
+        currentUser.setFamilyGroupId(groupId);
+        userRepository.save(currentUser);
+
+        return java.util.Map.of(
+                "familyGroupId", groupId,
+                "familyGroupName", trimmedName,
+                "role", Role.FAMILY_ADMIN.name()
+        );
+    }
+
 }

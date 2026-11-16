@@ -22,7 +22,7 @@ export const TransactionsView: React.FC = () => {
   const [filterWalletId, setFilterWalletId] = useState<string>('ALL');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
-  // Filter transactions
+  // Base filter (search + wallet + category), independent of transactionType tab
   const baseFiltered = recentTransactions.filter((tx) => {
     const matchesSearch =
         tx.actionTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -37,12 +37,13 @@ export const TransactionsView: React.FC = () => {
   });
 
   const allCount = baseFiltered.length;
-  const incomeCount = baseFiltered.filter((t) => t.transactionType === 'INCOME').length;
-  const expenseCount = baseFiltered.filter((t) => t.transactionType === 'EXPENSE').length;
+  const incomeCount = baseFiltered.filter((tx) => tx.transactionType === 'INCOME').length;
+  const expenseCount = baseFiltered.filter((tx) => tx.transactionType === 'EXPENSE').length;
 
-  const filtered = baseFiltered.filter((tx) => {
-    return filterType === 'ALL' || tx.transactionType === filterType;
-  });
+  // Filter transactions by active type tab
+  const filtered = baseFiltered.filter(
+      (tx) => filterType === 'ALL' || tx.transactionType === filterType
+  );
 
   // Calculate filtered totals
   const totalFilteredIncome = filtered

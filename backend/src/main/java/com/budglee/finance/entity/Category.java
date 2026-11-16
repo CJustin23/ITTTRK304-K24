@@ -37,9 +37,8 @@ public class Category {
     @Column(name = "color_code", length = 20)
     private String colorCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id")
-    @JsonIgnore
     private User user; // null if default system category
 
     @CreationTimestamp

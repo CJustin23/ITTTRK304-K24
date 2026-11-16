@@ -33,15 +33,6 @@ public class SingleAdminSessionRegistry {
 
     public synchronized boolean startSession(String email, String tokenId, long validityMs) {
         clearExpired();
-        if (isTestProfile()) {
-            activeEmail = email;
-            activeTokenId = tokenId;
-            expiresAt = Instant.now().plusMillis(Math.max(0, validityMs));
-            return true;
-        }
-        if (activeTokenId != null) {
-            return false;
-        }
         activeEmail = email;
         activeTokenId = tokenId;
         expiresAt = Instant.now().plusMillis(Math.max(0, validityMs));
