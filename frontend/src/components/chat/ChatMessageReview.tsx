@@ -279,6 +279,36 @@ export const ChatMessageReview: React.FC<ChatMessageReviewProps> = ({ content, i
       continue;
     }
 
+    // 5.1 Tiêu đề chuyên mục ghim (📌 ...)
+    if (trimmed.startsWith('📌')) {
+      elements.push(
+        <div
+          key={`pin-${i}`}
+          className="font-bold text-emerald-800 text-xs mt-2.5 mb-1 pb-1 border-b border-emerald-200/60 flex items-center gap-1.5 tracking-tight"
+        >
+          <span className="text-sm shrink-0">📌</span>
+          <span>{renderFormattedInline(trimmed.replace(/^📌\s*/, ''))}</span>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // 5.2 Lời khuyên / Mẹo (💡 ...)
+    if (trimmed.startsWith('💡')) {
+      elements.push(
+        <div
+          key={`tip-${i}`}
+          className="my-2 p-2 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-[11px] leading-relaxed flex items-start gap-1.5 shadow-2xs"
+        >
+          <span className="text-sm shrink-0 leading-none">💡</span>
+          <div className="flex-1">{renderFormattedInline(trimmed.replace(/^💡\s*/, ''))}</div>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
     // 6. Danh sách không thứ tự (Bullet List): - hoặc * hoặc + hoặc •
     if (/^[\*\-\+•]\s+(.*)$/.test(trimmed)) {
       const listItems: string[] = [];
