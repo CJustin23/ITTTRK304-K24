@@ -25,14 +25,15 @@
 
 ## 1. Tài khoản Thử nghiệm (Demo & Evaluation Accounts)
 
-Nhằm phục vụ quá trình chấm điểm, đánh giá và kiểm thử toàn diện các cấp phân quyền (RBAC) trên hệ thống:
+Nhằm phục vụ quá trình chấm điểm, đánh giá và kiểm thử các cấp phân quyền người dùng (RBAC) trên hệ thống:
 
 | Vai trò (Role) | Email đăng nhập | Mật khẩu | Phạm vi chức năng kiểm thử |
 | :--- | :--- | :--- | :--- |
-| **SYSTEM_ADMIN** | `admin@budglee.local` | `BudgleeAdmin@2026!` | Trang Quản trị hệ thống, giám sát tài khoản, quản lý khóa AI, sao lưu & khôi phục database (thử thách 2 bước) |
 | **FAMILY_ADMIN** | `seed.user@budglee.local` | `password` | Chủ hộ nhóm "Tổ ấm mẫu", quản lý ví chung, gửi lời mời và phê duyệt thành viên |
 | **FAMILY_MEMBER** | `seed.member@budglee.local` | `password` | Thành viên gia đình, ghi chép thu chi vào ví chung & nhận thông báo thời gian thực |
 | **INDIVIDUAL_USER** | *(Tự do đăng ký)* | *(Tự chọn)* | Tài khoản cá nhân độc lập (Yêu cầu định dạng email `@gmail.com`) |
+
+> 🔒 **Lưu ý bảo mật:** Tài khoản Quản trị cấp cao (`SYSTEM_ADMIN`) được cấu hình bảo mật riêng trong biến môi trường máy chủ và cấp riêng cho quản trị viên/giảng viên đánh giá, không công khai trên tài liệu mở để đảm bảo an toàn vận hành hệ thống.
 
 ---
 
