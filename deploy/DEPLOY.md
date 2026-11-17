@@ -40,9 +40,8 @@ openssl rand -base64 48          # sinh rieng CHATBOT_KEY_ENCRYPTION_SECRET va g
 Bat buoc phai co `JWT_SECRET`, `DB_PASSWORD`, `DB_ROOT_PASSWORD` va
 `MAIL_USERNAME` / `MAIL_PASSWORD` (SMTP App Password moi, sau khi thu hoi credential cu).
 Muon co tai quan tri de demo RBAC thi dien them `APP_SECURITY_SYSTEM_ADMIN_EMAIL` /
-`APP_SECURITY_SYSTEM_ADMIN_PASSWORD`. Demo mặc định dùng `admin@budglee.local` /
-`BudgleeAdmin@2026!`; bootstrap sẽ đồng bộ mật khẩu cấu hình khi backend khởi động.
-Đổi mật khẩu bằng cách đặt `APP_SECURITY_SYSTEM_ADMIN_PASSWORD` trong env của VPS trước khi deploy.
+`APP_SECURITY_SYSTEM_ADMIN_PASSWORD` vao bien moi truong tren VPS; bootstrap se tu dong dong bo tai khoan quan tri khi backend khoi dong.
+Luu y bao mat: Khong commit mat khau quan tri thuc te vao kho ma nguon.
 
 ## 4. Build va chay
 
