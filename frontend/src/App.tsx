@@ -153,7 +153,8 @@ export const App: React.FC = () => {
   }) => {
     const selectedWallet = wallets.find((w) => w.id === data.walletId) || wallets[0];
     const actualWalletId = selectedWallet ? selectedWallet.id : data.walletId;
-    const actualWalletName = selectedWallet ? selectedWallet.walletName : 'Ví chính';
+    const cardSuffix = selectedWallet?.cardNumberMasked ? ` (${selectedWallet.cardNumberMasked})` : '';
+    const actualWalletName = selectedWallet ? `${selectedWallet.walletName}${cardSuffix}` : 'Ví chính';
     const currentBalance = selectedWallet ? selectedWallet.balance : 0;
     const newBalance =
       data.transactionType === 'INCOME'
@@ -168,7 +169,7 @@ export const App: React.FC = () => {
       amount: data.amount,
       transactionType: data.transactionType,
       balanceAfter: newBalance,
-      transactionDate: 'Hôm nay ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      transactionDate: new Date().toISOString(),
       note: data.note,
     });
   };

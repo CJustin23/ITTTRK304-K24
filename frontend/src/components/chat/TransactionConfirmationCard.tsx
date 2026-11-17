@@ -115,7 +115,8 @@ export const TransactionConfirmationCard: React.FC<TransactionConfirmationCardPr
     setSelectedWalletId(id);
     const found = wallets.find((w) => w.id === id);
     if (found) {
-      setWalletName(found.walletName);
+      const cardSuffix = found.cardNumberMasked ? ` (${found.cardNumberMasked})` : '';
+      setWalletName(`${found.walletName}${cardSuffix}`);
     }
   };
 
@@ -334,7 +335,7 @@ export const TransactionConfirmationCard: React.FC<TransactionConfirmationCardPr
                 >
                   {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.walletName} ({new Intl.NumberFormat('vi-VN').format(w.balance || 0)} ₫)
+                      {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''} ({new Intl.NumberFormat('vi-VN').format(w.balance || 0)} ₫)
                     </option>
                   ))}
                 </select>

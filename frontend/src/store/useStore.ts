@@ -1446,11 +1446,16 @@ export const mergeSeedTransactions = (existing: Transaction[], seed: Transaction
     }
   });
 
-  return Array.from(existingMap.values()).sort(
-    (a, b) =>
-      new Date(b.transactionDate.includes('T') ? b.transactionDate : b.transactionDate.replace(' ', 'T')).getTime() -
-      new Date(a.transactionDate.includes('T') ? a.transactionDate : a.transactionDate.replace(' ', 'T')).getTime()
-  );
+  return Array.from(existingMap.values()).sort((a, b) => {
+    const getTime = (dateStr?: string) => {
+      if (!dateStr) return 0;
+      if (dateStr.startsWith('Hôm nay')) return Date.now();
+      const normalized = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+      const t = new Date(normalized).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+    return getTime(b.transactionDate) - getTime(a.transactionDate);
+  });
 };
 
 export const mergeRealtimeNotifications = (
@@ -2115,11 +2120,25 @@ export const useStore = create<AppState>((set, get) => ({
     if (tokenToRevoke) {
       void AuthService.logout(tokenToRevoke);
     }
-    localStorage.removeItem('budglee_token');
-    localStorage.removeItem('budglee_token_created_at');
-    localStorage.removeItem('budglee_token_expires_at');
-    localStorage.removeItem('budglee_current_user');
-    localStorage.removeItem('budglee_active_tab');
+    // Dọn dẹp toàn bộ cache dữ liệu và phiên của tất cả tài khoản khi đăng xuất (Giải pháp 3 - Logout Cleanup)
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('budglee_data_') ||
+          key.startsWith('budglee_family_data_') ||
+          key.startsWith('budglee_user_') ||
+          key.startsWith('budglee_ai_') ||
+          key.startsWith('budglee_')
+        )) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch (e) {
+      console.warn('Lỗi dọn dẹp cache localStorage khi đăng xuất:', e);
+    }
     set({
       currentUser: null,
       token: null,
@@ -2242,13 +2261,16 @@ export const useStore = create<AppState>((set, get) => ({
   addTransaction: (txData) => {
     const createdLocalTxId = Date.now();
     set((state) => {
+      // Tìm ví ưu tiên theo walletId -> nếu không thấy thì tìm theo số thẻ cardNumberMasked -> tên ví
       const targetWallet =
         state.wallets.find((w) => w.id === txData.walletId) ||
+        (txData.cardNumberMasked ? state.wallets.find((w) => w.cardNumberMasked && w.cardNumberMasked.includes(txData.cardNumberMasked!)) : null) ||
         state.wallets.find((w) => w.walletName === txData.walletName) ||
         state.wallets[0];
 
       const actualWalletId = targetWallet ? targetWallet.id : txData.walletId;
-      const actualWalletName = targetWallet ? targetWallet.walletName : (txData.walletName || 'Ví chính');
+      const cardSuffix = targetWallet?.cardNumberMasked ? ` (${targetWallet.cardNumberMasked})` : '';
+      const actualWalletName = targetWallet ? `${targetWallet.walletName}${cardSuffix}` : (txData.walletName || 'Ví chính');
 
       const updatedWallets = state.wallets.map((w) => {
         if (w.id === actualWalletId) {
@@ -2299,7 +2321,15 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     if (get().token) {
-      const targetW = get().wallets.find((w) => w.id === txData.walletId) || get().wallets[0];
+      const targetW =
+        get().wallets.find((w) => w.id === txData.walletId) ||
+        (txData.cardNumberMasked ? get().wallets.find((w) => w.cardNumberMasked && w.cardNumberMasked.includes(txData.cardNumberMasked!)) : null) ||
+        get().wallets.find((w) => w.walletName === txData.walletName) ||
+        get().wallets[0];
+
+      // Đảm bảo định dạng thời gian ISO yyyy-MM-ddTHH:mm:ss tương thích tuyệt đối với Jackson
+      const safeIsoDate = new Date().toISOString().slice(0, 19);
+
       TransactionService.create({
         walletId: targetW ? targetW.id : txData.walletId,
         categoryId: txData.categoryId || 1,
@@ -2307,7 +2337,7 @@ export const useStore = create<AppState>((set, get) => ({
         amount: txData.amount,
         transactionType: txData.transactionType,
         note: txData.note || txData.actionTitle || '',
-        transactionDate: txData.transactionDate || new Date().toISOString(),
+        transactionDate: safeIsoDate,
       })
         .then((createdTx: any) => {
           if (createdTx && createdTx.id) {
@@ -2319,6 +2349,8 @@ export const useStore = create<AppState>((set, get) => ({
               persistCurrentUserData(state.currentUser, newState);
               return newState;
             });
+            // Đồng bộ dữ liệu mới nhất từ backend để cập nhật số dư các ví và thống kê
+            get().fetchCoreData();
           }
         })
         .catch((e) => console.warn('Background sync transaction to API:', e?.message));
@@ -2624,7 +2656,7 @@ export const useStore = create<AppState>((set, get) => ({
         updates.wallets = walletsRes.value.map((w: any) => ({
           id: w.id,
           walletName: w.walletName || w.name,
-          cardNumberMasked: w.accountNumber || w.cardNumberMasked || '',
+          cardNumberMasked: w.cardNumberMasked || w.accountNumber || '',
           balance: Number(w.balance || w.initialBalance || 0),
           currency: w.currency || 'VND',
           type: w.type || w.walletType || 'BANK',
@@ -2634,10 +2666,11 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content) && txsRes.value.content.length > 0) {
-        updates.recentTransactions = txsRes.value.content.map((t: any) => ({
+        const apiTxs = txsRes.value.content.map((t: any) => ({
           id: t.id,
           walletId: t.wallet?.id || t.walletId || 1,
           walletName: t.wallet?.walletName || t.wallet?.name || t.walletName || 'Ví',
+          cardNumberMasked: t.wallet?.cardNumberMasked || '',
           categoryName: t.category?.name || t.categoryName || 'Chi tiêu',
           categoryIcon: t.category?.icon || t.categoryIcon || 'ShoppingBag',
           actionTitle: t.actionTitle || t.note || 'Giao dịch',
@@ -2647,6 +2680,14 @@ export const useStore = create<AppState>((set, get) => ({
           balanceAfter: Number(t.balanceAfter || 0),
           note: t.note,
         }));
+
+        // Giữ lại các giao dịch vừa thêm ở local chưa kịp đồng bộ để không bị mất khi chuyển tab
+        const apiTxIds = new Set(apiTxs.map((t: any) => t.id));
+        const currentTxs = get().recentTransactions || [];
+        const pendingLocalTxs = currentTxs.filter(
+          (lt) => !apiTxIds.has(lt.id) && (lt.id > 1000000000000 || typeof lt.id === 'string')
+        );
+        updates.recentTransactions = [...pendingLocalTxs, ...apiTxs];
       }
 
       if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value) && budgetsRes.value.length > 0) {
