@@ -105,6 +105,11 @@ public class FamilyService {
      * Chuyển người dùng thành DTO thành viên gia đình.
      */
     private FamilyMemberResponse toMemberResponse(User user) {
+        return toMemberResponse(user, null);
+    }
+
+    private FamilyMemberResponse toMemberResponse(User user, Long ownerId) {
+        boolean isOwner = (ownerId != null && ownerId.equals(user.getId()));
         return FamilyMemberResponse.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -112,6 +117,7 @@ public class FamilyService {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
                 .joinedAt(user.getCreatedAt())
+                .isOwner(isOwner)
                 .build();
     }
 
@@ -411,26 +417,81 @@ public class FamilyService {
             }
         }
 
+        FamilyGroup familyGroup = familyGroupRepository.findById(groupId).orElse(null);
+        Long ownerId = (familyGroup != null && familyGroup.getCreatedBy() != null)
+                ? familyGroup.getCreatedBy().getId()
+                : null;
+
         return userRepository.findByFamilyGroupId(groupId).stream()
-                .map(this::toMemberResponse)
+                .map(u -> toMemberResponse(u, ownerId))
                 .toList();
     }
 
     /**
      * Chủ nhóm xóa một thành viên khỏi gia đình.
      */
+    @Transactional
+    public void removeFamilyMember(Long currentUserId, Long memberId) {
+        removeFamilyMember(currentUserId, memberId, null);
+    }
+
+    @Transactional
     public void removeFamilyMember(
             Long currentUserId,
-            Long memberId
+            Long memberId,
+            String email
     ) {
         FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
 
-        if (currentUserId.equals(memberId)) {
+        User member = null;
+        if (memberId != null) {
+            member = userRepository.findById(memberId).orElse(null);
+        }
+        if (member == null && email != null && !email.isBlank()) {
+            member = userRepository.findByEmail(email.trim().toLowerCase()).orElse(null);
+        }
+
+        if (member == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy thành viên"
+            );
+        }
+
+        if (currentUserId.equals(member.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Chủ nhóm không thể tự xóa mình khỏi gia đình"
             );
         }
+
+        if (familyGroup.getCreatedBy() != null
+                && member.getId().equals(familyGroup.getCreatedBy().getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Không thể xóa chủ hộ sáng lập sổ quỹ"
+            );
+        }
+
+        if (member.getFamilyGroupId() == null || !familyGroup.getId().equals(member.getFamilyGroupId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Tài khoản này không thuộc gia đình của bạn"
+            );
+        }
+
+        member.setFamilyGroupId(null);
+        member.setRole(Role.INDIVIDUAL_USER);
+
+        userRepository.save(member);
+    }
+
+    /**
+     * Cập nhật vai trò thành viên gia đình (FAMILY_ADMIN hoặc FAMILY_MEMBER).
+     */
+    @Transactional
+    public FamilyMemberResponse updateMemberRole(Long currentUserId, Long memberId, Role newRole) {
+        FamilyGroup familyGroup = getOwnedFamilyGroup(currentUserId);
 
         User member = userRepository.findById(memberId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -440,15 +501,33 @@ public class FamilyService {
 
         if (!familyGroup.getId().equals(member.getFamilyGroupId())) {
             throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
+                    HttpStatus.BAD_REQUEST,
                     "Tài khoản này không thuộc gia đình của bạn"
             );
         }
 
-        member.setFamilyGroupId(null);
-        member.setRole(Role.INDIVIDUAL_USER);
+        if (familyGroup.getCreatedBy() != null
+                && member.getId().equals(familyGroup.getCreatedBy().getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Không thể thay đổi vai trò của Chủ hộ sáng lập sổ quỹ"
+            );
+        }
 
-        userRepository.save(member);
+        if (newRole != Role.FAMILY_ADMIN && newRole != Role.FAMILY_MEMBER) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Vai trò chỉ có thể là FAMILY_ADMIN hoặc FAMILY_MEMBER"
+            );
+        }
+
+        member.setRole(newRole);
+        User saved = userRepository.save(member);
+
+        Long ownerId = (familyGroup.getCreatedBy() != null)
+                ? familyGroup.getCreatedBy().getId()
+                : null;
+        return toMemberResponse(saved, ownerId);
     }
 
     /**
@@ -550,7 +629,10 @@ public class FamilyService {
         targetUser.setRole(Role.FAMILY_MEMBER);
         User savedUser = userRepository.save(targetUser);
 
-        return toMemberResponse(savedUser);
+        Long ownerId = (familyGroup.getCreatedBy() != null)
+                ? familyGroup.getCreatedBy().getId()
+                : null;
+        return toMemberResponse(savedUser, ownerId);
     }
 
     /**

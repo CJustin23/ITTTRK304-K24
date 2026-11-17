@@ -216,8 +216,14 @@ export const FamilyApiService = {
     const response = await api.get('/family/members');
     return response.data.data;
   },
-  removeMember: async (memberId: number): Promise<void> => {
-    const response = await api.delete(`/family/members/${memberId}`);
+  removeMember: async (memberId: number, email?: string): Promise<void> => {
+    const response = await api.delete(`/family/members/${memberId}`, {
+      params: email ? { email } : undefined,
+    });
+    return response.data.data;
+  },
+  updateMemberRole: async (memberId: number, role: string): Promise<any> => {
+    const response = await api.put(`/family/members/${memberId}/role`, { role });
     return response.data.data;
   },
   upgradeToFamilyAdmin: async (familyName: string): Promise<{ familyGroupId: string; familyGroupName: string; role: string }> => {
