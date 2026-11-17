@@ -1537,8 +1537,8 @@ interface AppState {
   // Family actions
   fetchFamilyMembers: () => Promise<void>;
   addFamilyMember: (member: Omit<FamilyMember, 'id' | 'joinedDate'>) => void;
-  removeFamilyMember: (id: number) => void;
-  updateMemberRole: (id: number, role: Role) => void;
+  removeFamilyMember: (id: number, email?: string) => Promise<void>;
+  updateMemberRole: (id: number, role: Role) => Promise<void>;
   upgradeToFamilyAdmin: (
     familyGroupName: string,
     initialMembers?: Omit<FamilyMember, 'id' | 'joinedDate'>[]
@@ -2509,38 +2509,70 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  removeFamilyMember: (id) => {
-    set((state) => {
-      const updated = state.familyMembers.filter((m) => m.id !== id);
-      const newState = { familyMembers: updated };
-      persistCurrentUserData(state.currentUser, newState);
+  removeFamilyMember: async (id, email) => {
+    // 1. Tìm thông tin member cần xóa (nếu không có email thì lấy từ state)
+    const currentMembers = get().familyMembers;
+    const targetMember = currentMembers.find((m) => m.id === id || (email && m.email.toLowerCase() === email.toLowerCase()));
+    const targetEmail = email || targetMember?.email;
+    const targetId = targetMember?.id || id;
 
-      const famId = state.currentUser?.familyGroupId || 'FAM-HANHPHUC';
-      try {
-        const famKey = 'budglee_family_data_' + famId;
-        const famSavedStr = localStorage.getItem(famKey);
-        if (famSavedStr) {
-          const famSaved = JSON.parse(famSavedStr);
-          famSaved.familyMembers = updated;
-          localStorage.setItem(famKey, JSON.stringify(famSaved));
-        }
-      } catch (e) {}
+    // 2. Optimistic UI update: Lọc bỏ ngay khỏi state
+    const updated = currentMembers.filter(
+      (m) => m.id !== targetId && (!targetEmail || m.email.toLowerCase() !== targetEmail.toLowerCase())
+    );
+    set({ familyMembers: updated });
+    persistCurrentUserData(get().currentUser, { familyMembers: updated });
 
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('budglee_invitation_update', { detail: { action: 'MEMBER_REMOVED', id } }));
-      return newState;
-    });
+    const famId = get().currentUser?.familyGroupId || 'FAM-HANHPHUC';
+    try {
+      const famKey = 'budglee_family_data_' + famId;
+      const famSavedStr = localStorage.getItem(famKey);
+      if (famSavedStr) {
+        const famSaved = JSON.parse(famSavedStr);
+        famSaved.familyMembers = updated;
+        localStorage.setItem(famKey, JSON.stringify(famSaved));
+      }
+    } catch (e) {}
+
+    // 3. Gọi API backend để xóa vĩnh viễn khỏi Database
+    try {
+      await FamilyApiService.removeMember(targetId, targetEmail);
+    } catch (err) {
+      console.error('Failed to remove family member via API:', err);
+    }
+
+    // 4. Đồng bộ lại dữ liệu sau khi xóa
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('budglee_invitation_update', { detail: { action: 'MEMBER_REMOVED', id: targetId, email: targetEmail } }));
   },
 
-  updateMemberRole: (id, role) => {
-    set((state) => {
-      const updated = state.familyMembers.map((m) =>
-        m.id === id ? { ...m, role } : m
-      );
-      const newState = { familyMembers: updated };
-      persistCurrentUserData(state.currentUser, newState);
-      return newState;
-    });
+  updateMemberRole: async (id, role) => {
+    // 1. Optimistic update
+    const updated = get().familyMembers.map((m) =>
+      m.id === id ? { ...m, role } : m
+    );
+    set({ familyMembers: updated });
+    persistCurrentUserData(get().currentUser, { familyMembers: updated });
+
+    const famId = get().currentUser?.familyGroupId || 'FAM-HANHPHUC';
+    try {
+      const famKey = 'budglee_family_data_' + famId;
+      const famSavedStr = localStorage.getItem(famKey);
+      if (famSavedStr) {
+        const famSaved = JSON.parse(famSavedStr);
+        famSaved.familyMembers = updated;
+        localStorage.setItem(famKey, JSON.stringify(famSaved));
+      }
+    } catch (e) {}
+
+    // 2. Gọi API backend
+    try {
+      await FamilyApiService.updateMemberRole(id, role);
+    } catch (err) {
+      console.error('Failed to update member role via API:', err);
+    }
+
+    window.dispatchEvent(new Event('storage'));
   },
 
   upgradeToFamilyAdmin: (familyGroupName, initialMembers) => {
@@ -2753,12 +2785,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (!isFamily) return;
 
     const famId = user.familyGroupId || 'FAM-HANHPHUC';
+    const famKey = 'budglee_family_data_' + famId;
     let members: FamilyMember[] = [];
+    let apiSuccess = false;
 
-    // 1. Thử lấy danh sách thành viên từ API backend
+    // 1. Thử lấy danh sách thành viên từ API backend (Nguồn dữ liệu chính xác nhất)
     try {
       const apiMembers = await FamilyApiService.getMembers();
       if (apiMembers && Array.isArray(apiMembers) && apiMembers.length > 0) {
+        apiSuccess = true;
         members = apiMembers.map((m: any) => ({
           id: m.id || m.userId,
           fullName: m.fullName || m.name || m.email,
@@ -2766,25 +2801,32 @@ export const useStore = create<AppState>((set, get) => ({
           role: (m.role as Role) || 'FAMILY_MEMBER',
           avatarUrl: m.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
           joinedDate: m.joinedDate || 'Hôm nay',
-          isOwner: m.isOwner || m.role === 'FAMILY_ADMIN',
+          isOwner: m.isOwner !== undefined ? m.isOwner : (m.role === 'FAMILY_ADMIN' && m.email === 'thanhba@gmail.com'),
         }));
-      }
-    } catch (e) {}
 
-    // 2. Đồng bộ từ shared family storage local
-    const famKey = 'budglee_family_data_' + famId;
-    const famSavedStr = localStorage.getItem(famKey);
-    if (famSavedStr) {
-      try {
-        const famSaved = JSON.parse(famSavedStr);
-        if (famSaved.familyMembers && Array.isArray(famSaved.familyMembers)) {
-          famSaved.familyMembers.forEach((fm: FamilyMember) => {
-            if (!members.some((m) => m.email.toLowerCase() === fm.email.toLowerCase())) {
-              members.push(fm);
-            }
-          });
-        }
-      } catch (e) {}
+        // Đồng bộ cache localStorage theo DB thật để không hồi sinh thành viên đã bị xóa
+        try {
+          const famSavedStr = localStorage.getItem(famKey);
+          const famSaved = famSavedStr ? JSON.parse(famSavedStr) : {};
+          famSaved.familyMembers = members;
+          localStorage.setItem(famKey, JSON.stringify(famSaved));
+        } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('fetchFamilyMembers API error, falling back to local:', e);
+    }
+
+    // 2. Chỉ khi API không lấy được (offline/mạng lỗi), mới fallback sang localStorage
+    if (!apiSuccess && members.length === 0) {
+      const famSavedStr = localStorage.getItem(famKey);
+      if (famSavedStr) {
+        try {
+          const famSaved = JSON.parse(famSavedStr);
+          if (famSaved.familyMembers && Array.isArray(famSaved.familyMembers) && famSaved.familyMembers.length > 0) {
+            members = famSaved.familyMembers;
+          }
+        } catch (e) {}
+      }
     }
 
     if (members.length === 0) {

@@ -123,12 +123,33 @@ public class FamilyController {
     @Operation(summary = "Chủ nhóm xóa thành viên khỏi gia đình")
     public ResponseEntity<ApiResponse<Void>> removeFamilyMember(
             @AuthenticationPrincipal UserPrincipal currentUser,
-            @PathVariable Long memberId
+            @PathVariable Long memberId,
+            @RequestParam(required = false) String email
     ) {
-        familyService.removeFamilyMember(currentUser.getId(), memberId);
+        familyService.removeFamilyMember(currentUser.getId(), memberId, email);
 
         return ResponseEntity.ok(
                 ApiResponse.ok(null, "Xóa thành viên khỏi gia đình thành công")
+        );
+    }
+
+    @PutMapping("/members/{memberId}/role")
+    @Operation(summary = "Cập nhật vai trò thành viên gia đình")
+    public ResponseEntity<ApiResponse<FamilyMemberResponse>> updateMemberRole(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long memberId,
+            @RequestBody java.util.Map<String, String> body
+    ) {
+        String roleStr = body.get("role");
+        if (roleStr == null || roleStr.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ"
+            );
+        }
+        com.budglee.finance.entity.Role newRole = com.budglee.finance.entity.Role.valueOf(roleStr);
+        FamilyMemberResponse response = familyService.updateMemberRole(currentUser.getId(), memberId, newRole);
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Cập nhật vai trò thành công")
         );
     }
 
