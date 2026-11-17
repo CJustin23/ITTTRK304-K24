@@ -8,6 +8,7 @@ import com.budglee.finance.service.FinancialHealthService;
 import com.budglee.finance.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -72,13 +75,17 @@ public class AiToolExecutorService {
         List<Map<String, Object>> walletList = new ArrayList<>();
         for (Wallet w : wallets) {
             total = total.add(w.getBalance());
-            walletList.add(Map.of(
-                    "id", w.getId(),
-                    "name", w.getWalletName(),
-                    "balance", w.getBalance(),
-                    "balanceFormatted", currencyFormatter.format(w.getBalance()),
-                    "type", w.getType() != null ? w.getType().name() : "GENERAL"
-            ));
+            String cardSuffix = (w.getCardNumberMasked() != null && !w.getCardNumberMasked().isBlank())
+                    ? " (" + w.getCardNumberMasked() + ")" : "";
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", w.getId());
+            map.put("name", w.getWalletName());
+            map.put("displayName", w.getWalletName() + cardSuffix);
+            map.put("cardNumberMasked", w.getCardNumberMasked() != null ? w.getCardNumberMasked() : "");
+            map.put("balance", w.getBalance());
+            map.put("balanceFormatted", currencyFormatter.format(w.getBalance()));
+            map.put("type", w.getType() != null ? w.getType().name() : "GENERAL");
+            walletList.add(map);
         }
 
         return Map.of(
@@ -273,7 +280,18 @@ public class AiToolExecutorService {
         }
 
         Wallet targetWallet = null;
-        if (walletName != null && !walletName.isBlank()) {
+        // 1. Kiểm tra xem người dùng có nhắc đến 4 số đuôi thẻ không (Ví dụ: "8529", "đuôi 8529", "thẻ 8529")
+        String queryToScan = (walletName != null ? walletName : "") + " " + (note != null ? note : "");
+        Matcher digitMatcher = Pattern.compile("\\b(\\d{4})\\b").matcher(queryToScan);
+        if (digitMatcher.find()) {
+            String digits = digitMatcher.group(1);
+            targetWallet = wallets.stream()
+                    .filter(w -> w.getCardNumberMasked() != null && w.getCardNumberMasked().contains(digits))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        if (targetWallet == null && walletName != null && !walletName.isBlank()) {
             String search = walletName.trim().toLowerCase();
             String cleanSearch = search.replaceAll("(?i)^(thẻ|ví|tài khoản|ngân hàng)\\s+", "").trim();
 
@@ -318,10 +336,15 @@ public class AiToolExecutorService {
         }
 
         String confirmationId = "tx_confirm_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String cardSuffix = (targetWallet.getCardNumberMasked() != null && !targetWallet.getCardNumberMasked().isBlank())
+                ? " (" + targetWallet.getCardNumberMasked() + ")" : "";
+        String displayWalletName = targetWallet.getWalletName() + cardSuffix;
 
         Map<String, Object> params = new HashMap<>();
         params.put("walletId", targetWallet.getId());
-        params.put("walletName", targetWallet.getWalletName());
+        params.put("walletName", displayWalletName);
+        params.put("rawWalletName", targetWallet.getWalletName());
+        params.put("cardNumberMasked", targetWallet.getCardNumberMasked() != null ? targetWallet.getCardNumberMasked() : "");
         params.put("amount", amount);
         params.put("type", type.name());
         params.put("categoryName", categoryName != null ? categoryName : (type == TransactionType.INCOME ? "Thu nhập khác" : "Chi tiêu khác"));
@@ -331,7 +354,7 @@ public class AiToolExecutorService {
 
         String actionDesc = type == TransactionType.INCOME ? "Cộng thu nhập vào ví" : "Trừ chi tiêu từ ví";
         String prompt = String.format("Bạn có đồng ý %s '%s' số tiền %s (Danh mục: %s) không?",
-                actionDesc, targetWallet.getWalletName(), currencyFormatter.format(amount), params.get("categoryName"));
+                actionDesc, displayWalletName, currencyFormatter.format(amount), params.get("categoryName"));
 
         return ToolConfirmationDto.builder()
                 .confirmationId(confirmationId)
@@ -340,7 +363,7 @@ public class AiToolExecutorService {
                 .title(type == TransactionType.INCOME ? "Xác nhận ghi nhận Thu nhập" : "Xác nhận ghi nhận Chi tiêu")
                 .description(prompt)
                 .amount(amount)
-                .walletName(targetWallet.getWalletName())
+                .walletName(displayWalletName)
                 .categoryName((String) params.get("categoryName"))
                 .note((String) params.get("note"))
                 .parameters(params)
@@ -404,6 +427,7 @@ public class AiToolExecutorService {
      * Hỗ trợ overrides nếu người dùng đã tùy chỉnh nội dung (số tiền, ví, danh mục, loại giao dịch, ghi chú).
      */
     @Transactional
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     public Map<String, Object> executeConfirmedAction(Long userId, String confirmationId, Map<String, Object> overrides) {
         PendingAction action = pendingActions.remove(confirmationId);
         if (action == null) {
@@ -482,10 +506,21 @@ public class AiToolExecutorService {
                         : (String) action.params().get("walletName");
                 if (walletName != null && !walletName.isBlank()) {
                     String wNameLower = walletName.toLowerCase();
-                    wallet = walletRepository.findByUserId(userId).stream()
-                            .filter(w -> w.getWalletName().equalsIgnoreCase(walletName) || w.getWalletName().toLowerCase().contains(wNameLower))
-                            .findFirst()
-                            .orElse(null);
+                    // Match by 4 digits if present (ví dụ: "8529")
+                    Matcher dm = Pattern.compile("\\b(\\d{4})\\b").matcher(walletName);
+                    if (dm.find()) {
+                        String dig = dm.group(1);
+                        wallet = walletRepository.findByUserId(userId).stream()
+                                .filter(w -> w.getCardNumberMasked() != null && w.getCardNumberMasked().contains(dig))
+                                .findFirst()
+                                .orElse(null);
+                    }
+                    if (wallet == null) {
+                        wallet = walletRepository.findByUserId(userId).stream()
+                                .filter(w -> w.getWalletName().equalsIgnoreCase(walletName) || w.getWalletName().toLowerCase().contains(wNameLower))
+                                .findFirst()
+                                .orElse(null);
+                    }
                 }
             }
             if (wallet == null) {
@@ -587,6 +622,20 @@ public class AiToolExecutorService {
             req.setType(type);
             req.setBalance(balance);
             req.setCurrency("VND");
+
+            String cardMasked = null;
+            if (overrides != null && overrides.get("cardNumberMasked") != null) {
+                cardMasked = overrides.get("cardNumberMasked").toString().trim();
+            } else if (action.params().get("cardNumberMasked") != null) {
+                cardMasked = (String) action.params().get("cardNumberMasked");
+            }
+            if ((cardMasked == null || cardMasked.isBlank()) && type != WalletType.CASH && walletName != null) {
+                Matcher m = Pattern.compile("\\b(\\d{4})\\b").matcher(walletName);
+                if (m.find()) {
+                    cardMasked = "**** " + m.group(1);
+                }
+            }
+            req.setCardNumberMasked(cardMasked);
 
             Wallet created = walletService.create(userId, req);
 

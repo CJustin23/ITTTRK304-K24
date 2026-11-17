@@ -202,7 +202,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             >
               {wallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.walletName} ({new Intl.NumberFormat('vi-VN').format(w.balance)} ₫)
+                  {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''} ({new Intl.NumberFormat('vi-VN').format(w.balance)} ₫)
                 </option>
               ))}
             </select>

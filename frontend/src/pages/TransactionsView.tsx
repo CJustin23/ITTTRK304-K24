@@ -14,6 +14,22 @@ import {
 import { useStore } from '../store/useStore';
 import { TransactionType } from '../types';
 
+const formatDisplayDate = (d?: string) => {
+  if (!d) return 'Hôm nay';
+  if (d.startsWith('Hôm nay') || d.startsWith('Hôm qua')) return d;
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      const now = new Date();
+      const isToday = dt.toDateString() === now.toDateString();
+      const timeStr = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `Hôm nay ${timeStr}`;
+      return `${timeStr} - ${dt.toLocaleDateString('vi-VN')}`;
+    }
+  } catch {}
+  return d;
+};
+
 export const TransactionsView: React.FC = () => {
   const { recentTransactions, wallets, setTransactionModalOpen } = useStore();
 
@@ -162,7 +178,7 @@ export const TransactionsView: React.FC = () => {
                 <option value="ALL">Tất cả các Ví / Thẻ</option>
                 {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.walletName}
+                      {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''}
                     </option>
                 ))}
               </select>
@@ -287,10 +303,15 @@ export const TransactionsView: React.FC = () => {
                         </span>
                           </td>
                           <td className="py-4 px-6 text-slate-600 font-medium">
-                            {t.walletName || wallets.find((w) => w.id === t.walletId)?.walletName || 'Ví'}
+                            {(() => {
+                              const foundW = wallets.find((w) => w.id === t.walletId);
+                              const base = t.walletName || foundW?.walletName || 'Ví';
+                              const suffix = (foundW?.cardNumberMasked && !base.includes('(')) ? ` (${foundW.cardNumberMasked})` : '';
+                              return `${base}${suffix}`;
+                            })()}
                           </td>
                           <td className="py-4 px-6 text-slate-400 text-xs font-mono">
-                            {t.transactionDate}
+                            {formatDisplayDate(t.transactionDate)}
                           </td>
                           <td className="py-4 px-6 text-right font-black">
                         <span className={isIncome ? 'text-emerald-600' : 'text-slate-800'}>

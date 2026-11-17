@@ -38,6 +38,7 @@ export interface Transaction {
   id: number;
   walletId: number;
   walletName?: string;
+  cardNumberMasked?: string;
   categoryId?: number;
   categoryName?: string;
   categoryIcon?: string;

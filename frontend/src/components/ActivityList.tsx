@@ -7,6 +7,22 @@ interface ActivityListProps {
   searchQuery: string;
 }
 
+const formatDisplayDate = (d?: string) => {
+  if (!d) return 'Hôm nay';
+  if (d.startsWith('Hôm nay') || d.startsWith('Hôm qua')) return d;
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      const now = new Date();
+      const isToday = dt.toDateString() === now.toDateString();
+      const timeStr = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `Hôm nay ${timeStr}`;
+      return `${timeStr} - ${dt.toLocaleDateString('vi-VN')}`;
+    }
+  } catch {}
+  return d;
+};
+
 export const ActivityList: React.FC<ActivityListProps> = ({ transactions, searchQuery }) => {
   const [filterType, setFilterType] = useState<'ALL' | 'INCOME' | 'EXPENSE'>('ALL');
 
@@ -95,7 +111,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({ transactions, search
                       <span>•</span>
                       <span>{tx.walletName || 'Ví'}</span>
                       <span>•</span>
-                      <span>{tx.transactionDate}</span>
+                      <span>{formatDisplayDate(tx.transactionDate)}</span>
                     </div>
                   </div>
                 </div>
