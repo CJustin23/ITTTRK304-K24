@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, PieChart, Percent, DollarSign, AlertCircle } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, getCategoryIdByName, CATEGORY_MAP } from '../store/useStore';
 
 export const NewBudgetModal: React.FC = () => {
   const { isBudgetModalOpen, setBudgetModalOpen, addBudget } = useStore();
@@ -47,9 +47,14 @@ export const NewBudgetModal: React.FC = () => {
       return;
     }
 
+    const resolvedCatId = getCategoryIdByName(categoryName);
+    const resolvedIcon = CATEGORY_MAP[categoryName]?.icon || 'Tag';
     const now = new Date();
+
     addBudget({
+      categoryId: resolvedCatId,
       categoryName,
+      categoryIcon: resolvedIcon,
       amountLimit: numLimit,
       spentAmount: 0,
       periodMonth: now.getMonth() + 1,

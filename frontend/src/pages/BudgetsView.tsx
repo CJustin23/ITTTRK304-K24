@@ -19,7 +19,7 @@ import {
   Percent,
   Check,
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, getCategoryIdByName, CATEGORY_MAP } from '../store/useStore';
 import { Budget } from '../types';
 
 export const BudgetsView: React.FC = () => {
@@ -133,8 +133,13 @@ export const BudgetsView: React.FC = () => {
       return;
     }
 
+    const resolvedCatId = getCategoryIdByName(editCategoryName);
+    const resolvedIcon = CATEGORY_MAP[editCategoryName]?.icon || 'Tag';
+
     updateBudget(editingBudget.id, {
+      categoryId: resolvedCatId,
       categoryName: editCategoryName,
+      categoryIcon: resolvedIcon,
       amountLimit: numLimit,
       alertThreshold: numThreshold || 80,
     });

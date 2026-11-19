@@ -1579,6 +1579,7 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Hóa đơn & Tiện ích': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
   'Bills & Utilities': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
   'Giáo dục & Học tập': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
+  'Giáo dục & Con cái': { id: 6, viName: 'Giáo dục & Con cái', enName: 'Education', icon: 'BookOpen' },
   'Education': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
   'Lương & Thưởng': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
   'Salary': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
@@ -1586,8 +1587,10 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Investment': { id: 8, viName: 'Đầu tư & Sinh lời', enName: 'Investment', icon: 'TrendingUp' },
   'Thu nhập khác': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
   'Other Income': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
-  'Khác': { id: 10, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
-  'Other': { id: 10, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
+  'Du lịch & Giải trí': { id: 10, viName: 'Du lịch & Giải trí', enName: 'Entertainment', icon: 'Plane' },
+  'Entertainment': { id: 10, viName: 'Du lịch & Giải trí', enName: 'Entertainment', icon: 'Plane' },
+  'Khác': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
+  'Other': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
 };
 
 export const getCategoryIdByName = (name?: string): number => {
@@ -2447,13 +2450,38 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  addBudget: (budgetData) => {
-    const newBudget: Budget = {
+  addBudget: async (budgetData) => {
+    const resolvedCatId = budgetData.categoryId || getCategoryIdByName(budgetData.categoryName);
+    const resolvedIcon = budgetData.categoryIcon || (budgetData.categoryName ? CATEGORY_MAP[budgetData.categoryName]?.icon : undefined) || 'Tag';
+    const periodMonth = budgetData.periodMonth || (new Date().getMonth() + 1);
+    const periodYear = budgetData.periodYear || new Date().getFullYear();
+
+    let newBudget: Budget = {
       ...budgetData,
       id: Date.now(),
+      categoryId: resolvedCatId,
+      categoryIcon: resolvedIcon,
+      periodMonth,
+      periodYear,
     };
+
     set((state) => {
-      const updatedBudgets = [...state.budgets, newBudget];
+      // Nếu đã có ngân sách cùng danh mục và cùng kỳ thì cập nhật thay vì tạo trùng
+      const existingIdx = state.budgets.findIndex(
+        (b) =>
+          (b.categoryId && b.categoryId === resolvedCatId && b.periodMonth === periodMonth && b.periodYear === periodYear) ||
+          (b.categoryName && budgetData.categoryName && b.categoryName.trim().toLowerCase() === budgetData.categoryName.trim().toLowerCase() && b.periodMonth === periodMonth && b.periodYear === periodYear)
+      );
+
+      let updatedBudgets: Budget[];
+      if (existingIdx >= 0) {
+        updatedBudgets = state.budgets.map((b, idx) =>
+          idx === existingIdx ? { ...b, ...newBudget, id: b.id || newBudget.id } : b
+        );
+      } else {
+        updatedBudgets = [...state.budgets, newBudget];
+      }
+
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
       const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
       persistCurrentUserData(state.currentUser, newState);
@@ -2461,28 +2489,80 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     if (get().token) {
-      BudgetService.create({
-        categoryId: budgetData.categoryId || 1,
-        amountLimit: budgetData.amountLimit,
-        periodMonth: budgetData.periodMonth || (new Date().getMonth() + 1),
-        periodYear: budgetData.periodYear || new Date().getFullYear(),
-      }).catch((e) => console.warn('Background sync budget to API:', e?.message));
+      try {
+        const apiBudget = await BudgetService.create({
+          categoryId: resolvedCatId,
+          amountLimit: budgetData.amountLimit,
+          periodMonth,
+          periodYear,
+          alertThreshold: budgetData.alertThreshold || 80,
+        });
+
+        if (apiBudget && apiBudget.id) {
+          set((state) => {
+            const updatedBudgets = state.budgets.map((b) =>
+              b.id === newBudget.id ||
+              (b.categoryId === resolvedCatId && b.periodMonth === periodMonth && b.periodYear === periodYear)
+                ? { ...b, id: apiBudget.id, amountLimit: Number(apiBudget.amountLimit || b.amountLimit) }
+                : b
+            );
+            const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
+            const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
+            persistCurrentUserData(state.currentUser, newState);
+            return newState;
+          });
+        }
+      } catch (e: any) {
+        console.warn('Background sync budget to API failed, keeping local budget:', e?.message);
+      }
     }
   },
 
-  updateBudget: (id, budgetData) => {
+  updateBudget: async (id, budgetData) => {
+    const existing = get().budgets.find((b) => b.id === id);
+    const resolvedCatId = budgetData.categoryId || (budgetData.categoryName ? getCategoryIdByName(budgetData.categoryName) : existing?.categoryId);
+    const resolvedIcon = budgetData.categoryIcon || (budgetData.categoryName ? CATEGORY_MAP[budgetData.categoryName]?.icon : existing?.categoryIcon) || 'Tag';
+    const periodMonth = budgetData.periodMonth || existing?.periodMonth || (new Date().getMonth() + 1);
+    const periodYear = budgetData.periodYear || existing?.periodYear || new Date().getFullYear();
+
     set((state) => {
       const updatedBudgets = state.budgets.map((b) =>
-        b.id === id ? { ...b, ...budgetData } : b
+        b.id === id ? { ...b, ...budgetData, categoryId: resolvedCatId, categoryIcon: resolvedIcon } : b
       );
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
       const newState = { budgets: updatedBudgets, dashboardSummary: updatedSummary };
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
+
+    if (get().token && (budgetData.amountLimit || resolvedCatId)) {
+      try {
+        await BudgetService.create({
+          categoryId: resolvedCatId,
+          amountLimit: budgetData.amountLimit ?? existing?.amountLimit,
+          periodMonth,
+          periodYear,
+          alertThreshold: budgetData.alertThreshold ?? existing?.alertThreshold ?? 80,
+        });
+      } catch (e: any) {
+        console.warn('Background update budget to API failed:', e?.message);
+      }
+    }
   },
 
   deleteBudget: (id) => {
+    const user = get().currentUser;
+    if (user?.email) {
+      try {
+        const delKey = 'budglee_deleted_budgets_' + user.email.toLowerCase();
+        const deletedIds: number[] = JSON.parse(localStorage.getItem(delKey) || '[]');
+        if (!deletedIds.includes(id)) {
+          deletedIds.push(id);
+          localStorage.setItem(delKey, JSON.stringify(deletedIds));
+        }
+      } catch (e) {}
+    }
+
     set((state) => {
       const updatedBudgets = state.budgets.filter((b) => b.id !== id);
       const updatedSummary = calculateDashboardSummary(state.wallets, state.recentTransactions, updatedBudgets);
@@ -2789,7 +2869,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const updates: any = {};
       if (walletsRes.status === 'fulfilled' && Array.isArray(walletsRes.value) && walletsRes.value.length > 0) {
-        updates.wallets = walletsRes.value.map((w: any) => ({
+        const apiWallets = walletsRes.value.map((w: any) => ({
           id: w.id,
           walletName: w.walletName || w.name,
           cardNumberMasked: w.cardNumberMasked || w.accountNumber || '',
@@ -2799,6 +2879,12 @@ export const useStore = create<AppState>((set, get) => ({
           color: w.color || 'from-slate-900 to-indigo-950',
           bankName: w.bankName,
         }));
+        const apiWalletIds = new Set(apiWallets.map((w: any) => w.id));
+        const currentWallets = get().wallets || [];
+        const pendingLocalWallets = currentWallets.filter(
+          (lw) => !apiWalletIds.has(lw.id) && (lw.id > 1000000000000 || typeof lw.id === 'string')
+        );
+        updates.wallets = [...apiWallets, ...pendingLocalWallets];
       }
 
       if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content) && txsRes.value.content.length > 0) {
@@ -2832,22 +2918,49 @@ export const useStore = create<AppState>((set, get) => ({
         updates.recentTransactions = [...pendingLocalTxs, ...apiTxs];
       }
 
-      if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value) && budgetsRes.value.length > 0) {
-        updates.budgets = budgetsRes.value.map((b: any) => {
-          const rawCatName = b.category?.name || b.categoryName || '';
-          const viCatName = getCategoryViName(rawCatName);
-          const catIcon = b.category?.icon || CATEGORY_MAP[rawCatName]?.icon || b.categoryIcon || 'Tag';
-          return {
-            id: b.id,
-            categoryId: b.category?.id,
-            categoryName: viCatName,
-            categoryIcon: catIcon,
-            amountLimit: Number(b.amountLimit || 0),
-            spentAmount: Number(b.spentAmount || b.actualSpent || 0),
-            periodMonth: b.periodMonth || month,
-            periodYear: b.periodYear || year,
-          };
-        });
+      if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value)) {
+        const user = get().currentUser;
+        let deletedIds: number[] = [];
+        if (user?.email) {
+          try {
+            deletedIds = JSON.parse(localStorage.getItem('budglee_deleted_budgets_' + user.email.toLowerCase()) || '[]');
+          } catch (e) {}
+        }
+
+        const apiBudgets = budgetsRes.value
+          .filter((b: any) => !deletedIds.includes(b.id))
+          .map((b: any) => {
+            const rawCatName = b.category?.name || b.categoryName || '';
+            const viCatName = getCategoryViName(rawCatName);
+            const catIcon = b.category?.icon || CATEGORY_MAP[rawCatName]?.icon || b.categoryIcon || 'Tag';
+            return {
+              id: b.id,
+              categoryId: b.category?.id || b.categoryId,
+              categoryName: viCatName,
+              categoryIcon: catIcon,
+              amountLimit: Number(b.amountLimit || 0),
+              spentAmount: Number(b.spentAmount || b.actualSpent || 0),
+              periodMonth: b.periodMonth || month,
+              periodYear: b.periodYear || year,
+            };
+          });
+
+        const currentBudgets = get().budgets || [];
+        // Giữ lại các ngân sách đã tạo ở local mà API chưa có hoặc chưa kịp trả về
+        const pendingLocalBudgets = currentBudgets.filter(
+          (lb) =>
+            !deletedIds.includes(lb.id) &&
+            !apiBudgets.some(
+              (ab: any) =>
+                ab.id === lb.id ||
+                (lb.categoryId && ab.categoryId && ab.categoryId === lb.categoryId) ||
+                (lb.categoryName && ab.categoryName && ab.categoryName.trim().toLowerCase() === lb.categoryName.trim().toLowerCase())
+            )
+        );
+
+        if (apiBudgets.length > 0 || pendingLocalBudgets.length > 0) {
+          updates.budgets = [...apiBudgets, ...pendingLocalBudgets];
+        }
       }
 
       if (summaryRes.status === 'fulfilled' && summaryRes.value) {
@@ -2858,8 +2971,8 @@ export const useStore = create<AppState>((set, get) => ({
         updates.botRecommendation = botRes.value;
       }
 
-      if (goalsRes.status === 'fulfilled' && Array.isArray(goalsRes.value) && goalsRes.value.length > 0) {
-        updates.savingGoals = goalsRes.value.map((g: any) => ({
+      if (goalsRes.status === 'fulfilled' && Array.isArray(goalsRes.value)) {
+        const apiGoals = goalsRes.value.map((g: any) => ({
           id: g.id,
           goalName: g.goalName,
           targetAmount: Number(g.targetAmount || 0),
@@ -2867,6 +2980,14 @@ export const useStore = create<AppState>((set, get) => ({
           deadline: g.deadline,
           status: g.status || 'IN_PROGRESS',
         }));
+        const apiGoalIds = new Set(apiGoals.map((g: any) => g.id));
+        const currentGoals = get().savingGoals || [];
+        const pendingLocalGoals = currentGoals.filter(
+          (lg) => !apiGoalIds.has(lg.id) && (lg.id > 1000000000000 || typeof lg.id === 'string')
+        );
+        if (apiGoals.length > 0 || pendingLocalGoals.length > 0) {
+          updates.savingGoals = [...apiGoals, ...pendingLocalGoals];
+        }
       }
 
       if (Object.keys(updates).length > 0) {
