@@ -55,6 +55,13 @@ public class WalletService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
+    private String extractLast4Digits(String masked) {
+        if (masked == null) return null;
+        String digits = masked.replaceAll("\\D", "");
+        if (digits.length() < 4) return null;
+        return digits.substring(digits.length() - 4);
+    }
+
     private boolean isCashEquivalent(String name) {
         if (name == null) return false;
         String normalized = name.trim().toLowerCase();
@@ -77,35 +84,39 @@ public class WalletService {
 
         BigDecimal reqBalance = request.getBalance() == null ? BigDecimal.ZERO : request.getBalance();
 
-        // 1. Tiền mặt: nếu đã có ví tiền mặt (cùng tên hoặc tên tiền mặt) thì cộng dồn số dư vào ví đã có, không tạo ví mới
+        // 1. Tiền mặt: nếu đã có ví tiền mặt bất kỳ thì cộng dồn số dư vào ví đã có, không tạo ví mới
         if (request.getType() == WalletType.CASH) {
-            String reqName = request.getWalletName().trim();
             List<Wallet> existingWallets = list(userId);
             for (Wallet ew : existingWallets) {
                 if (ew.getType() == WalletType.CASH) {
-                    boolean sameName = ew.getWalletName().equalsIgnoreCase(reqName);
-                    boolean isGenericCash = isCashEquivalent(reqName) && isCashEquivalent(ew.getWalletName());
-                    if (sameName || isGenericCash) {
-                        ew.setBalance(ew.getBalance().add(reqBalance));
-                        Wallet merged = walletRepository.save(ew);
-                        log.info("Cộng dồn số dư {} vào ví tiền mặt đã có id={} user={}", reqBalance, merged.getId(), userId);
-                        return merged;
-                    }
+                    Wallet target = walletRepository.findById(ew.getId()).orElse(ew);
+                    target.setWalletName("Tiền mặt");
+                    target.setCardNumberMasked(null);
+                    target.setBalance((target.getBalance() != null ? target.getBalance() : BigDecimal.ZERO).add(reqBalance));
+                    Wallet merged = walletRepository.save(target);
+                    log.info("Cộng dồn số dư {} vào ví tiền mặt đã có id={} user={}", reqBalance, merged.getId(), userId);
+                    return merged;
                 }
             }
         }
 
-        // 2. Ngân hàng và Thẻ tín dụng: có thể trùng tên nếu khác số; nếu cùng tên và cùng số thì cộng dồn vào ví cũ
+        // 2. Ngân hàng và Thẻ tín dụng: có thể trùng tên nếu khác số; nếu cùng tên và cùng 4 số cuối thì cộng dồn vào ví cũ
         if (request.getType() == WalletType.BANK || request.getType() == WalletType.CREDIT_CARD) {
             String reqName = request.getWalletName().trim();
+            String reqDigits = extractLast4Digits(masked);
             List<Wallet> existingWallets = list(userId);
             for (Wallet ew : existingWallets) {
                 if (ew.getType() == request.getType() && ew.getWalletName().equalsIgnoreCase(reqName)) {
-                    boolean sameCardNumber = (masked == null && (ew.getCardNumberMasked() == null || ew.getCardNumberMasked().isBlank()))
-                            || (masked != null && masked.equalsIgnoreCase(ew.getCardNumberMasked()));
+                    String ewDigits = extractLast4Digits(ew.getCardNumberMasked());
+                    boolean sameCardNumber = (reqDigits == null && ewDigits == null)
+                            || (reqDigits != null && reqDigits.equals(ewDigits));
                     if (sameCardNumber) {
-                        ew.setBalance(ew.getBalance().add(reqBalance));
-                        Wallet merged = walletRepository.save(ew);
+                        Wallet target = walletRepository.findById(ew.getId()).orElse(ew);
+                        target.setBalance((target.getBalance() != null ? target.getBalance() : BigDecimal.ZERO).add(reqBalance));
+                        if (target.getCardNumberMasked() == null && masked != null) {
+                            target.setCardNumberMasked(masked);
+                        }
+                        Wallet merged = walletRepository.save(target);
                         log.info("Cộng dồn số dư {} vào thẻ cùng tên và cùng số đã có id={} user={}", reqBalance, merged.getId(), userId);
                         return merged;
                     }
@@ -134,15 +145,73 @@ public class WalletService {
         String familyGroupId = userRepository.findById(userId)
                 .map(User::getFamilyGroupId)
                 .orElse(null);
+        List<Wallet> raw;
         if (familyGroupId == null || familyGroupId.isBlank()) {
-            return walletRepository.findByUserId(userId);
+            raw = walletRepository.findByUserId(userId);
+        } else {
+            Map<Long, Wallet> visible = new LinkedHashMap<>();
+            walletRepository.findByUserId(userId).forEach(wallet -> visible.put(wallet.getId(), wallet));
+            walletRepository.findByFamilyGroupId(familyGroupId)
+                    .forEach(wallet -> visible.putIfAbsent(wallet.getId(), wallet));
+            raw = new ArrayList<>(visible.values());
         }
+        return consolidate(raw);
+    }
 
-        Map<Long, Wallet> visible = new LinkedHashMap<>();
-        walletRepository.findByUserId(userId).forEach(wallet -> visible.put(wallet.getId(), wallet));
-        walletRepository.findByFamilyGroupId(familyGroupId)
-                .forEach(wallet -> visible.putIfAbsent(wallet.getId(), wallet));
-        return new ArrayList<>(visible.values());
+    /**
+     * Hợp nhất (gộp) các nguồn tiền (Ví / Thẻ):
+     * 1. Tiền mặt (CASH): Tất cả ví CASH tự động cộng dồn số dư vào 1 ví "Tiền mặt".
+     * 2. Ngân hàng & Thẻ tín dụng: Cùng loại, cùng tên (không phân biệt hoa/thường)
+     *    và cùng 4 số cuối thẻ (hoặc cùng không có số thẻ) thì tự động cộng dồn số dư.
+     */
+    public List<Wallet> consolidate(List<Wallet> raw) {
+        if (raw == null || raw.isEmpty()) return new ArrayList<>();
+        List<Wallet> consolidated = new ArrayList<>();
+
+        for (Wallet w : raw) {
+            if (w == null) continue;
+            boolean isMerged = false;
+            String wType = w.getType() != null ? w.getType().name() : "BANK";
+            String wName = w.getWalletName() != null ? w.getWalletName().trim() : "";
+            String wDigits = extractLast4Digits(w.getCardNumberMasked());
+            BigDecimal balance = w.getBalance() != null ? w.getBalance() : BigDecimal.ZERO;
+
+            for (Wallet ex : consolidated) {
+                String exType = ex.getType() != null ? ex.getType().name() : "BANK";
+                String exName = ex.getWalletName() != null ? ex.getWalletName().trim() : "";
+                String exDigits = extractLast4Digits(ex.getCardNumberMasked());
+
+                // Quy tắc 1: Tiền mặt (CASH) - gộp tất cả nguồn tiền mặt lại làm 1 ví "Tiền mặt"
+                if ("CASH".equalsIgnoreCase(wType) && "CASH".equalsIgnoreCase(exType)) {
+                    ex.setWalletName("Tiền mặt");
+                    ex.setCardNumberMasked(null);
+                    ex.setBalance((ex.getBalance() != null ? ex.getBalance() : BigDecimal.ZERO).add(balance));
+                    isMerged = true;
+                    break;
+                }
+
+                // Quy tắc 2: Ngân hàng hoặc Thẻ tín dụng - cùng loại, cùng tên, cùng 4 số cuối
+                if (("BANK".equalsIgnoreCase(wType) || "CREDIT_CARD".equalsIgnoreCase(wType))
+                        && exType.equalsIgnoreCase(wType)
+                        && exName.equalsIgnoreCase(wName)) {
+                    boolean sameDigits = (wDigits == null && exDigits == null)
+                            || (wDigits != null && wDigits.equals(exDigits));
+                    if (sameDigits) {
+                        ex.setBalance((ex.getBalance() != null ? ex.getBalance() : BigDecimal.ZERO).add(balance));
+                        if (ex.getCardNumberMasked() == null && w.getCardNumberMasked() != null) {
+                            ex.setCardNumberMasked(w.getCardNumberMasked());
+                        }
+                        isMerged = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!isMerged) {
+                consolidated.add(w);
+            }
+        }
+        return consolidated;
     }
 
     @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)

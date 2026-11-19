@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -11,7 +11,7 @@ import {
   Tag,
   ArrowLeftRight,
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, consolidateWallets } from '../store/useStore';
 import { TransactionType } from '../types';
 
 const formatDisplayDate = (d?: string) => {
@@ -31,7 +31,8 @@ const formatDisplayDate = (d?: string) => {
 };
 
 export const TransactionsView: React.FC = () => {
-  const { recentTransactions, wallets, setTransactionModalOpen } = useStore();
+  const { recentTransactions, wallets: rawWallets, setTransactionModalOpen } = useStore();
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | TransactionType>('ALL');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { StatCard } from './components/StatCard';
@@ -25,7 +25,7 @@ import { InviteFamilyModal } from './components/InviteFamilyModal';
 import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
 import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
 
-import { useStore, isTokenExpired } from './store/useStore';
+import { useStore, isTokenExpired, consolidateWallets } from './store/useStore';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -44,7 +44,7 @@ export const App: React.FC = () => {
 
   const {
     currentUser,
-    wallets,
+    wallets: rawWallets,
     recentTransactions,
     dashboardSummary,
     botRecommendation,
@@ -59,6 +59,8 @@ export const App: React.FC = () => {
     fetchSentInvitations,
     fetchCoreData,
   } = useStore();
+
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
 
   const handleTabChange = (tab: string) => {
     const role = useStore.getState().currentUser?.role || currentUser?.role;

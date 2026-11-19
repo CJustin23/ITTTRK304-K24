@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, PiggyBank, DollarSign, Wallet as WalletIcon, AlertCircle } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, consolidateWallets } from '../store/useStore';
 import { SavingGoal } from '../types';
 
 export const DepositGoalModal: React.FC = () => {
-  const { wallets, depositToGoal } = useStore();
+  const { wallets: rawWallets, depositToGoal } = useStore();
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
   const [goal, setGoal] = useState<SavingGoal | null>(null);
   const [amount, setAmount] = useState('');
   const [selectedWalletId, setSelectedWalletId] = useState<number>(wallets[0]?.id || 1);
