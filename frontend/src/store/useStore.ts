@@ -2412,7 +2412,6 @@ export const useStore = create<AppState>((set, get) => ({
   addTransaction: (txData) => {
     if (!get().wallets || get().wallets.length === 0) {
       console.warn('Không thể ghi lại chi tiêu: Cần có ít nhất 1 ví trong tài khoản');
-      alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
       get().setWalletModalOpen(true);
       return;
     }

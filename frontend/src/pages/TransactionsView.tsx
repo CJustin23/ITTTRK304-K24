@@ -108,11 +108,6 @@ export const TransactionsView: React.FC = () => {
             </button>
             <button
                 onClick={() => {
-                  if (wallets.length === 0) {
-                    alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
-                    useStore.getState().setWalletModalOpen(true);
-                    return;
-                  }
                   setTransactionModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all hover:shadow-lg active:scale-95"
