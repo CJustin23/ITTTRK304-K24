@@ -29,18 +29,22 @@ export const NewWalletModal: React.FC = () => {
     e.preventDefault();
     const errs: Record<string, string> = {};
 
-    if (!walletName.trim()) {
-      errs.walletName = 'Vui lòng nhập tên tài khoản hoặc ví';
-    } else if (walletName.trim().length < 2) {
-      errs.walletName = 'Tên tài khoản phải có ít nhất 2 ký tự';
+    const finalWalletName = type === 'CASH' ? 'Tiền mặt' : walletName.trim();
+
+    if (type !== 'CASH') {
+      if (!finalWalletName) {
+        errs.walletName = 'Vui lòng nhập tên tài khoản hoặc ví';
+      } else if (finalWalletName.length < 2) {
+        errs.walletName = 'Tên tài khoản phải có ít nhất 2 ký tự';
+      }
     }
 
     const rawDigits = balance.replace(/\./g, '');
     const numBalance = parseFloat(rawDigits);
     if (!rawDigits.trim()) {
-      errs.balance = 'Vui lòng nhập số dư ban đầu';
+      errs.balance = 'Vui lòng nhập số tiền ban đầu';
     } else if (isNaN(numBalance) || numBalance < 0) {
-      errs.balance = 'Số dư ban đầu không được là số âm';
+      errs.balance = 'Số tiền không được là số âm';
     }
 
     if (type !== 'CASH' && cardNumberMasked.trim() && !/^\d{4}$/.test(cardNumberMasked.trim())) {
@@ -53,11 +57,11 @@ export const NewWalletModal: React.FC = () => {
     }
 
     addWallet({
-      walletName: walletName.trim(),
+      walletName: finalWalletName,
       balance: numBalance,
       type,
       currency: 'VND',
-      cardNumberMasked: cardNumberMasked.trim() ? `**** ${cardNumberMasked.trim()}` : undefined,
+      cardNumberMasked: type !== 'CASH' && cardNumberMasked.trim() ? `**** ${cardNumberMasked.trim()}` : undefined,
     });
 
     // Reset & close
@@ -117,7 +121,7 @@ export const NewWalletModal: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setType('CASH');
-                  if (!walletName.trim()) setWalletName('Tiền mặt');
+                  if (errors.walletName) setErrors((prev) => ({ ...prev, walletName: '' }));
                   if (errors.cardNumberMasked) setErrors((prev) => ({ ...prev, cardNumberMasked: '' }));
                 }}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -132,34 +136,38 @@ export const NewWalletModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Wallet Name */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Ví / Thẻ</label>
-            <input
-              type="text"
-              placeholder="VD: MB Bank, MoMo, Thẻ Visa..."
-              value={walletName}
-              onChange={(e) => {
-                setWalletName(e.target.value);
-                if (errors.walletName) setErrors((prev) => ({ ...prev, walletName: '' }));
-              }}
-              className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-medium ${
-                errors.walletName
-                  ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                  : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-              }`}
-            />
-            {errors.walletName && (
-              <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errors.walletName}</span>
-              </p>
-            )}
-          </div>
+          {/* Wallet Name (Chỉ hiển thị khi là Ngân hàng hoặc Thẻ tín dụng, Tiền mặt mặc định không cần nhập tên) */}
+          {type !== 'CASH' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Ví / Thẻ</label>
+              <input
+                type="text"
+                placeholder="VD: MB Bank, MoMo, Thẻ Visa..."
+                value={walletName}
+                onChange={(e) => {
+                  setWalletName(e.target.value);
+                  if (errors.walletName) setErrors((prev) => ({ ...prev, walletName: '' }));
+                }}
+                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-medium ${
+                  errors.walletName
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                }`}
+              />
+              {errors.walletName && (
+                <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.walletName}</span>
+                </p>
+              )}
+            </div>
+          )}
 
-          {/* Initial Balance */}
+          {/* Initial Balance / Deposit */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Số dư ban đầu (VND)</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              {type === 'CASH' ? 'Số tiền nạp vào Tiền mặt (VND)' : 'Số dư ban đầu (VND)'}
+            </label>
             <input
               type="text"
               inputMode="numeric"
@@ -176,6 +184,11 @@ export const NewWalletModal: React.FC = () => {
               <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{errors.balance}</span>
+              </p>
+            )}
+            {type === 'CASH' && (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-3 py-2 rounded-xl font-medium mt-2">
+                💡 Nguồn tiền Tiền mặt sẽ tự động cộng dồn số dư vào ví tiền mặt hiện có của bạn.
               </p>
             )}
           </div>
