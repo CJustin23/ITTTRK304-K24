@@ -156,7 +156,6 @@ export const App: React.FC = () => {
     note?: string;
   }) => {
     if (wallets.length === 0) {
-      alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
       setWalletModalOpen(true);
       return;
     }
@@ -325,11 +324,6 @@ export const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         <Header
           onNewTransaction={() => {
-            if (wallets.length === 0) {
-              alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
-              setWalletModalOpen(true);
-              return;
-            }
             setTransactionModalOpen(true);
           }}
         />
