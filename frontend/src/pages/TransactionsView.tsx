@@ -109,7 +109,7 @@ export const TransactionsView: React.FC = () => {
             <button
                 onClick={() => {
                   if (wallets.length === 0) {
-                    alert('Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!');
+                    alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
                     useStore.getState().setWalletModalOpen(true);
                     return;
                   }

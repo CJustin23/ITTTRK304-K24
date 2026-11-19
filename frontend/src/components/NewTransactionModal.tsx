@@ -169,7 +169,39 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
+        {wallets.length === 0 ? (
+          <div className="p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-lg font-bold text-slate-800">Chưa có Ví hoặc Thẻ ngân hàng</h4>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                Tài khoản của bạn chưa có nguồn tiền (Ví / Thẻ) nào. Bạn cần thêm ít nhất 1 ví trước khi có thể ghi lại giao dịch thu chi.
+              </p>
+            </div>
+            <div className="pt-4 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  useStore.getState().setWalletModalOpen(true);
+                }}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+              >
+                + Thêm ví ngay
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           {/* Transaction Type Tabs */}
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
             <button
@@ -354,6 +386,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
