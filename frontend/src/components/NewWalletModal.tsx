@@ -186,11 +186,6 @@ export const NewWalletModal: React.FC = () => {
                 <span>{errors.balance}</span>
               </p>
             )}
-            {type === 'CASH' && (
-              <p className="text-[11px] text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-3 py-2 rounded-xl font-medium mt-2">
-                💡 Nguồn tiền Tiền mặt sẽ tự động cộng dồn số dư vào ví tiền mặt hiện có của bạn.
-              </p>
-            )}
           </div>
 
           {/* Card Number Masked (If card or bank) */}
