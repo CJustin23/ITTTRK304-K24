@@ -153,27 +153,36 @@ export const calculateTrendsFromTransactions = (
     }
 
     case 'Custom': {
-      // Nhóm theo các mốc ngày giao dịch thực tế
-      const dateMap: Record<string, number> = {};
+      // Sắp xếp các mốc ngày giao dịch thực tế theo thứ tự thời gian tăng dần
+      const dateMap: Record<string, { label: string; dateObj: Date; amount: number }> = {};
       expenseTxs.forEach((t) => {
         const d = parseTxDate(t.transactionDate);
         if (d) {
-          const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-          dateMap[key] = (dateMap[key] || 0) + t.amount;
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const isoKey = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+          const displayLabel = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+          if (!dateMap[isoKey]) {
+            dateMap[isoKey] = { label: displayLabel, dateObj: d, amount: 0 };
+          }
+          dateMap[isoKey].amount += t.amount;
         }
       });
 
-      const dates = Object.keys(dateMap);
-      if (dates.length > 0) {
-        return dates.slice(-7).map((d) => ({ label: d, amount: dateMap[d] }));
+      const sortedIsoKeys = Object.keys(dateMap).sort();
+      if (sortedIsoKeys.length > 0) {
+        return sortedIsoKeys.slice(-14).map((k) => ({
+          label: dateMap[k].label,
+          amount: dateMap[k].amount,
+        }));
       }
 
       const now = new Date();
-      return [4, 3, 2, 1, 0].map((daysAgo) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return [6, 5, 4, 3, 2, 1, 0].map((daysAgo) => {
         const d = new Date(now);
-        d.setDate(d.getDate() - daysAgo * 2);
+        d.setDate(d.getDate() - daysAgo);
         return {
-          label: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
+          label: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`,
           amount: 0,
         };
       });
@@ -185,23 +194,23 @@ export const calculateTrendsFromTransactions = (
 };
 
 export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
-  const [timeframe, setTimeframe] = useState<Timeframe>('Monthly');
+  const [timeframe, setTimeframe] = useState<Timeframe>('Custom');
   const { recentTransactions, token } = useStore();
   const [apiTrends, setApiTrends] = useState<Record<string, { label: string; amount: number }[]>>({});
 
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 14);
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
   });
   const [customEndDate, setCustomEndDate] = useState<string>(() => {
     const d = new Date();
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`;
   });
 
-  const tabs: Timeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'];
+  const tabs: Timeframe[] = ['Custom', 'Daily', 'Weekly', 'Monthly', 'Yearly'];
 
   // Gọi API /dashboard/trends từ backend khi chuyển tab nếu có token
   useEffect(() => {
@@ -231,43 +240,63 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
       const expenseTxs = recentTransactions.filter(
         (t) => t.transactionType === 'EXPENSE' && t.amount > 0
       );
-      const start = customStartDate ? new Date(customStartDate + 'T00:00:00') : null;
-      const end = customEndDate ? new Date(customEndDate + 'T23:59:59') : null;
 
-      const filtered = expenseTxs.filter((t) => {
-        const d = parseTxDate(t.transactionDate);
-        if (!d) return false;
-        if (start && d < start) return false;
-        if (end && d > end) return false;
-        return true;
-      });
+      // Phân tách ngày bắt đầu và kết thúc theo local để tránh lệch múi giờ UTC
+      let sYear = 2026, sMonth = 11, sDay = 1;
+      let eYear = 2026, eMonth = 11, eDay = 30;
 
-      const dateMap: Record<string, number> = {};
-      filtered.forEach((t) => {
+      if (customStartDate) {
+        const parts = customStartDate.split('-').map(Number);
+        if (parts.length === 3 && parts.every((n) => !isNaN(n))) [sYear, sMonth, sDay] = parts;
+      }
+      if (customEndDate) {
+        const parts = customEndDate.split('-').map(Number);
+        if (parts.length === 3 && parts.every((n) => !isNaN(n))) [eYear, eMonth, eDay] = parts;
+      }
+
+      let startDate = new Date(sYear, sMonth - 1, sDay, 0, 0, 0, 0);
+      let endDate = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999);
+
+      if (startDate > endDate) {
+        const tmp = startDate;
+        startDate = endDate;
+        endDate = tmp;
+      }
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+
+      // Gom tổng chi tiêu theo từng ngày chuẩn YYYY-MM-DD
+      const dateAmountMap: Record<string, number> = {};
+      expenseTxs.forEach((t) => {
         const d = parseTxDate(t.transactionDate);
-        if (d) {
-          const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-          dateMap[key] = (dateMap[key] || 0) + t.amount;
+        if (d && d >= startDate && d <= endDate) {
+          const isoKey = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+          dateAmountMap[isoKey] = (dateAmountMap[isoKey] || 0) + t.amount;
         }
       });
 
-      const dates = Object.keys(dateMap);
-      if (dates.length > 0) {
-        return dates.map((label) => ({ label, amount: dateMap[label] }));
+      const points: { label: string; fullDate: string; amount: number }[] = [];
+      const cur = new Date(startDate);
+      cur.setHours(0, 0, 0, 0);
+      const endLimit = new Date(endDate);
+      endLimit.setHours(0, 0, 0, 0);
+
+      // Tạo chuỗi ngày liên tục theo đúng thứ tự thời gian từ bắt đầu tới kết thúc
+      while (cur <= endLimit) {
+        const isoKey = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}-${pad(cur.getDate())}`;
+        const displayLabel = `${pad(cur.getDate())}/${pad(cur.getMonth() + 1)}`;
+        const fullDateLabel = `${pad(cur.getDate())}/${pad(cur.getMonth() + 1)}/${cur.getFullYear()}`;
+
+        points.push({
+          label: displayLabel,
+          fullDate: fullDateLabel,
+          amount: dateAmountMap[isoKey] || 0,
+        });
+
+        cur.setDate(cur.getDate() + 1);
       }
 
-      if (start && end && start <= end) {
-        const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
-        const step = Math.max(1, Math.floor(diffDays / 6));
-        const points: { label: string; amount: number }[] = [];
-        for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + step)) {
-          const key = `${String(cur.getDate()).padStart(2, '0')}/${String(cur.getMonth() + 1).padStart(2, '0')}`;
-          points.push({ label: key, amount: dateMap[key] || 0 });
-          if (points.length >= 7) break;
-        }
-        return points;
-      }
-      return [{ label: 'Không có dữ liệu', amount: 0 }];
+      return points.length > 0 ? points : [{ label: 'Không có dữ liệu', fullDate: '', amount: 0 }];
     }
 
     // 1. Ưu tiên dữ liệu từ API thật nếu có điểm dữ liệu > 0
@@ -292,8 +321,72 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     return '';
   }, [customStartDate, customEndDate]);
 
+  // Tổng chi tiêu trong khoảng thời gian đang lọc
+  const totalPeriodSpent = useMemo(() => {
+    return activeData.reduce((sum, item) => sum + (item.amount || 0), 0);
+  }, [activeData]);
+
+  const handlePreset = (type: '7days' | '30days' | 'thisMonth') => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    if (type === '7days') {
+      const past7 = new Date();
+      past7.setDate(now.getDate() - 6);
+      setCustomStartDate(`${past7.getFullYear()}-${pad(past7.getMonth() + 1)}-${pad(past7.getDate())}`);
+      setCustomEndDate(todayStr);
+    } else if (type === '30days') {
+      const past30 = new Date();
+      past30.setDate(now.getDate() - 29);
+      setCustomStartDate(`${past30.getFullYear()}-${pad(past30.getMonth() + 1)}-${pad(past30.getDate())}`);
+      setCustomEndDate(todayStr);
+    } else if (type === 'thisMonth') {
+      const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      setCustomStartDate(`${startMonth.getFullYear()}-${pad(startMonth.getMonth() + 1)}-01`);
+      setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(lastDay)}`);
+    }
+  };
+
+  const activePreset = useMemo(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const past7 = new Date();
+    past7.setDate(now.getDate() - 6);
+    const past7Str = `${past7.getFullYear()}-${pad(past7.getMonth() + 1)}-${pad(past7.getDate())}`;
+
+    const past30 = new Date();
+    past30.setDate(now.getDate() - 29);
+    const past30Str = `${past30.getFullYear()}-${pad(past30.getMonth() + 1)}-${pad(past30.getDate())}`;
+
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const startMonthStr = `${startMonth.getFullYear()}-${pad(startMonth.getMonth() + 1)}-01`;
+    const endMonthStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(lastDay)}`;
+
+    if (customStartDate === past7Str && customEndDate === todayStr) return '7days';
+    if (customStartDate === past30Str && customEndDate === todayStr) return '30days';
+    if (customStartDate === startMonthStr && (customEndDate === endMonthStr || customEndDate === todayStr)) return 'thisMonth';
+
+    return 'custom';
+  }, [customStartDate, customEndDate]);
+
   const formatTooltipValue = (value: number) => {
     return [new Intl.NumberFormat('vi-VN').format(value) + ' ₫', 'Tổng chi tiêu'];
+  };
+
+  const formatYAxisTick = (v: number) => {
+    if (v >= 1000000) {
+      const m = v / 1000000;
+      return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`;
+    }
+    if (v >= 1000) {
+      return `${Math.round(v / 1000)}k`;
+    }
+    return `${v}`;
   };
 
   return (
@@ -302,13 +395,18 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h3 className="text-lg font-bold text-slate-800">Biến động chi tiêu (Total Spent)</h3>
-          <p className="text-xs text-slate-500 mt-0.5 flex items-center flex-wrap gap-1">
+          <p className="text-xs text-slate-500 mt-0.5 flex items-center flex-wrap gap-1.5">
             <span>Dòng tiền chi tiêu theo mốc:</span>
             <span className="font-semibold text-emerald-600">{timeframe}</span>
             {timeframe === 'Custom' && (
-              <span className="ml-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
-                {customRangeLabel}
-              </span>
+              <>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                  {customRangeLabel}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                  Tổng chi: {new Intl.NumberFormat('vi-VN').format(totalPeriodSpent)} ₫
+                </span>
+              </>
             )}
             {!hasExpenses && (
               <span className="text-slate-400 italic ml-2">• Chưa có giao dịch chi tiêu</span>
@@ -358,42 +456,34 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
           <div className="flex items-center gap-1.5 ml-auto">
             <button
               type="button"
-              onClick={() => {
-                const now = new Date();
-                const past7 = new Date();
-                past7.setDate(now.getDate() - 7);
-                const pad = (n: number) => String(n).padStart(2, '0');
-                setCustomStartDate(`${past7.getFullYear()}-${pad(past7.getMonth() + 1)}-${pad(past7.getDate())}`);
-                setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
-              }}
-              className="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+              onClick={() => handlePreset('7days')}
+              className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm ${
+                activePreset === '7days'
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
             >
               7 ngày
             </button>
             <button
               type="button"
-              onClick={() => {
-                const now = new Date();
-                const past30 = new Date();
-                past30.setDate(now.getDate() - 30);
-                const pad = (n: number) => String(n).padStart(2, '0');
-                setCustomStartDate(`${past30.getFullYear()}-${pad(past30.getMonth() + 1)}-${pad(past30.getDate())}`);
-                setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
-              }}
-              className="text-xs px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200 transition-colors"
+              onClick={() => handlePreset('30days')}
+              className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm ${
+                activePreset === '30days'
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
             >
               30 ngày
             </button>
             <button
               type="button"
-              onClick={() => {
-                const now = new Date();
-                const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                const pad = (n: number) => String(n).padStart(2, '0');
-                setCustomStartDate(`${startMonth.getFullYear()}-${pad(startMonth.getMonth() + 1)}-${pad(startMonth.getDate())}`);
-                setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
-              }}
-              className="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+              onClick={() => handlePreset('thisMonth')}
+              className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm ${
+                activePreset === 'thisMonth'
+                  ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
             >
               Tháng này
             </button>
@@ -416,16 +506,24 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
               dataKey="label"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#64748b', fontSize: 12 }}
+              tick={{ fill: '#64748b', fontSize: 11 }}
+              minTickGap={24}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#64748b', fontSize: 12 }}
-              tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`}
+              tick={{ fill: '#64748b', fontSize: 11 }}
+              tickFormatter={formatYAxisTick}
             />
             <Tooltip
               formatter={formatTooltipValue}
+              labelFormatter={(label, payload) => {
+                const item = payload?.[0]?.payload;
+                if (item?.fullDate) {
+                  return `Ngày ${item.fullDate}`;
+                }
+                return `Thời gian: ${label}`;
+              }}
               contentStyle={{
                 backgroundColor: '#1e293b',
                 borderRadius: '0.75rem',
