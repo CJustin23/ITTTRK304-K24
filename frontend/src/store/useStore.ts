@@ -2392,6 +2392,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addTransaction: (txData) => {
+    if (!get().wallets || get().wallets.length === 0) {
+      console.warn('Không thể ghi lại chi tiêu: Cần có ít nhất 1 ví trong tài khoản');
+      return;
+    }
     const createdLocalTxId = Date.now();
     const resolvedCatId = txData.categoryId || getCategoryIdByName(txData.categoryName) || 1;
     const resolvedCatName = txData.categoryName || getCategoryViName(Object.keys(CATEGORY_MAP).find((k) => CATEGORY_MAP[k].id === resolvedCatId));
@@ -2695,7 +2699,7 @@ export const useStore = create<AppState>((set, get) => ({
         categoryIcon: 'PiggyBank',
         actionTitle: `Nạp tiền tích lũy: ${selectedGoal?.goalName || 'Mục tiêu'}`,
         amount,
-        transactionType: 'TRANSFER',
+        transactionType: 'EXPENSE',
         balanceAfter: (selectedWallet?.balance || 0) - amount,
         transactionDate: formatLocalIsoDate().replace('T', ' ').substring(0, 16),
         note: `Trích tiền từ ${selectedWallet?.walletName || 'ví'} vào quỹ tích lũy`,

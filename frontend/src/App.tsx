@@ -155,6 +155,11 @@ export const App: React.FC = () => {
     transactionDate?: string;
     note?: string;
   }) => {
+    if (wallets.length === 0) {
+      alert('Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!');
+      setWalletModalOpen(true);
+      return;
+    }
     const selectedWallet = wallets.find((w) => w.id === data.walletId) || wallets[0];
     const actualWalletId = selectedWallet ? selectedWallet.id : data.walletId;
     const cardSuffix = selectedWallet?.cardNumberMasked ? ` (${selectedWallet.cardNumberMasked})` : '';
@@ -319,9 +324,14 @@ export const App: React.FC = () => {
       {/* 2. Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         <Header
-          onNewTransaction={() => setTransactionModalOpen(true)}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
+          onNewTransaction={() => {
+            if (wallets.length === 0) {
+              alert('Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!');
+              setWalletModalOpen(true);
+              return;
+            }
+            setTransactionModalOpen(true);
+          }}
         />
 
         <main className="p-8 space-y-8 flex-1">{renderContent()}</main>

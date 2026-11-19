@@ -1,17 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, Calendar, AlertTriangle, AlertCircle, CheckCircle, Info, Check, Users, ArrowRight } from 'lucide-react';
+import { Bell, Plus, Calendar, AlertTriangle, AlertCircle, CheckCircle, Info, Check, Users, ArrowRight } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 interface HeaderProps {
   onNewTransaction: () => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onNewTransaction,
-  searchQuery,
-  setSearchQuery,
 }) => {
   const {
     notifications,
@@ -76,17 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-      {/* Search Bar */}
-      <div className="relative w-96">
-        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Tìm giao dịch, số tiền, danh mục..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-slate-100/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
-        />
-      </div>
+      <div className="flex-1" />
 
       {/* Right Controls */}
       <div className="flex items-center gap-4">

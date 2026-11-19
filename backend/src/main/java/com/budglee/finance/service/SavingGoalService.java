@@ -5,11 +5,14 @@ import com.budglee.finance.dto.SavingGoalRequest;
 import com.budglee.finance.dto.SavingGoalResponse;
 import com.budglee.finance.dto.SavingGoalUpdateRequest;
 import com.budglee.finance.entity.*;
+import com.budglee.finance.repository.CategoryRepository;
 import com.budglee.finance.repository.SavingGoalRepository;
+import com.budglee.finance.repository.TransactionRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.budglee.finance.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -28,6 +32,8 @@ public class SavingGoalService {
     private final SavingGoalRepository savingGoalRepository;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
+    private final CategoryRepository categoryRepository;
 
     @Transactional
     public SavingGoalResponse createGoal(Long userId, SavingGoalRequest request) {
@@ -127,6 +133,7 @@ public class SavingGoalService {
         return toResponse(updated);
     }
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public SavingGoalResponse depositToGoal(Long userId, Long goalId, SavingGoalDepositRequest request) {
         User user = userRepository.findById(userId)
@@ -140,7 +147,7 @@ public class SavingGoalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền nạp phải lớn hơn 0");
         }
 
-        // Nếu nạp từ ví, trừ tiền ví (cho phép âm vì đây là sổ ghi chép tài chính)
+        // Nếu nạp từ ví, trừ tiền ví và ghi nhận một giao dịch khoản chi (EXPENSE)
         if (request.getFromWalletId() != null) {
             Wallet wallet = walletRepository.findById(request.getFromWalletId())
                     .filter(w -> w.getUser() != null && (w.getUser().getId().equals(userId)
@@ -149,6 +156,22 @@ public class SavingGoalService {
 
             wallet.setBalance(wallet.getBalance().subtract(depositAmount));
             walletRepository.save(wallet);
+
+            Category cat = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
+                    .stream().findFirst().orElse(null);
+
+            Transaction tx = Transaction.builder()
+                    .user(user)
+                    .wallet(wallet)
+                    .category(cat)
+                    .actionTitle("Nạp tiền tích lũy: " + goal.getGoalName())
+                    .amount(depositAmount)
+                    .transactionType(TransactionType.EXPENSE)
+                    .balanceAfter(wallet.getBalance())
+                    .transactionDate(LocalDateTime.now())
+                    .note("Trích tiền từ " + wallet.getWalletName() + " vào mục tiêu: " + goal.getGoalName())
+                    .build();
+            transactionRepository.save(tx);
         }
 
         BigDecimal newCurrent = goal.getCurrentAmount().add(depositAmount);
