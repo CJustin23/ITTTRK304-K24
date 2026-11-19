@@ -2350,9 +2350,10 @@ export const useStore = create<AppState>((set, get) => ({
     const isCash = walletData.type === 'CASH';
     const cleanName = isCash ? 'Tiền mặt' : (walletData.walletName || 'Ví').trim();
     const cleanCard = isCash ? '' : (walletData.cardNumberMasked || '').trim();
+    const tempId = Date.now();
     const newWallet: Wallet = {
       ...walletData,
-      id: Date.now(),
+      id: tempId,
       walletName: cleanName,
       type: walletData.type || 'BANK',
       cardNumberMasked: cleanCard,
@@ -2375,6 +2376,23 @@ export const useStore = create<AppState>((set, get) => ({
       })
         .then((createdWallet: any) => {
           if (createdWallet && createdWallet.id) {
+            // Thay thế ví tạm bằng ví thật từ server để tránh trùng lặp 2 thẻ
+            set((state) => {
+              const withoutTemp = state.wallets.filter((w) => w.id !== tempId);
+              const consolidated = consolidateWallets([
+                ...withoutTemp,
+                {
+                  ...newWallet,
+                  id: createdWallet.id,
+                  balance: Number(createdWallet.balance ?? newWallet.balance),
+                  cardNumberMasked: createdWallet.cardNumberMasked || cleanCard,
+                },
+              ]);
+              const summary = calculateDashboardSummary(consolidated, state.recentTransactions, state.budgets);
+              const newState = { wallets: consolidated, dashboardSummary: summary };
+              persistCurrentUserData(state.currentUser, newState);
+              return newState;
+            });
             get().fetchCoreData();
           }
         })
@@ -2394,6 +2412,8 @@ export const useStore = create<AppState>((set, get) => ({
   addTransaction: (txData) => {
     if (!get().wallets || get().wallets.length === 0) {
       console.warn('Không thể ghi lại chi tiêu: Cần có ít nhất 1 ví trong tài khoản');
+      alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
+      get().setWalletModalOpen(true);
       return;
     }
     const createdLocalTxId = Date.now();
@@ -2943,8 +2963,19 @@ export const useStore = create<AppState>((set, get) => ({
         }));
         const apiWalletIds = new Set(apiWallets.map((w: any) => w.id));
         const currentWallets = get().wallets || [];
+        // Không giữ lại ví local tạm thời nếu trên server đã có ví tương ứng cùng loại & tên/số thẻ
         const pendingLocalWallets = currentWallets.filter(
-          (lw) => !apiWalletIds.has(lw.id) && (lw.id > 1000000000000 || typeof lw.id === 'string')
+          (lw) =>
+            !apiWalletIds.has(lw.id) &&
+            (lw.id > 1000000000000 || typeof lw.id === 'string') &&
+            !apiWallets.some((aw: any) => {
+              if (aw.type !== lw.type) return false;
+              const sameName = (aw.walletName || '').trim().toLowerCase() === (lw.walletName || '').trim().toLowerCase();
+              const awDigits = (aw.cardNumberMasked || '').replace(/\D/g, '').slice(-4);
+              const lwDigits = (lw.cardNumberMasked || '').replace(/\D/g, '').slice(-4);
+              const sameDigits = (!awDigits && !lwDigits) || (awDigits && lwDigits && awDigits === lwDigits);
+              return sameName && sameDigits;
+            })
         );
         updates.wallets = consolidateWallets([...apiWallets, ...pendingLocalWallets]);
       }

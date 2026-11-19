@@ -63,7 +63,7 @@ public class WalletService {
     }
 
     private boolean isCashEquivalent(String name) {
-        if (name == null) return false;
+        if (name == null || name.isBlank()) return true;
         String normalized = name.trim().toLowerCase();
         return normalized.equals("tiền mặt") || normalized.equals("tien mat")
                 || normalized.equals("ví tiền mặt") || normalized.equals("vi tien mat")

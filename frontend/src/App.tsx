@@ -156,7 +156,7 @@ export const App: React.FC = () => {
     note?: string;
   }) => {
     if (wallets.length === 0) {
-      alert('Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!');
+      alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
       setWalletModalOpen(true);
       return;
     }
@@ -326,7 +326,7 @@ export const App: React.FC = () => {
         <Header
           onNewTransaction={() => {
             if (wallets.length === 0) {
-              alert('Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!');
+              alert('Tài khoản của bạn chưa có thẻ hay ví nào. Vui lòng thêm ít nhất 1 nguồn tiền (Ví / Thẻ) trước khi ghi lại giao dịch!');
               setWalletModalOpen(true);
               return;
             }

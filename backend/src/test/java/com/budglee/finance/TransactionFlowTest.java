@@ -232,8 +232,8 @@ class TransactionFlowTest {
     @Test
     void transferMovesMoneyBetweenTwoWalletsAndLinksBothLegs() throws Exception {
         String token = loginNewUser();
-        long source = createWallet(token, "Ví chính", "CASH", "500000");
-        long target = createWallet(token, "Ví tiết kiệm", "CASH", "100000");
+        long source = createWallet(token, "Ví chính", "BANK", "500000");
+        long target = createWallet(token, "Ví tiết kiệm", "BANK", "100000");
 
         MvcResult result = transaction(token, Map.of(
                 "walletId", source,
@@ -278,8 +278,8 @@ class TransactionFlowTest {
     @Test
     void failedTransferLeavesBothWalletsUntouched() throws Exception {
         String token = loginNewUser();
-        long from = createWallet(token, "Ví nguồn", "CASH", "100000");
-        long to = createWallet(token, "Ví đích", "CASH", "50000");
+        long from = createWallet(token, "Ví nguồn", "BANK", "100000");
+        long to = createWallet(token, "Ví đích", "BANK", "50000");
 
         MvcResult result = transaction(token, Map.of(
                 "walletId", from, "toWalletId", to, "actionTitle", "Chuyển quá số dư",
@@ -312,8 +312,8 @@ class TransactionFlowTest {
     @Test
     void transferIsNeitherIncomeNorSpendingOnDashboard() throws Exception {
         String token = loginNewUser();
-        long from = createWallet(token, "Ví lương", "CASH", "5000000");
-        long to = createWallet(token, "Ví dự phòng", "CASH", "0");
+        long from = createWallet(token, "Ví lương", "BANK", "5000000");
+        long to = createWallet(token, "Ví dự phòng", "BANK", "0");
 
         transaction(token, Map.of(
                 "walletId", from, "toWalletId", to, "actionTitle", "Chuyển nội bộ",

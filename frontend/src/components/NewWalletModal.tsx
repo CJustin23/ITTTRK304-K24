@@ -11,6 +11,7 @@ export const NewWalletModal: React.FC = () => {
   const [type, setType] = useState<WalletType>('BANK');
   const [cardNumberMasked, setCardNumberMasked] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isWalletModalOpen) return null;
 
@@ -27,6 +28,7 @@ export const NewWalletModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const errs: Record<string, string> = {};
 
     const finalWalletName = type === 'CASH' ? 'Tiền mặt' : walletName.trim();
@@ -56,6 +58,7 @@ export const NewWalletModal: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
     addWallet({
       walletName: finalWalletName,
       balance: numBalance,
@@ -69,6 +72,7 @@ export const NewWalletModal: React.FC = () => {
     setBalance('');
     setCardNumberMasked('');
     setErrors({});
+    setIsSubmitting(false);
     setWalletModalOpen(false);
   };
 
@@ -237,9 +241,10 @@ export const NewWalletModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95"
             >
-              Lưu tài khoản
+              {isSubmitting ? 'Đang lưu...' : 'Lưu tài khoản'}
             </button>
           </div>
         </form>
