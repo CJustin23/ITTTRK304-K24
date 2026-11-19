@@ -2174,22 +2174,15 @@ export const useStore = create<AppState>((set, get) => ({
     if (tokenToRevoke) {
       void AuthService.logout(tokenToRevoke);
     }
-    // Dọn dẹp toàn bộ cache dữ liệu và phiên của tất cả tài khoản khi đăng xuất (Giải pháp 3 - Logout Cleanup)
+    // Dọn dẹp phiên đăng nhập của người dùng khi đăng xuất (giữ an toàn dữ liệu nhóm & lời mời)
     try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (
-          key.startsWith('budglee_data_') ||
-          key.startsWith('budglee_family_data_') ||
-          key.startsWith('budglee_user_') ||
-          key.startsWith('budglee_ai_') ||
-          key.startsWith('budglee_')
-        )) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem('budglee_token');
+      localStorage.removeItem('budglee_token_created_at');
+      localStorage.removeItem('budglee_token_expires_at');
+      localStorage.removeItem('budglee_current_user');
+      localStorage.removeItem('budglee_active_tab');
+      localStorage.removeItem('budglee_ai_conv_id');
+      localStorage.removeItem('budglee_ai_session_id');
     } catch (e) {
       console.warn('Lỗi dọn dẹp cache localStorage khi đăng xuất:', e);
     }
@@ -3057,7 +3050,7 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (err: any) {
       // Fallback local invitation
       invitation = {
-        id: Date.now(),
+        id: Date.now() + Math.floor(Math.random() * 1000),
         familyGroupId: user.familyGroupId || 'FAM-' + user.id,
         familyGroupName: user.familyGroupName || `Gia đình của ${user.fullName}`,
         invitedById: user.id,
