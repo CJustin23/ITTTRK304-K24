@@ -94,6 +94,7 @@ export const NewWalletModal: React.FC = () => {
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Loại tài khoản</label>
             <div className="grid grid-cols-3 gap-2">
               <button
+                id="btn-wallet-type-bank"
                 type="button"
                 onClick={() => setType('BANK')}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -106,6 +107,7 @@ export const NewWalletModal: React.FC = () => {
                 <span>Ngân hàng</span>
               </button>
               <button
+                id="btn-wallet-type-credit"
                 type="button"
                 onClick={() => setType('CREDIT_CARD')}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -118,6 +120,7 @@ export const NewWalletModal: React.FC = () => {
                 <span>Thẻ tín dụng</span>
               </button>
               <button
+                id="btn-wallet-type-cash"
                 type="button"
                 onClick={() => {
                   setType('CASH');
@@ -141,6 +144,7 @@ export const NewWalletModal: React.FC = () => {
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Ví / Thẻ</label>
               <input
+                id="input-wallet-name"
                 type="text"
                 placeholder="VD: MB Bank, MoMo, Thẻ Visa..."
                 value={walletName}
@@ -169,6 +173,7 @@ export const NewWalletModal: React.FC = () => {
               {type === 'CASH' ? 'Số tiền nạp vào Tiền mặt (VND)' : 'Số dư ban đầu (VND)'}
             </label>
             <input
+              id="input-wallet-balance"
               type="text"
               inputMode="numeric"
               placeholder="VD: 5.000.000"
@@ -195,6 +200,7 @@ export const NewWalletModal: React.FC = () => {
                 4 số cuối của thẻ (Tùy chọn)
               </label>
               <input
+                id="input-wallet-card-masked"
                 type="text"
                 maxLength={4}
                 placeholder="VD: 6789"

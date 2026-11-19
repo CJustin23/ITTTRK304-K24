@@ -1191,6 +1191,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                       <div className="relative flex-1">
                         <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
+                          id="reg-invite-email"
                           type="email"
                           placeholder="VD: thancon@gmail.com, vo@gmail.com..."
                           value={inviteEmailInput}
