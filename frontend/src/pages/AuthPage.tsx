@@ -18,6 +18,8 @@ import {
   KeyRound,
   RefreshCw,
   ArrowLeft,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { AuthService } from '../services/api';
 import { useStore } from '../store/useStore';
@@ -42,6 +44,38 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   // Family registration states
   const [familyName, setFamilyName] = useState('');
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
+  const [inviteEmailInput, setInviteEmailInput] = useState('');
+  const [inviteEmailError, setInviteEmailError] = useState('');
+
+  const handleAddInviteEmail = () => {
+    const trimmed = inviteEmailInput.trim().toLowerCase();
+    if (!trimmed) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setInviteEmailError('Định dạng email không hợp lệ (VD: thanhcon@gmail.com)');
+      return;
+    }
+
+    if (trimmed === email.trim().toLowerCase()) {
+      setInviteEmailError('Đây là email bạn đang dùng để đăng ký Chủ hộ');
+      return;
+    }
+
+    if (invitedEmails.includes(trimmed)) {
+      setInviteEmailError('Email này đã có trong danh sách mời');
+      return;
+    }
+
+    setInvitedEmails((prev) => [...prev, trimmed]);
+    setInviteEmailInput('');
+    setInviteEmailError('');
+  };
+
+  const handleRemoveInviteEmail = (emailToRemove: string) => {
+    setInvitedEmails((prev) => prev.filter((e) => e !== emailToRemove));
+  };
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -366,6 +400,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     }
 
     // Nếu đăng ký làm Chủ hộ gia đình:
+    let finalInvitedEmails = [...invitedEmails];
     if (role === 'FAMILY_ADMIN') {
       if (!familyName.trim()) {
         errs.familyName = 'Vui lòng nhập tên sổ quỹ gia đình';
@@ -373,6 +408,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         errs.familyName = 'Tên sổ quỹ phải có ít nhất 2 ký tự';
       }
 
+      // Kiểm tra nếu ô nhập email mời đang có ký tự chưa bấm Thêm
+      if (inviteEmailInput.trim()) {
+        const pendingTrimmed = inviteEmailInput.trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(pendingTrimmed)) {
+          errs.inviteEmail = 'Định dạng email mời không hợp lệ (VD: thanhcon@gmail.com)';
+          setInviteEmailError('Định dạng email mời không hợp lệ (VD: thanhcon@gmail.com)');
+        } else if (pendingTrimmed === email.trim().toLowerCase()) {
+          errs.inviteEmail = 'Đây là email bạn đang dùng để đăng ký Chủ hộ';
+          setInviteEmailError('Đây là email bạn đang dùng để đăng ký Chủ hộ');
+        } else if (!finalInvitedEmails.includes(pendingTrimmed)) {
+          finalInvitedEmails.push(pendingTrimmed);
+        }
+      }
     }
 
     if (Object.keys(errs).length > 0) {
@@ -418,6 +467,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
       };
       localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(user));
       setAuth(user, account.token, true);
+
+      // Tự động gửi lời mời tới các thành viên được thêm từ ngoài form đăng ký
+      if (role === 'FAMILY_ADMIN' && finalInvitedEmails.length > 0) {
+        for (const targetEmail of finalInvitedEmails) {
+          try {
+            await useStore.getState().sendFamilyInvitation(targetEmail);
+          } catch (invErr) {
+            console.warn('Lỗi gửi lời mời tới:', targetEmail, invErr);
+          }
+        }
+      }
+
       if (onSuccess) onSuccess();
     } catch (error: any) {
       setErrorMessage(error?.response?.data?.message || 'Đăng ký thất bại. Vui lòng kiểm tra thông tin và thử lại.');
@@ -1108,7 +1169,97 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                       </p>
                     )}
                   </div>
-                  <p className="text-[11px] leading-relaxed text-slate-400">Sau khi tạo nhóm, bạn có thể mời thành viên từ mục Nhóm hộ. Mỗi người cần có tài khoản Budglee.</p>
+
+                  {/* Mời thành viên gia đình ngay từ màn hình đăng ký bên ngoài */}
+                  <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Mời thành viên gia đình <span className="text-slate-400 font-normal">(Tùy chọn)</span>
+                      </label>
+                      {invitedEmails.length > 0 && (
+                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          {invitedEmails.length} người nhận
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      Nhập email người thân để hệ thống tự động gửi lời mời tham gia sổ quỹ ngay khi bạn đăng ký thành công:
+                    </p>
+
+                    {/* Ô nhập Email + Nút Thêm */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          placeholder="VD: thancon@gmail.com, vo@gmail.com..."
+                          value={inviteEmailInput}
+                          onChange={(e) => {
+                            setInviteEmailInput(e.target.value);
+                            if (inviteEmailError) setInviteEmailError('');
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddInviteEmail();
+                            }
+                          }}
+                          className={`w-full pl-9 pr-3 py-2 bg-slate-950 border rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                            inviteEmailError
+                              ? 'border-rose-500 ring-1 ring-rose-500'
+                              : 'border-slate-700 focus:border-emerald-500'
+                          }`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddInviteEmail}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 shrink-0"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Thêm</span>
+                      </button>
+                    </div>
+
+                    {inviteEmailError && (
+                      <p className="text-xs text-rose-400 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span>{inviteEmailError}</span>
+                      </p>
+                    )}
+
+                    {/* Danh sách các email đã thêm */}
+                    {invitedEmails.length > 0 ? (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                          Danh sách sẽ nhận lời mời ({invitedEmails.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                          {invitedEmails.map((invEmail) => (
+                            <div
+                              key={invEmail}
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 animate-in fade-in zoom-in-95 duration-150"
+                            >
+                              <Mail className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span className="font-mono text-[11px] truncate max-w-[170px]">{invEmail}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveInviteEmail(invEmail)}
+                                className="p-0.5 text-slate-400 hover:text-rose-400 transition-colors rounded hover:bg-rose-950/30 ml-0.5"
+                                title="Xóa email khỏi danh sách mời"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-slate-400">
+                        💡 Bạn có thể nhập email người thân ngay tại đây hoặc mời sau trong mục Quản lý sổ quỹ gia đình.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
 
