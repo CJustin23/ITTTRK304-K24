@@ -50,6 +50,88 @@ export const currentYearNum = new Date().getFullYear();
 export const prevMonth1Num = new Date(currentYearNum, currentMonthNum - 2, 1).getMonth() + 1;
 export const prevMonth2Num = new Date(currentYearNum, currentMonthNum - 3, 1).getMonth() + 1;
 
+/**
+ * Hợp nhất (gộp) các nguồn tiền (Ví / Thẻ) theo đúng quy tắc tài chính:
+ * 1. Tiền mặt (CASH): Tất cả ví có type === 'CASH' tự động cộng dồn số dư vào DUY NHẤT 1 ví "Tiền mặt".
+ * 2. Ngân hàng & Thẻ tín dụng: Cùng loại (BANK hoặc CREDIT_CARD), cùng tên (không phân biệt hoa/thường)
+ *    và cùng 4 số cuối thẻ (hoặc cùng không có số thẻ) thì tự động cộng dồn số dư vào một thẻ.
+ *    Nếu khác 4 số cuối thẻ thì tách riêng biệt thành các thẻ độc lập.
+ */
+export const consolidateWallets = (wallets: Wallet[]): Wallet[] => {
+  if (!Array.isArray(wallets) || wallets.length === 0) return [];
+  const consolidated: Wallet[] = [];
+
+  for (const raw of wallets) {
+    if (!raw) continue;
+    const isCash = raw.type === 'CASH';
+    const cleanName = isCash ? 'Tiền mặt' : (raw.walletName || 'Ví').trim();
+    const cleanCard = isCash ? '' : (raw.cardNumberMasked || '').trim();
+    const cleanBalance = Number(raw.balance || 0);
+
+    const w: Wallet = {
+      ...raw,
+      walletName: cleanName,
+      type: raw.type || 'BANK',
+      balance: isNaN(cleanBalance) ? 0 : cleanBalance,
+      cardNumberMasked: cleanCard,
+    };
+
+    const type = w.type;
+    const nameLower = cleanName.toLowerCase();
+    const cardDigits = cleanCard.replace(/\D/g, '').slice(-4);
+
+    let isMerged = false;
+
+    for (let i = 0; i < consolidated.length; i++) {
+      const ex = consolidated[i];
+      const exType = ex.type;
+      const exNameLower = (ex.walletName || '').trim().toLowerCase();
+      const exCardDigits = (ex.cardNumberMasked || '').replace(/\D/g, '').slice(-4);
+
+      // Quy tắc 1: Tiền mặt (CASH) - gộp tất cả nguồn tiền mặt lại làm 1 ví "Tiền mặt"
+      if (type === 'CASH' && exType === 'CASH') {
+        consolidated[i] = {
+          ...ex,
+          walletName: 'Tiền mặt',
+          type: 'CASH',
+          cardNumberMasked: '',
+          balance: Number((ex.balance + w.balance).toFixed(2)),
+        };
+        isMerged = true;
+        break;
+      }
+
+      // Quy tắc 2: Ngân hàng (BANK) hoặc Thẻ tín dụng (CREDIT_CARD)
+      // Cùng loại, cùng tên tài khoản/ngân hàng và cùng 4 số đuôi thẻ (hoặc cùng không có số đuôi)
+      if (
+        (type === 'BANK' || type === 'CREDIT_CARD') &&
+        exType === type &&
+        exNameLower === nameLower
+      ) {
+        const sameDigits =
+          (cardDigits && exCardDigits && cardDigits === exCardDigits) ||
+          (!cardDigits && !exCardDigits);
+
+        if (sameDigits) {
+          consolidated[i] = {
+            ...ex,
+            cardNumberMasked: ex.cardNumberMasked || w.cardNumberMasked || (cardDigits ? `**** ${cardDigits}` : ''),
+            balance: Number((ex.balance + w.balance).toFixed(2)),
+          };
+          isMerged = true;
+          break;
+        }
+      }
+    }
+
+    if (!isMerged) {
+      consolidated.push(w);
+    }
+  }
+
+  return consolidated;
+};
+
 // ============================================================================
 // DỮ LIỆU MẪU: 1 TÀI KHOẢN CÁ NHÂN (thanhcanhan@gmail.com) - 10-20 DỮ LIỆU MỖI CHỨC NĂNG
 // ============================================================================
@@ -1650,7 +1732,7 @@ export const persistCurrentUserData = (
     }
 
     const payload = {
-      wallets: data.wallets ?? existingData.wallets ?? [],
+      wallets: consolidateWallets(data.wallets ?? existingData.wallets ?? []),
       recentTransactions: data.recentTransactions ?? existingData.recentTransactions ?? [],
       budgets: data.budgets ?? existingData.budgets ?? [],
       savingGoals: data.savingGoals ?? existingData.savingGoals ?? [],
@@ -1781,7 +1863,7 @@ const loadInitialAuthState = () => {
     if (isFamilyThanh && famDataStr) {
       const famSaved = JSON.parse(famDataStr);
       const personalSaved = savedDataStr ? JSON.parse(savedDataStr) : {};
-      const loadedWallets = famSaved.wallets ?? FAMILY_SHARED_DATA.wallets;
+      const loadedWallets = consolidateWallets(famSaved.wallets ?? FAMILY_SHARED_DATA.wallets);
       const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
       const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
       const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
@@ -1809,7 +1891,7 @@ const loadInitialAuthState = () => {
     if (savedDataStr) {
       const saved = JSON.parse(savedDataStr);
       const defaultSet = isPersonalThanh ? THANHCANHAN_DATA : (isFamilyThanh ? FAMILY_SHARED_DATA : null);
-      const loadedWallets = saved.wallets ?? (defaultSet ? defaultSet.wallets : []);
+      const loadedWallets = consolidateWallets(saved.wallets ?? (defaultSet ? defaultSet.wallets : []));
       const loadedTxs = defaultSet
         ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
         : (saved.recentTransactions ?? []);
@@ -1837,13 +1919,13 @@ const loadInitialAuthState = () => {
 
     if (isPersonalThanh) {
       const initialPersonal = {
-        wallets: THANHCANHAN_DATA.wallets,
+        wallets: consolidateWallets(THANHCANHAN_DATA.wallets),
         recentTransactions: THANHCANHAN_DATA.recentTransactions,
         budgets: THANHCANHAN_DATA.budgets,
         savingGoals: THANHCANHAN_DATA.savingGoals,
         familyMembers: [],
         notifications: THANHCANHAN_DATA.notifications,
-        dashboardSummary: calculateDashboardSummary(THANHCANHAN_DATA.wallets, THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets),
+        dashboardSummary: calculateDashboardSummary(consolidateWallets(THANHCANHAN_DATA.wallets), THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets),
         botRecommendation: THANHCANHAN_DATA.botRecommendation,
       };
       persistCurrentUserData(user, initialPersonal);
@@ -1858,13 +1940,13 @@ const loadInitialAuthState = () => {
 
     if (isFamilyThanh) {
       const initialFam = {
-        wallets: FAMILY_SHARED_DATA.wallets,
+        wallets: consolidateWallets(FAMILY_SHARED_DATA.wallets),
         recentTransactions: FAMILY_SHARED_DATA.recentTransactions,
         budgets: FAMILY_SHARED_DATA.budgets,
         savingGoals: FAMILY_SHARED_DATA.savingGoals,
         familyMembers: FAMILY_SHARED_DATA.familyMembers,
         notifications: FAMILY_SHARED_DATA.notifications,
-        dashboardSummary: calculateDashboardSummary(FAMILY_SHARED_DATA.wallets, FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets),
+        dashboardSummary: calculateDashboardSummary(consolidateWallets(FAMILY_SHARED_DATA.wallets), FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets),
         botRecommendation: FAMILY_SHARED_DATA.botRecommendation,
       };
       persistCurrentUserData(user, initialFam);
@@ -1984,7 +2066,7 @@ export const useStore = create<AppState>((set, get) => ({
       try {
         const famSaved = JSON.parse(famDataStr);
         const personalSaved = savedDataStr ? JSON.parse(savedDataStr) : {};
-        const loadedWallets = famSaved.wallets ?? FAMILY_SHARED_DATA.wallets;
+        const loadedWallets = consolidateWallets(famSaved.wallets ?? FAMILY_SHARED_DATA.wallets);
         const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
         const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
         const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
@@ -2022,7 +2104,7 @@ export const useStore = create<AppState>((set, get) => ({
       try {
         const saved = JSON.parse(savedDataStr);
         const defaultSet = isPersonalThanh ? THANHCANHAN_DATA : (isFamilyThanh ? FAMILY_SHARED_DATA : null);
-        const loadedWallets = saved.wallets ?? (defaultSet ? defaultSet.wallets : []);
+        const loadedWallets = consolidateWallets(saved.wallets ?? (defaultSet ? defaultSet.wallets : []));
         const loadedTxs = defaultSet
           ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
           : (saved.recentTransactions ?? []);
@@ -2057,9 +2139,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Lần đầu đăng nhập tài khoản cá nhân: nạp bộ dữ liệu phong phú THANHCANHAN_DATA
     if (isPersonalThanh && !isNewRegistration) {
-      const personalSummary = calculateDashboardSummary(THANHCANHAN_DATA.wallets, THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets);
+      const personalWallets = consolidateWallets(THANHCANHAN_DATA.wallets);
+      const personalSummary = calculateDashboardSummary(personalWallets, THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets);
       const personalState = {
-        wallets: THANHCANHAN_DATA.wallets,
+        wallets: personalWallets,
         recentTransactions: THANHCANHAN_DATA.recentTransactions,
         budgets: THANHCANHAN_DATA.budgets,
         savingGoals: THANHCANHAN_DATA.savingGoals,
@@ -2084,9 +2167,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Lần đầu đăng nhập tài khoản gia đình: nạp bộ dữ liệu mẫu FAMILY_SHARED_DATA
     if (isFamilyThanh && !isNewRegistration) {
-      const famSummary = calculateDashboardSummary(FAMILY_SHARED_DATA.wallets, FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets);
+      const famWallets = consolidateWallets(FAMILY_SHARED_DATA.wallets);
+      const famSummary = calculateDashboardSummary(famWallets, FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets);
       const famState = {
-        wallets: FAMILY_SHARED_DATA.wallets,
+        wallets: famWallets,
         recentTransactions: FAMILY_SHARED_DATA.recentTransactions,
         budgets: FAMILY_SHARED_DATA.budgets,
         savingGoals: FAMILY_SHARED_DATA.savingGoals,
@@ -2254,53 +2338,27 @@ export const useStore = create<AppState>((set, get) => ({
 
   setWallets: (wallets) => {
     set((state) => {
-      const updatedSummary = calculateDashboardSummary(wallets, state.recentTransactions, state.budgets);
-      const newState = { wallets, dashboardSummary: updatedSummary };
+      const consolidated = consolidateWallets(wallets);
+      const updatedSummary = calculateDashboardSummary(consolidated, state.recentTransactions, state.budgets);
+      const newState = { wallets: consolidated, dashboardSummary: updatedSummary };
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
   },
 
   addWallet: (walletData) => {
+    const isCash = walletData.type === 'CASH';
+    const cleanName = isCash ? 'Tiền mặt' : (walletData.walletName || 'Ví').trim();
+    const cleanCard = isCash ? '' : (walletData.cardNumberMasked || '').trim();
     const newWallet: Wallet = {
       ...walletData,
       id: Date.now(),
-      cardNumberMasked: walletData.cardNumberMasked || '',
+      walletName: cleanName,
+      type: walletData.type || 'BANK',
+      cardNumberMasked: cleanCard,
     };
     set((state) => {
-      let isMerged = false;
-      const reqName = (walletData.walletName || '').trim().toLowerCase();
-      const reqCard = (walletData.cardNumberMasked || '').trim().toLowerCase();
-
-      const updatedWallets = state.wallets.map((w) => {
-        if (isMerged) return w;
-        if (walletData.type === 'CASH' && w.type === 'CASH') {
-          const curName = (w.walletName || '').trim().toLowerCase();
-          const isGenericCash =
-            (reqName.includes('tiền mặt') || reqName.includes('cash')) &&
-            (curName.includes('tiền mặt') || curName.includes('cash'));
-          if (curName === reqName || isGenericCash) {
-            isMerged = true;
-            return { ...w, balance: w.balance + walletData.balance };
-          }
-        } else if (
-          (walletData.type === 'BANK' || walletData.type === 'CREDIT_CARD') &&
-          w.type === walletData.type
-        ) {
-          const curName = (w.walletName || '').trim().toLowerCase();
-          const curCard = (w.cardNumberMasked || '').trim().toLowerCase();
-          if (curName === reqName) {
-            const sameCard = reqCard === curCard || (!reqCard && !curCard);
-            if (sameCard) {
-              isMerged = true;
-              return { ...w, balance: w.balance + walletData.balance };
-            }
-          }
-        }
-        return w;
-      });
-
-      const finalWallets = isMerged ? updatedWallets : [...state.wallets, newWallet];
+      const finalWallets = consolidateWallets([...state.wallets, newWallet]);
       const updatedSummary = calculateDashboardSummary(finalWallets, state.recentTransactions, state.budgets);
       const newState = { wallets: finalWallets, dashboardSummary: updatedSummary };
       persistCurrentUserData(state.currentUser, newState);
@@ -2309,11 +2367,11 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (get().token) {
       WalletService.create({
-        walletName: walletData.walletName,
+        walletName: cleanName,
         type: walletData.type || 'BANK',
         balance: walletData.balance,
         currency: walletData.currency || 'VND',
-        cardNumberMasked: walletData.cardNumberMasked || '',
+        cardNumberMasked: cleanCard,
       })
         .then((createdWallet: any) => {
           if (createdWallet && createdWallet.id) {
@@ -2884,7 +2942,7 @@ export const useStore = create<AppState>((set, get) => ({
         const pendingLocalWallets = currentWallets.filter(
           (lw) => !apiWalletIds.has(lw.id) && (lw.id > 1000000000000 || typeof lw.id === 'string')
         );
-        updates.wallets = [...apiWallets, ...pendingLocalWallets];
+        updates.wallets = consolidateWallets([...apiWallets, ...pendingLocalWallets]);
       }
 
       if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content) && txsRes.value.content.length > 0) {
@@ -2992,7 +3050,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (Object.keys(updates).length > 0) {
         set((state) => {
-          const finalWallets = updates.wallets || state.wallets;
+          const finalWallets = consolidateWallets(updates.wallets || state.wallets);
           const finalTxs = updates.recentTransactions || state.recentTransactions;
           const finalBudgets = updates.budgets || state.budgets;
           const finalGoals = updates.savingGoals || state.savingGoals;
