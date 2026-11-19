@@ -13,6 +13,28 @@ export const NewGoalModal: React.FC = () => {
 
   if (!isGoalModalOpen) return null;
 
+  const handleTargetAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setTargetAmount('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setTargetAmount(formatted);
+    if (errors.targetAmount) setErrors((prev) => ({ ...prev, targetAmount: '' }));
+  };
+
+  const handleInitialDepositChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setInitialDeposit('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setInitialDeposit(formatted);
+    if (errors.initialDeposit) setErrors((prev) => ({ ...prev, initialDeposit: '' }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
@@ -23,14 +45,16 @@ export const NewGoalModal: React.FC = () => {
       errs.goalName = 'Tên mục tiêu phải có ít nhất 2 ký tự';
     }
 
-    const numTarget = parseFloat(targetAmount);
-    if (!targetAmount.trim()) {
+    const rawTarget = targetAmount.replace(/\./g, '');
+    const numTarget = parseFloat(rawTarget);
+    if (!rawTarget.trim()) {
       errs.targetAmount = 'Vui lòng nhập số tiền mục tiêu cần tích lũy';
     } else if (isNaN(numTarget) || numTarget <= 0) {
       errs.targetAmount = 'Số tiền mục tiêu phải lớn hơn 0 ₫';
     }
 
-    const numDeposit = parseFloat(initialDeposit) || 0;
+    const rawDeposit = initialDeposit.replace(/\./g, '');
+    const numDeposit = parseFloat(rawDeposit) || 0;
     if (numDeposit < 0) {
       errs.initialDeposit = 'Số tiền tích lũy ban đầu không được là số âm';
     } else if (numTarget > 0 && numDeposit > numTarget) {
@@ -122,13 +146,11 @@ export const NewGoalModal: React.FC = () => {
             <div className="relative">
               <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                type="number"
-                placeholder="VD: 50000000"
+                type="text"
+                inputMode="numeric"
+                placeholder="VD: 50.000.000"
                 value={targetAmount}
-                onChange={(e) => {
-                  setTargetAmount(e.target.value);
-                  if (errors.targetAmount) setErrors((prev) => ({ ...prev, targetAmount: '' }));
-                }}
+                onChange={handleTargetAmountChange}
                 className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-bold ${
                   errors.targetAmount
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
@@ -149,13 +171,11 @@ export const NewGoalModal: React.FC = () => {
               Số tiền đã tích lũy sẵn (VND - Tùy chọn)
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               placeholder="Mặc định: 0"
               value={initialDeposit}
-              onChange={(e) => {
-                setInitialDeposit(e.target.value);
-                if (errors.initialDeposit) setErrors((prev) => ({ ...prev, initialDeposit: '' }));
-              }}
+              onChange={handleInitialDepositChange}
               className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-semibold ${
                 errors.initialDeposit
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'

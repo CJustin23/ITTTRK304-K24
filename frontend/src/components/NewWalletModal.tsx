@@ -14,6 +14,17 @@ export const NewWalletModal: React.FC = () => {
 
   if (!isWalletModalOpen) return null;
 
+  const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setBalance('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setBalance(formatted);
+    if (errors.balance) setErrors((prev) => ({ ...prev, balance: '' }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
@@ -24,8 +35,9 @@ export const NewWalletModal: React.FC = () => {
       errs.walletName = 'Tên tài khoản phải có ít nhất 2 ký tự';
     }
 
-    const numBalance = parseFloat(balance);
-    if (!balance.trim()) {
+    const rawDigits = balance.replace(/\./g, '');
+    const numBalance = parseFloat(rawDigits);
+    if (!rawDigits.trim()) {
       errs.balance = 'Vui lòng nhập số dư ban đầu';
     } else if (isNaN(numBalance) || numBalance < 0) {
       errs.balance = 'Số dư ban đầu không được là số âm';
@@ -105,6 +117,7 @@ export const NewWalletModal: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setType('CASH');
+                  if (!walletName.trim()) setWalletName('Tiền mặt');
                   if (errors.cardNumberMasked) setErrors((prev) => ({ ...prev, cardNumberMasked: '' }));
                 }}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -148,13 +161,11 @@ export const NewWalletModal: React.FC = () => {
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Số dư ban đầu (VND)</label>
             <input
-              type="number"
-              placeholder="VD: 5000000"
+              type="text"
+              inputMode="numeric"
+              placeholder="VD: 5.000.000"
               value={balance}
-              onChange={(e) => {
-                setBalance(e.target.value);
-                if (errors.balance) setErrors((prev) => ({ ...prev, balance: '' }));
-              }}
+              onChange={handleBalanceChange}
               className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-bold ${
                 errors.balance
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'

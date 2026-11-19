@@ -834,17 +834,6 @@ export const SettingsView: React.FC = () => {
               </div>
               <input type="checkbox" defaultChecked className="w-5 h-5 accent-emerald-600 rounded" />
             </div>
-
-            <div className="pt-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Đơn vị tiền tệ chính</p>
-                <p className="text-xs text-slate-400">Định dạng hiển thị số dư và các khoản thu chi</p>
-              </div>
-              <select className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700">
-                <option value="VND">VND (Việt Nam Đồng - ₫)</option>
-                <option value="USD">USD (Đô la Mỹ - $)</option>
-              </select>
-            </div>
           </div>
         </div>
       )}

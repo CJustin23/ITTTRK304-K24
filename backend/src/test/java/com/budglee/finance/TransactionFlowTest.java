@@ -139,19 +139,18 @@ class TransactionFlowTest {
     }
 
     @Test
-    void overspendOnCashWalletIsRejectedAndLeavesBalanceUntouched() throws Exception {
+    void overspendOnCashWalletIsAllowedAndBalanceGoesNegative() throws Exception {
         String token = loginNewUser();
         long walletId = createWallet(token, "Ví chặt chi tiêu", "CASH", "100000");
 
-        MvcResult rejected = transaction(token, Map.of(
+        MvcResult result = transaction(token, Map.of(
                 "walletId", walletId,
                 "actionTitle", "Mua điện thoại",
                 "amount", "900000",
                 "transactionType", "EXPENSE"));
 
-        assertThat(rejected.getResponse().getStatus()).isEqualTo(400);
-        assertThat(json(rejected).at("/message").asText()).contains("Số dư ví không đủ");
-        assertThat(walletBalance(token, 0)).isEqualByComparingTo("100000");
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        assertThat(walletBalance(token, 0)).isEqualByComparingTo("-800000");
     }
 
     @Test

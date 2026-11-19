@@ -12,12 +12,24 @@ export const NewBudgetModal: React.FC = () => {
 
   if (!isBudgetModalOpen) return null;
 
+  const handleAmountLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setAmountLimit('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setAmountLimit(formatted);
+    if (errors.amountLimit) setErrors((prev) => ({ ...prev, amountLimit: '' }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    const numLimit = parseFloat(amountLimit);
+    const rawLimit = amountLimit.replace(/\./g, '');
+    const numLimit = parseFloat(rawLimit);
 
-    if (!amountLimit.trim()) {
+    if (!rawLimit.trim()) {
       errs.amountLimit = 'Vui lòng nhập hạn mức ngân sách tháng';
     } else if (isNaN(numLimit) || numLimit <= 0) {
       errs.amountLimit = 'Hạn mức ngân sách phải lớn hơn 0 ₫';
@@ -35,12 +47,13 @@ export const NewBudgetModal: React.FC = () => {
       return;
     }
 
+    const now = new Date();
     addBudget({
       categoryName,
       amountLimit: numLimit,
       spentAmount: 0,
-      periodMonth: 10,
-      periodYear: 2026,
+      periodMonth: now.getMonth() + 1,
+      periodYear: now.getFullYear(),
       alertThreshold: numThreshold || 80,
     });
 
@@ -98,13 +111,11 @@ export const NewBudgetModal: React.FC = () => {
             <div className="relative">
               <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                type="number"
-                placeholder="VD: 5000000"
+                type="text"
+                inputMode="numeric"
+                placeholder="VD: 5.000.000"
                 value={amountLimit}
-                onChange={(e) => {
-                  setAmountLimit(e.target.value);
-                  if (errors.amountLimit) setErrors((prev) => ({ ...prev, amountLimit: '' }));
-                }}
+                onChange={handleAmountLimitChange}
                 className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-bold ${
                   errors.amountLimit
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
