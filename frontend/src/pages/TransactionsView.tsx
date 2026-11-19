@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Search,
   Filter,
   Download,
   Plus,
@@ -34,32 +33,28 @@ export const TransactionsView: React.FC = () => {
   const { recentTransactions, wallets: rawWallets, setTransactionModalOpen } = useStore();
   const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | TransactionType>('ALL');
   const [filterWalletId, setFilterWalletId] = useState<string>('ALL');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
-  // Base filter (search + wallet + category), independent of transactionType tab
-  const baseFiltered = recentTransactions.filter((tx) => {
-    const matchesSearch =
-        tx.actionTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (tx.categoryName && tx.categoryName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (tx.note && tx.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        tx.amount.toString().includes(searchQuery);
+  const isExpenseTx = (tx: { transactionType: string }) =>
+    tx.transactionType === 'EXPENSE' || tx.transactionType === 'TRANSFER';
 
+  // Base filter (wallet + category), independent of transactionType tab
+  const baseFiltered = recentTransactions.filter((tx) => {
     const matchesWallet = filterWalletId === 'ALL' || tx.walletId === Number(filterWalletId);
     const matchesCategory = filterCategory === 'ALL' || tx.categoryName === filterCategory;
 
-    return matchesSearch && matchesWallet && matchesCategory;
+    return matchesWallet && matchesCategory;
   });
 
   const allCount = baseFiltered.length;
   const incomeCount = baseFiltered.filter((tx) => tx.transactionType === 'INCOME').length;
-  const expenseCount = baseFiltered.filter((tx) => tx.transactionType === 'EXPENSE').length;
+  const expenseCount = baseFiltered.filter(isExpenseTx).length;
 
   // Filter transactions by active type tab
   const filtered = baseFiltered.filter(
-      (tx) => filterType === 'ALL' || tx.transactionType === filterType
+      (tx) => filterType === 'ALL' || (filterType === 'EXPENSE' ? isExpenseTx(tx) : tx.transactionType === filterType)
   );
 
   // Calculate filtered totals
@@ -68,7 +63,7 @@ export const TransactionsView: React.FC = () => {
       .reduce((sum, t) => sum + t.amount, 0);
 
   const totalFilteredExpense = filtered
-      .filter((t) => t.transactionType === 'EXPENSE')
+      .filter(isExpenseTx)
       .reduce((sum, t) => sum + t.amount, 0);
 
   const netBalance = totalFilteredIncome - totalFilteredExpense;
@@ -112,7 +107,14 @@ export const TransactionsView: React.FC = () => {
               <span>Xuất CSV</span>
             </button>
             <button
-                onClick={() => setTransactionModalOpen(true)}
+                onClick={() => {
+                  if (wallets.length === 0) {
+                    alert('Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!');
+                    useStore.getState().setWalletModalOpen(true);
+                    return;
+                  }
+                  setTransactionModalOpen(true);
+                }}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all hover:shadow-lg active:scale-95"
             >
               <Plus className="w-4 h-4" />
@@ -156,19 +158,7 @@ export const TransactionsView: React.FC = () => {
 
         {/* Advanced Filter Toolbar */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Keyword Search */}
-            <div className="relative md:col-span-2">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                  type="text"
-                  placeholder="Tìm theo tên giao dịch, số tiền, ghi chú..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Wallet Filter */}
             <div>
               <select
@@ -198,6 +188,7 @@ export const TransactionsView: React.FC = () => {
                 <option value="Di chuyển & Xăng xe">Di chuyển & Xăng xe</option>
                 <option value="Hóa đơn & Tiện ích">Hóa đơn & Tiện ích</option>
                 <option value="Lương & Thưởng">Lương & Thưởng</option>
+                <option value="Tích lũy & Mục tiêu">Tích lũy & Mục tiêu</option>
               </select>
             </div>
           </div>

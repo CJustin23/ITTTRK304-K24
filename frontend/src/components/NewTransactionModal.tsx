@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, DollarSign, AlertCircle, Calendar } from 'lucide-react';
 import { TransactionType, Wallet } from '../types';
+import { useStore } from '../store/useStore';
 
 interface NewTransactionModalProps {
   isOpen: boolean;
@@ -109,6 +110,10 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
     const activeWalletId = wallets.some((w) => w.id === walletId)
       ? walletId
       : (wallets[0]?.id || walletId);
+
+    if (!wallets || wallets.length === 0) {
+      errs.wallet = 'Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu!';
+    }
 
     if (!rawDigits.trim()) {
       errs.amount = 'Vui lòng nhập số tiền giao dịch';
@@ -245,20 +250,45 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           {/* Wallet Selector */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Nguồn tiền (Ví / Thẻ)</label>
-            <select
-              value={wallets.some((w) => w.id === walletId) ? walletId : (wallets[0]?.id || '')}
-              onChange={(e) => {
-                setWalletId(Number(e.target.value));
-                if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
-              }}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
-            >
-              {wallets.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''} ({new Intl.NumberFormat('vi-VN').format(w.balance)} ₫)
-                </option>
-              ))}
-            </select>
+            {wallets.length === 0 ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-800">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  Bạn chưa có nguồn tiền (Ví / Thẻ) nào. Cần có ít nhất 1 ví để ghi lại chi tiêu!
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    useStore.getState().setWalletModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shrink-0 ml-2 shadow-sm"
+                >
+                  + Thêm ví ngay
+                </button>
+              </div>
+            ) : (
+              <select
+                value={wallets.some((w) => w.id === walletId) ? walletId : (wallets[0]?.id || '')}
+                onChange={(e) => {
+                  setWalletId(Number(e.target.value));
+                  if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+                }}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+              >
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''} ({new Intl.NumberFormat('vi-VN').format(w.balance)} ₫)
+                  </option>
+                ))}
+              </select>
+            )}
+            {errors.wallet && (
+              <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{errors.wallet}</span>
+              </p>
+            )}
           </div>
 
           {/* Category Selector */}
@@ -313,7 +343,12 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20"
+              disabled={wallets.length === 0}
+              className={`px-6 py-2 font-semibold text-sm rounded-xl transition-all shadow-md ${
+                wallets.length === 0
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 active:scale-95'
+              }`}
             >
               Lưu giao dịch
             </button>

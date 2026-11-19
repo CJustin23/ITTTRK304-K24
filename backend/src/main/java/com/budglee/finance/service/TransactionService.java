@@ -355,6 +355,10 @@ public class TransactionService {
     }
 
     private Wallet findUsableWallet(Long walletId, User actor) {
+        if (walletId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu");
+        }
         return walletRepository.findById(walletId)
                 .filter(w -> canUse(w, actor))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
