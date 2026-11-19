@@ -55,6 +55,14 @@ public class WalletService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
+    private boolean isCashEquivalent(String name) {
+        if (name == null) return false;
+        String normalized = name.trim().toLowerCase();
+        return normalized.equals("tiền mặt") || normalized.equals("tien mat")
+                || normalized.equals("ví tiền mặt") || normalized.equals("vi tien mat")
+                || normalized.equals("cash");
+    }
+
     @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public Wallet create(Long userId, WalletRequest request) {
@@ -67,12 +75,50 @@ public class WalletService {
                     "Chỉ được lưu số thẻ đã che, không lưu số thẻ đầy đủ");
         }
 
+        BigDecimal reqBalance = request.getBalance() == null ? BigDecimal.ZERO : request.getBalance();
+
+        // 1. Tiền mặt: nếu đã có ví tiền mặt (cùng tên hoặc tên tiền mặt) thì cộng dồn số dư vào ví đã có, không tạo ví mới
+        if (request.getType() == WalletType.CASH) {
+            String reqName = request.getWalletName().trim();
+            List<Wallet> existingWallets = list(userId);
+            for (Wallet ew : existingWallets) {
+                if (ew.getType() == WalletType.CASH) {
+                    boolean sameName = ew.getWalletName().equalsIgnoreCase(reqName);
+                    boolean isGenericCash = isCashEquivalent(reqName) && isCashEquivalent(ew.getWalletName());
+                    if (sameName || isGenericCash) {
+                        ew.setBalance(ew.getBalance().add(reqBalance));
+                        Wallet merged = walletRepository.save(ew);
+                        log.info("Cộng dồn số dư {} vào ví tiền mặt đã có id={} user={}", reqBalance, merged.getId(), userId);
+                        return merged;
+                    }
+                }
+            }
+        }
+
+        // 2. Ngân hàng và Thẻ tín dụng: có thể trùng tên nếu khác số; nếu cùng tên và cùng số thì cộng dồn vào ví cũ
+        if (request.getType() == WalletType.BANK || request.getType() == WalletType.CREDIT_CARD) {
+            String reqName = request.getWalletName().trim();
+            List<Wallet> existingWallets = list(userId);
+            for (Wallet ew : existingWallets) {
+                if (ew.getType() == request.getType() && ew.getWalletName().equalsIgnoreCase(reqName)) {
+                    boolean sameCardNumber = (masked == null && (ew.getCardNumberMasked() == null || ew.getCardNumberMasked().isBlank()))
+                            || (masked != null && masked.equalsIgnoreCase(ew.getCardNumberMasked()));
+                    if (sameCardNumber) {
+                        ew.setBalance(ew.getBalance().add(reqBalance));
+                        Wallet merged = walletRepository.save(ew);
+                        log.info("Cộng dồn số dư {} vào thẻ cùng tên và cùng số đã có id={} user={}", reqBalance, merged.getId(), userId);
+                        return merged;
+                    }
+                }
+            }
+        }
+
         Wallet wallet = Wallet.builder()
                 .user(user)
                 .walletName(request.getWalletName().trim())
                 .type(request.getType())
                 .currency(request.getCurrency() == null || request.getCurrency().isBlank() ? "VND" : request.getCurrency().trim())
-                .balance(request.getBalance() == null ? BigDecimal.ZERO : request.getBalance())
+                .balance(reqBalance)
                 .cardNumberMasked(masked)
                 .familyGroupId(user.getFamilyGroupId())
                 .build();

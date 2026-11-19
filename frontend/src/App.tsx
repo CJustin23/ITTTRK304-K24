@@ -148,7 +148,9 @@ export const App: React.FC = () => {
     actionTitle: string;
     amount: number;
     transactionType: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+    categoryId?: number;
     categoryName: string;
+    transactionDate?: string;
     note?: string;
   }) => {
     const selectedWallet = wallets.find((w) => w.id === data.walletId) || wallets[0];
@@ -164,12 +166,13 @@ export const App: React.FC = () => {
     addTransaction({
       walletId: actualWalletId,
       walletName: actualWalletName,
+      categoryId: data.categoryId,
       categoryName: data.categoryName,
       actionTitle: data.actionTitle,
       amount: data.amount,
       transactionType: data.transactionType,
       balanceAfter: newBalance,
-      transactionDate: new Date().toISOString(),
+      transactionDate: data.transactionDate || new Date().toISOString(),
       note: data.note,
     });
   };

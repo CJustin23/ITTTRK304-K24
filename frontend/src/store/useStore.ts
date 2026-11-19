@@ -1566,6 +1566,60 @@ interface AppState {
   setSelectedInvitationForConfirm: (invitation: FamilyInvitation | null) => void;
 }
 
+// Bảng ánh xạ danh mục hệ thống giữa Backend DB (English) và Frontend UI (Tiếng Việt)
+export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: string; icon: string }> = {
+  'Ăn uống & Cà phê': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
+  'Food & Drinks': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
+  'Mua sắm & Gia đình': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
+  'Shopping': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
+  'Di chuyển & Xăng xe': { id: 3, viName: 'Di chuyển & Xăng xe', enName: 'Travel & Transport', icon: 'Car' },
+  'Travel & Transport': { id: 3, viName: 'Di chuyển & Xăng xe', enName: 'Travel & Transport', icon: 'Car' },
+  'Sức khỏe & Y tế': { id: 4, viName: 'Sức khỏe & Y tế', enName: 'Health', icon: 'Heart' },
+  'Health': { id: 4, viName: 'Sức khỏe & Y tế', enName: 'Health', icon: 'Heart' },
+  'Hóa đơn & Tiện ích': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
+  'Bills & Utilities': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
+  'Giáo dục & Học tập': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
+  'Education': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
+  'Lương & Thưởng': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
+  'Salary': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
+  'Đầu tư & Sinh lời': { id: 8, viName: 'Đầu tư & Sinh lời', enName: 'Investment', icon: 'TrendingUp' },
+  'Investment': { id: 8, viName: 'Đầu tư & Sinh lời', enName: 'Investment', icon: 'TrendingUp' },
+  'Thu nhập khác': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
+  'Other Income': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
+  'Khác': { id: 10, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
+  'Other': { id: 10, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
+};
+
+export const getCategoryIdByName = (name?: string): number => {
+  if (!name) return 1;
+  const match = CATEGORY_MAP[name] || Object.values(CATEGORY_MAP).find((c) => c.viName === name || c.enName === name);
+  return match ? match.id : 1;
+};
+
+export const getCategoryViName = (name?: string): string => {
+  if (!name) return 'Khác';
+  const match = CATEGORY_MAP[name] || Object.values(CATEGORY_MAP).find((c) => c.enName === name || c.viName === name);
+  return match ? match.viName : name;
+};
+
+// Định dạng thời gian theo múi giờ địa phương Việt Nam (GMT+7) thay vì UTC
+export const formatLocalIsoDate = (d?: Date | string): string => {
+  const date = d ? (typeof d === 'string' ? new Date(d) : d) : new Date();
+  if (isNaN(date.getTime())) {
+    const fallback = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${fallback.getFullYear()}-${pad(fallback.getMonth() + 1)}-${pad(fallback.getDate())}T${pad(fallback.getHours())}:${pad(fallback.getMinutes())}:${pad(fallback.getSeconds())}`;
+  }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
 // Lưu trữ tập trung dữ liệu tài khoản vào localStorage
 export const persistCurrentUserData = (
   user: User | null,
@@ -2218,9 +2272,41 @@ export const useStore = create<AppState>((set, get) => ({
       cardNumberMasked: walletData.cardNumberMasked || '',
     };
     set((state) => {
-      const updatedWallets = [...state.wallets, newWallet];
-      const updatedSummary = calculateDashboardSummary(updatedWallets, state.recentTransactions, state.budgets);
-      const newState = { wallets: updatedWallets, dashboardSummary: updatedSummary };
+      let isMerged = false;
+      const reqName = (walletData.walletName || '').trim().toLowerCase();
+      const reqCard = (walletData.cardNumberMasked || '').trim().toLowerCase();
+
+      const updatedWallets = state.wallets.map((w) => {
+        if (isMerged) return w;
+        if (walletData.type === 'CASH' && w.type === 'CASH') {
+          const curName = (w.walletName || '').trim().toLowerCase();
+          const isGenericCash =
+            (reqName.includes('tiền mặt') || reqName.includes('cash')) &&
+            (curName.includes('tiền mặt') || curName.includes('cash'));
+          if (curName === reqName || isGenericCash) {
+            isMerged = true;
+            return { ...w, balance: w.balance + walletData.balance };
+          }
+        } else if (
+          (walletData.type === 'BANK' || walletData.type === 'CREDIT_CARD') &&
+          w.type === walletData.type
+        ) {
+          const curName = (w.walletName || '').trim().toLowerCase();
+          const curCard = (w.cardNumberMasked || '').trim().toLowerCase();
+          if (curName === reqName) {
+            const sameCard = reqCard === curCard || (!reqCard && !curCard);
+            if (sameCard) {
+              isMerged = true;
+              return { ...w, balance: w.balance + walletData.balance };
+            }
+          }
+        }
+        return w;
+      });
+
+      const finalWallets = isMerged ? updatedWallets : [...state.wallets, newWallet];
+      const updatedSummary = calculateDashboardSummary(finalWallets, state.recentTransactions, state.budgets);
+      const newState = { wallets: finalWallets, dashboardSummary: updatedSummary };
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
@@ -2235,14 +2321,7 @@ export const useStore = create<AppState>((set, get) => ({
       })
         .then((createdWallet: any) => {
           if (createdWallet && createdWallet.id) {
-            set((state) => {
-              const updatedWallets = state.wallets.map((w) =>
-                w.id === newWallet.id ? { ...w, id: createdWallet.id } : w
-              );
-              const newState = { wallets: updatedWallets };
-              persistCurrentUserData(state.currentUser, newState);
-              return newState;
-            });
+            get().fetchCoreData();
           }
         })
         .catch((e) => console.warn('Background sync wallet to API:', e?.message));
@@ -2260,6 +2339,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   addTransaction: (txData) => {
     const createdLocalTxId = Date.now();
+    const resolvedCatId = txData.categoryId || getCategoryIdByName(txData.categoryName) || 1;
+    const resolvedCatName = txData.categoryName || getCategoryViName(Object.keys(CATEGORY_MAP).find((k) => CATEGORY_MAP[k].id === resolvedCatId));
+    const resolvedCatIcon = txData.categoryIcon || CATEGORY_MAP[resolvedCatName]?.icon || 'ShoppingBag';
+    const localDisplayDate = formatLocalIsoDate(txData.transactionDate).replace('T', ' ').substring(0, 16);
+
     set((state) => {
       // Tìm ví ưu tiên theo walletId -> nếu không thấy thì tìm theo số thẻ cardNumberMasked -> tên ví
       const targetWallet =
@@ -2294,14 +2378,18 @@ export const useStore = create<AppState>((set, get) => ({
         id: createdLocalTxId,
         walletId: actualWalletId,
         walletName: actualWalletName,
+        categoryId: resolvedCatId,
+        categoryName: resolvedCatName,
+        categoryIcon: resolvedCatIcon,
         balanceAfter: actualBalanceAfter,
+        transactionDate: localDisplayDate,
       };
 
       const updatedTxs = [newTx, ...state.recentTransactions];
 
       // Cập nhật số tiền đã chi tiêu của ngân sách tương ứng nếu là giao dịch CHI TIÊU
       const updatedBudgets = state.budgets.map((b) => {
-        if (txData.transactionType === 'EXPENSE' && b.categoryName === txData.categoryName) {
+        if (txData.transactionType === 'EXPENSE' && (b.categoryName === resolvedCatName || b.categoryId === resolvedCatId)) {
           return { ...b, spentAmount: (b.spentAmount || 0) + txData.amount };
         }
         return b;
@@ -2327,12 +2415,12 @@ export const useStore = create<AppState>((set, get) => ({
         get().wallets.find((w) => w.walletName === txData.walletName) ||
         get().wallets[0];
 
-      // Đảm bảo định dạng thời gian ISO yyyy-MM-ddTHH:mm:ss tương thích tuyệt đối với Jackson
-      const safeIsoDate = new Date().toISOString().slice(0, 19);
+      // Đảm bảo định dạng thời gian ISO yyyy-MM-ddTHH:mm:ss theo giờ địa phương Việt Nam
+      const safeIsoDate = formatLocalIsoDate(txData.transactionDate);
 
       TransactionService.create({
         walletId: targetW ? targetW.id : txData.walletId,
-        categoryId: txData.categoryId || 1,
+        categoryId: resolvedCatId,
         actionTitle: txData.actionTitle || txData.note || 'Giao dịch',
         amount: txData.amount,
         transactionType: txData.transactionType,
@@ -2440,7 +2528,9 @@ export const useStore = create<AppState>((set, get) => ({
   depositToGoal: async (goalId, walletId, amount) => {
     try {
       await SavingGoalApiService.deposit(goalId, amount, walletId);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('API deposit error:', e);
+    }
 
     set((state) => {
       const selectedWallet = state.wallets.find((w) => w.id === walletId);
@@ -2448,7 +2538,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       const updatedWallets = state.wallets.map((w) => {
         if (w.id === walletId) {
-          return { ...w, balance: Math.max(0, w.balance - amount) };
+          return { ...w, balance: w.balance - amount };
         }
         return w;
       });
@@ -2476,7 +2566,7 @@ export const useStore = create<AppState>((set, get) => ({
         amount,
         transactionType: 'TRANSFER',
         balanceAfter: (selectedWallet?.balance || 0) - amount,
-        transactionDate: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        transactionDate: formatLocalIsoDate().replace('T', ' ').substring(0, 16),
         note: `Trích tiền từ ${selectedWallet?.walletName || 'ví'} vào quỹ tích lũy`,
       };
 
@@ -2491,8 +2581,29 @@ export const useStore = create<AppState>((set, get) => ({
       };
 
       persistCurrentUserData(state.currentUser, newState);
+
+      // Nếu người dùng thuộc quỹ gia đình, cập nhật trực tiếp vào storage gia đình để các thành viên khác thấy ngay
+      if (state.currentUser?.familyGroupId) {
+        try {
+          const famKey = 'budglee_family_data_' + state.currentUser.familyGroupId;
+          const famStr = localStorage.getItem(famKey);
+          if (famStr) {
+            const famData = JSON.parse(famStr);
+            famData.savingGoals = updatedGoals;
+            localStorage.setItem(famKey, JSON.stringify(famData));
+          }
+          window.dispatchEvent(new Event('storage'));
+        } catch (err) {}
+      }
+
       return newState;
     });
+
+    if (get().token) {
+      setTimeout(() => {
+        get().fetchCoreData();
+      }, 300);
+    }
   },
 
   addFamilyMember: (memberData) => {
@@ -2698,20 +2809,26 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content) && txsRes.value.content.length > 0) {
-        const apiTxs = txsRes.value.content.map((t: any) => ({
-          id: t.id,
-          walletId: t.wallet?.id || t.walletId || 1,
-          walletName: t.wallet?.walletName || t.wallet?.name || t.walletName || 'Ví',
-          cardNumberMasked: t.wallet?.cardNumberMasked || '',
-          categoryName: t.category?.name || t.categoryName || 'Chi tiêu',
-          categoryIcon: t.category?.icon || t.categoryIcon || 'ShoppingBag',
-          actionTitle: t.actionTitle || t.note || 'Giao dịch',
-          amount: Number(t.amount || 0),
-          transactionType: t.transactionType,
-          transactionDate: t.transactionDate,
-          balanceAfter: Number(t.balanceAfter || 0),
-          note: t.note,
-        }));
+        const apiTxs = txsRes.value.content.map((t: any) => {
+          const rawCatName = t.category?.name || t.categoryName || '';
+          const viCatName = getCategoryViName(rawCatName);
+          const catIcon = t.category?.icon || CATEGORY_MAP[rawCatName]?.icon || t.categoryIcon || 'ShoppingBag';
+          return {
+            id: t.id,
+            walletId: t.wallet?.id || t.walletId || 1,
+            walletName: t.wallet?.walletName || t.wallet?.name || t.walletName || 'Ví',
+            cardNumberMasked: t.wallet?.cardNumberMasked || '',
+            categoryId: t.category?.id,
+            categoryName: viCatName,
+            categoryIcon: catIcon,
+            actionTitle: t.actionTitle || t.note || 'Giao dịch',
+            amount: Number(t.amount || 0),
+            transactionType: t.transactionType,
+            transactionDate: t.transactionDate ? String(t.transactionDate).replace('T', ' ').substring(0, 16) : '',
+            balanceAfter: Number(t.balanceAfter || 0),
+            note: t.note,
+          };
+        });
 
         // Giữ lại các giao dịch vừa thêm ở local chưa kịp đồng bộ để không bị mất khi chuyển tab
         const apiTxIds = new Set(apiTxs.map((t: any) => t.id));
@@ -2723,15 +2840,21 @@ export const useStore = create<AppState>((set, get) => ({
       }
 
       if (budgetsRes.status === 'fulfilled' && Array.isArray(budgetsRes.value) && budgetsRes.value.length > 0) {
-        updates.budgets = budgetsRes.value.map((b: any) => ({
-          id: b.id,
-          categoryName: b.category?.name || b.categoryName || 'Danh mục',
-          categoryIcon: b.category?.icon || b.categoryIcon || 'Tag',
-          amountLimit: Number(b.amountLimit || 0),
-          spentAmount: Number(b.spentAmount || b.actualSpent || 0),
-          periodMonth: b.periodMonth || month,
-          periodYear: b.periodYear || year,
-        }));
+        updates.budgets = budgetsRes.value.map((b: any) => {
+          const rawCatName = b.category?.name || b.categoryName || '';
+          const viCatName = getCategoryViName(rawCatName);
+          const catIcon = b.category?.icon || CATEGORY_MAP[rawCatName]?.icon || b.categoryIcon || 'Tag';
+          return {
+            id: b.id,
+            categoryId: b.category?.id,
+            categoryName: viCatName,
+            categoryIcon: catIcon,
+            amountLimit: Number(b.amountLimit || 0),
+            spentAmount: Number(b.spentAmount || b.actualSpent || 0),
+            periodMonth: b.periodMonth || month,
+            periodYear: b.periodYear || year,
+          };
+        });
       }
 
       if (summaryRes.status === 'fulfilled' && summaryRes.value) {

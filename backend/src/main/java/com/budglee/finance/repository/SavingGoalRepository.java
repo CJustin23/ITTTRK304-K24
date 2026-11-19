@@ -10,5 +10,6 @@ import java.util.List;
 @Repository
 public interface SavingGoalRepository extends JpaRepository<SavingGoal, Long> {
     List<SavingGoal> findByUserId(Long userId);
+    List<SavingGoal> findByUserIdIn(List<Long> userIds);
     List<SavingGoal> findByUserIdAndStatus(Long userId, GoalStatus status);
 }

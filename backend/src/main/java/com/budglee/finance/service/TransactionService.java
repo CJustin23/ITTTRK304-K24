@@ -85,10 +85,7 @@ public class TransactionService {
                 : amount.negate();
         BigDecimal newBalance = wallet.getBalance().add(signed);
 
-        if (newBalance.compareTo(BigDecimal.ZERO) < 0 && wallet.getType() != WalletType.CREDIT_CARD) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Số dư ví không đủ; chỉ thẻ tín dụng (CREDIT_CARD) mới cho phép âm");
-        }
+        // Cho phép ghi chép giao dịch ngay cả khi số dư ví không đủ (vì đây là sổ theo dõi thu chi)
 
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
@@ -225,11 +222,6 @@ public class TransactionService {
             BigDecimal updatedBalance = transaction.getTransactionType() == TransactionType.INCOME
                     ? balanceWithoutOld.add(newAmount)
                     : balanceWithoutOld.subtract(newAmount);
-
-            if (updatedBalance.compareTo(BigDecimal.ZERO) < 0 && wallet.getType() != WalletType.CREDIT_CARD) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Số dư ví không đủ để điều chỉnh giao dịch; chỉ thẻ tín dụng mới cho phép âm");
-            }
 
             wallet.setBalance(updatedBalance);
             walletRepository.save(wallet);

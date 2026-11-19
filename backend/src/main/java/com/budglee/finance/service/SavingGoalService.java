@@ -58,23 +58,48 @@ public class SavingGoalService {
 
     @Transactional(readOnly = true)
     public List<SavingGoalResponse> getUserGoals(Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null && user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()) {
+            List<Long> familyMemberIds = userRepository.findByFamilyGroupId(user.getFamilyGroupId())
+                    .stream()
+                    .map(User::getId)
+                    .toList();
+            if (!familyMemberIds.isEmpty()) {
+                return savingGoalRepository.findByUserIdIn(familyMemberIds).stream()
+                        .map(this::toResponse)
+                        .toList();
+            }
+        }
         return savingGoalRepository.findByUserId(userId).stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    private boolean canAccessGoal(SavingGoal goal, User user) {
+        if (goal.getUser().getId().equals(user.getId())) return true;
+        if (user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()
+                && goal.getUser().getFamilyGroupId() != null) {
+            return user.getFamilyGroupId().equals(goal.getUser().getFamilyGroupId());
+        }
+        return false;
+    }
+
     @Transactional(readOnly = true)
     public SavingGoalResponse getGoalById(Long userId, Long goalId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại"));
         SavingGoal goal = savingGoalRepository.findById(goalId)
-                .filter(g -> g.getUser().getId().equals(userId))
+                .filter(g -> canAccessGoal(g, user))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mục tiêu tiết kiệm không tồn tại"));
         return toResponse(goal);
     }
 
     @Transactional
     public SavingGoalResponse updateGoal(Long userId, Long goalId, SavingGoalUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại"));
         SavingGoal goal = savingGoalRepository.findById(goalId)
-                .filter(g -> g.getUser().getId().equals(userId))
+                .filter(g -> canAccessGoal(g, user))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mục tiêu tiết kiệm không tồn tại"));
 
         if (request.getGoalName() != null && !request.getGoalName().isBlank()) {
@@ -104,8 +129,10 @@ public class SavingGoalService {
 
     @Transactional
     public SavingGoalResponse depositToGoal(Long userId, Long goalId, SavingGoalDepositRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại"));
         SavingGoal goal = savingGoalRepository.findById(goalId)
-                .filter(g -> g.getUser().getId().equals(userId))
+                .filter(g -> canAccessGoal(g, user))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mục tiêu tiết kiệm không tồn tại"));
 
         BigDecimal depositAmount = request.getAmount();
@@ -113,15 +140,13 @@ public class SavingGoalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền nạp phải lớn hơn 0");
         }
 
-        // Nếu nạp từ ví, trừ tiền ví
+        // Nếu nạp từ ví, trừ tiền ví (cho phép âm vì đây là sổ ghi chép tài chính)
         if (request.getFromWalletId() != null) {
             Wallet wallet = walletRepository.findById(request.getFromWalletId())
-                    .filter(w -> w.getUser() != null && w.getUser().getId().equals(userId))
+                    .filter(w -> w.getUser() != null && (w.getUser().getId().equals(userId)
+                            || (user.getFamilyGroupId() != null && user.getFamilyGroupId().equals(w.getFamilyGroupId()))))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ví nạp tiền không tồn tại"));
 
-            if (wallet.getBalance().compareTo(depositAmount) < 0 && wallet.getType() != WalletType.CREDIT_CARD) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số dư ví không đủ để nạp vào mục tiêu tiết kiệm");
-            }
             wallet.setBalance(wallet.getBalance().subtract(depositAmount));
             walletRepository.save(wallet);
         }

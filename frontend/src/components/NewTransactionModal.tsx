@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, DollarSign, AlertCircle } from 'lucide-react';
+import { X, DollarSign, AlertCircle, Calendar } from 'lucide-react';
 import { TransactionType, Wallet } from '../types';
 
 interface NewTransactionModalProps {
@@ -11,10 +11,34 @@ interface NewTransactionModalProps {
     actionTitle: string;
     amount: number;
     transactionType: TransactionType;
+    categoryId: number;
     categoryName: string;
+    transactionDate?: string;
     note?: string;
   }) => void;
 }
+
+const EXPENSE_CATEGORIES = [
+  { id: 1, name: 'Ăn uống & Cà phê' },
+  { id: 2, name: 'Mua sắm & Gia đình' },
+  { id: 3, name: 'Di chuyển & Xăng xe' },
+  { id: 4, name: 'Sức khỏe & Y tế' },
+  { id: 5, name: 'Hóa đơn & Tiện ích' },
+  { id: 6, name: 'Giáo dục & Học tập' },
+  { id: 10, name: 'Khác' },
+];
+
+const INCOME_CATEGORIES = [
+  { id: 7, name: 'Lương & Thưởng' },
+  { id: 8, name: 'Đầu tư & Sinh lời' },
+  { id: 9, name: 'Thu nhập khác' },
+];
+
+const getNowLocalDatetime = () => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
 
 export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   isOpen,
@@ -26,37 +50,70 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
   const [walletId, setWalletId] = useState<number>(wallets[0]?.id || 1);
   const [actionTitle, setActionTitle] = useState('');
   const [amount, setAmount] = useState('');
+  const [categoryId, setCategoryId] = useState<number>(1);
   const [categoryName, setCategoryName] = useState('Ăn uống & Cà phê');
+  const [transactionDate, setTransactionDate] = useState<string>(getNowLocalDatetime());
   const [note, setNote] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (isOpen && wallets.length > 0) {
-      if (!wallets.some((w) => w.id === walletId)) {
+    if (isOpen) {
+      if (wallets.length > 0 && !wallets.some((w) => w.id === walletId)) {
         setWalletId(wallets[0].id);
       }
+      setTransactionDate(getNowLocalDatetime());
     }
   }, [isOpen, wallets, walletId]);
 
   if (!isOpen) return null;
 
+  const currentCategories = transactionType === 'EXPENSE' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+
+  const handleTypeChange = (type: TransactionType) => {
+    setTransactionType(type);
+    if (type === 'EXPENSE') {
+      setCategoryId(1);
+      setCategoryName('Ăn uống & Cà phê');
+    } else {
+      setCategoryId(7);
+      setCategoryName('Lương & Thưởng');
+    }
+    if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setAmount('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setAmount(formatted);
+    if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+  };
+
+  const handleCategorySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = Number(e.target.value);
+    const found = currentCategories.find((c) => c.id === selectedId);
+    if (found) {
+      setCategoryId(found.id);
+      setCategoryName(found.name);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    const numAmount = parseFloat(amount);
+    const rawDigits = amount.replace(/\./g, '');
+    const numAmount = parseFloat(rawDigits);
     const activeWalletId = wallets.some((w) => w.id === walletId)
       ? walletId
       : (wallets[0]?.id || walletId);
 
-    if (!amount.trim()) {
+    if (!rawDigits.trim()) {
       errs.amount = 'Vui lòng nhập số tiền giao dịch';
     } else if (isNaN(numAmount) || numAmount <= 0) {
       errs.amount = 'Số tiền giao dịch phải lớn hơn 0 ₫';
-    } else if (transactionType === 'EXPENSE') {
-      const selectedWallet = wallets.find((w) => w.id === activeWalletId);
-      if (selectedWallet && numAmount > selectedWallet.balance) {
-        errs.amount = `Số tiền chi tiêu vượt quá số dư ví (${new Intl.NumberFormat('vi-VN').format(selectedWallet.balance)} ₫)`;
-      }
     }
 
     if (!actionTitle.trim()) {
@@ -70,12 +127,16 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
       return;
     }
 
+    const isoDate = transactionDate ? `${transactionDate}:00` : undefined;
+
     onSubmit({
       walletId: activeWalletId,
       actionTitle: actionTitle.trim(),
       amount: numAmount,
       transactionType,
+      categoryId,
       categoryName,
+      transactionDate: isoDate,
       note: note.trim(),
     });
 
@@ -108,10 +169,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
             <button
               type="button"
-              onClick={() => {
-                setTransactionType('EXPENSE');
-                if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
-              }}
+              onClick={() => handleTypeChange('EXPENSE')}
               className={`py-2 text-sm font-semibold rounded-lg transition-all ${
                 transactionType === 'EXPENSE'
                   ? 'bg-rose-500 text-white shadow-sm'
@@ -122,10 +180,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setTransactionType('INCOME');
-                if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
-              }}
+              onClick={() => handleTypeChange('INCOME')}
               className={`py-2 text-sm font-semibold rounded-lg transition-all ${
                 transactionType === 'INCOME'
                   ? 'bg-emerald-500 text-white shadow-sm'
@@ -136,20 +191,18 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
             </button>
           </div>
 
-          {/* Amount Input */}
+          {/* Amount Input with dots thousand separator */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Số tiền (VND)</label>
             <div className="relative">
               <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                type="number"
-                placeholder="VD: 150000"
+                type="text"
+                inputMode="numeric"
+                placeholder="VD: 150.000"
                 value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value);
-                  if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
-                }}
-                className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-semibold ${
+                onChange={handleAmountChange}
+                className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-bold ${
                   errors.amount
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
                     : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
@@ -198,7 +251,7 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
                 setWalletId(Number(e.target.value));
                 if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
               }}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
             >
               {wallets.map((w) => (
                 <option key={w.id} value={w.id}>
@@ -212,18 +265,30 @@ export const NewTransactionModal: React.FC<NewTransactionModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Hạng mục</label>
             <select
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              value={categoryId}
+              onChange={handleCategorySelect}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
             >
-              <option value="Ăn uống & Cà phê">Ăn uống & Cà phê</option>
-              <option value="Mua sắm & Gia đình">Mua sắm & Gia đình</option>
-              <option value="Di chuyển & Xăng xe">Di chuyển & Xăng xe</option>
-              <option value="Hóa đơn & Tiện ích">Hóa đơn & Tiện ích</option>
-              <option value="Sức khỏe & Y tế">Sức khỏe & Y tế</option>
-              <option value="Lương & Thưởng">Lương & Thưởng</option>
-              <option value="Khác">Khác</option>
+              {currentCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
+          </div>
+
+          {/* Transaction Date Picker */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Thời gian giao dịch</label>
+            <div className="relative">
+              <Calendar className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="datetime-local"
+                value={transactionDate}
+                onChange={(e) => setTransactionDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+              />
+            </div>
           </div>
 
           {/* Note */}

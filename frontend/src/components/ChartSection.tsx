@@ -189,6 +189,18 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
   const { recentTransactions, token } = useStore();
   const [apiTrends, setApiTrends] = useState<Record<string, { label: string; amount: number }[]>>({});
 
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 14);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
+
   const tabs: Timeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'];
 
   // Gọi API /dashboard/trends từ backend khi chuyển tab nếu có token
@@ -215,6 +227,49 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
 
   // Tính toán dữ liệu biểu đồ hoàn toàn động từ giao dịch thực tế
   const activeData = useMemo(() => {
+    if (timeframe === 'Custom') {
+      const expenseTxs = recentTransactions.filter(
+        (t) => t.transactionType === 'EXPENSE' && t.amount > 0
+      );
+      const start = customStartDate ? new Date(customStartDate + 'T00:00:00') : null;
+      const end = customEndDate ? new Date(customEndDate + 'T23:59:59') : null;
+
+      const filtered = expenseTxs.filter((t) => {
+        const d = parseTxDate(t.transactionDate);
+        if (!d) return false;
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      });
+
+      const dateMap: Record<string, number> = {};
+      filtered.forEach((t) => {
+        const d = parseTxDate(t.transactionDate);
+        if (d) {
+          const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+          dateMap[key] = (dateMap[key] || 0) + t.amount;
+        }
+      });
+
+      const dates = Object.keys(dateMap);
+      if (dates.length > 0) {
+        return dates.map((label) => ({ label, amount: dateMap[label] }));
+      }
+
+      if (start && end && start <= end) {
+        const diffDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+        const step = Math.max(1, Math.floor(diffDays / 6));
+        const points: { label: string; amount: number }[] = [];
+        for (let cur = new Date(start); cur <= end; cur.setDate(cur.getDate() + step)) {
+          const key = `${String(cur.getDate()).padStart(2, '0')}/${String(cur.getMonth() + 1).padStart(2, '0')}`;
+          points.push({ label: key, amount: dateMap[key] || 0 });
+          if (points.length >= 7) break;
+        }
+        return points;
+      }
+      return [{ label: 'Không có dữ liệu', amount: 0 }];
+    }
+
     // 1. Ưu tiên dữ liệu từ API thật nếu có điểm dữ liệu > 0
     if (apiTrends[timeframe] && apiTrends[timeframe].length > 0 && apiTrends[timeframe].some((p) => p.amount > 0)) {
       return apiTrends[timeframe];
@@ -225,30 +280,17 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     }
     // 3. Tính toán trực tiếp theo các giao dịch thực tế
     return calculateTrendsFromTransactions(timeframe, recentTransactions);
-  }, [timeframe, apiTrends, data, recentTransactions]);
+  }, [timeframe, apiTrends, data, recentTransactions, customStartDate, customEndDate]);
 
   // Nhãn khoảng thời gian động cho tab Custom
   const customRangeLabel = useMemo(() => {
-    const dates = recentTransactions
-      .map((t) => parseTxDate(t.transactionDate))
-      .filter((d): d is Date => d !== null)
-      .sort((a, b) => a.getTime() - b.getTime());
-
-    if (dates.length > 0) {
-      const min = dates[0];
-      const max = dates[dates.length - 1];
-      const fmt = (d: Date) =>
-        `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-      return `${fmt(min)} – ${fmt(max)}`;
+    if (customStartDate && customEndDate) {
+      const s = customStartDate.split('-').reverse().join('/');
+      const e = customEndDate.split('-').reverse().join('/');
+      return `${s} – ${e}`;
     }
-
-    const now = new Date();
-    const past14 = new Date(now);
-    past14.setDate(now.getDate() - 14);
-    const fmt = (d: Date) =>
-      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-    return `${fmt(past14)} – ${fmt(now)}`;
-  }, [recentTransactions]);
+    return '';
+  }, [customStartDate, customEndDate]);
 
   const formatTooltipValue = (value: number) => {
     return [new Intl.NumberFormat('vi-VN').format(value) + ' ₫', 'Tổng chi tiêu'];
@@ -291,6 +333,73 @@ export const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
           ))}
         </div>
       </div>
+
+      {/* Custom Date Range Picker */}
+      {timeframe === 'Custom' && (
+        <div className="flex flex-wrap items-center gap-3 mb-5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <span>Từ ngày:</span>
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={(e) => setCustomStartDate(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer shadow-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+            <span>Đến ngày:</span>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={(e) => setCustomEndDate(e.target.value)}
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer shadow-sm"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const past7 = new Date();
+                past7.setDate(now.getDate() - 7);
+                const pad = (n: number) => String(n).padStart(2, '0');
+                setCustomStartDate(`${past7.getFullYear()}-${pad(past7.getMonth() + 1)}-${pad(past7.getDate())}`);
+                setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+              }}
+              className="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+            >
+              7 ngày
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const past30 = new Date();
+                past30.setDate(now.getDate() - 30);
+                const pad = (n: number) => String(n).padStart(2, '0');
+                setCustomStartDate(`${past30.getFullYear()}-${pad(past30.getMonth() + 1)}-${pad(past30.getDate())}`);
+                setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+              }}
+              className="text-xs px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold hover:bg-emerald-200 transition-colors"
+            >
+              30 ngày
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const pad = (n: number) => String(n).padStart(2, '0');
+                setCustomStartDate(`${startMonth.getFullYear()}-${pad(startMonth.getMonth() + 1)}-${pad(startMonth.getDate())}`);
+                setCustomEndDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+              }}
+              className="text-xs px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+            >
+              Tháng này
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Chart Canvas */}
       <div className="h-72 w-full">

@@ -107,18 +107,16 @@ class TransactionServiceTest {
     }
 
     @Test
-    void createTransaction_insufficientBalance_shouldThrowBadRequest() {
+    void createTransaction_insufficientBalance_shouldAllowNegativeBalance() {
         TransactionRequest request = createRequest(TransactionType.EXPENSE, "1500000");
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> transactionService.createTransaction(1L, request)
-        );
+        Transaction result = transactionService.createTransaction(1L, request);
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals(new BigDecimal("1000000"), wallet.getBalance());
+        assertEquals(new BigDecimal("-500000"), wallet.getBalance());
+        assertEquals(new BigDecimal("-500000"), result.getBalanceAfter());
 
-        verify(walletRepository, never()).save(any(Wallet.class));
-        verify(transactionRepository, never()).save(any(Transaction.class));
+        verify(walletRepository).save(wallet);
+        verify(transactionRepository).save(any(Transaction.class));
     }
 
     @Test
