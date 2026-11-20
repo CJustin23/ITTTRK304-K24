@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Role } from '../types';
-import { FamilyApiService } from '../services/api';
+import { FamilyApiService, AuthService } from '../services/api';
 
 export const SettingsView: React.FC = () => {
   const {
@@ -54,6 +54,7 @@ export const SettingsView: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   // Upgrade to family form state (for INDIVIDUAL_USER)
   const [upgradeFamilyName, setUpgradeFamilyName] = useState('');
@@ -86,8 +87,10 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setProfileSuccessMsg(''), 3000);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingPassword) return;
+
     const errs: { current?: string; new?: string; confirm?: string } = {};
 
     if (!currentPassword) {
@@ -110,24 +113,44 @@ export const SettingsView: React.FC = () => {
     }
 
     setPasswordErrors({});
-    if (currentUser?.email) {
-      const userKey = 'budglee_user_' + currentUser.email.toLowerCase();
-      const existingUserStr = localStorage.getItem(userKey);
-      if (existingUserStr) {
-        try {
-          const userObj = JSON.parse(existingUserStr);
-          userObj.password = newPassword;
-          localStorage.setItem(userKey, JSON.stringify(userObj));
-        } catch {}
-      } else {
-        localStorage.setItem(userKey, JSON.stringify({ ...currentUser, password: newPassword }));
+    setIsSubmittingPassword(true);
+    setPasswordMsg({ type: '', text: '' });
+
+    try {
+      await AuthService.changePassword({
+        currentPassword,
+        newPassword,
+        email: currentUser?.email,
+      });
+
+      if (currentUser?.email) {
+        const userKey = 'budglee_user_' + currentUser.email.toLowerCase();
+        const existingUserStr = localStorage.getItem(userKey);
+        if (existingUserStr) {
+          try {
+            const userObj = JSON.parse(existingUserStr);
+            userObj.password = newPassword;
+            localStorage.setItem(userKey, JSON.stringify(userObj));
+          } catch {}
+        } else {
+          localStorage.setItem(userKey, JSON.stringify({ ...currentUser, password: newPassword }));
+        }
       }
+
+      setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công! Bạn có thể sử dụng mật khẩu mới để đăng nhập.' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordMsg({ type: '', text: '' }), 4000);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.';
+      setPasswordMsg({ type: 'error', text: msg });
+      if (msg.toLowerCase().includes('hiện tại')) {
+        setPasswordErrors({ current: msg });
+      }
+    } finally {
+      setIsSubmittingPassword(false);
     }
-    setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordMsg({ type: '', text: '' }), 3000);
   };
 
   const handleUpgradeToFamily = (e: React.FormEvent) => {
@@ -801,9 +824,20 @@ export const SettingsView: React.FC = () => {
             <div className="pt-2">
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all"
+                disabled={isSubmittingPassword}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl shadow-md transition-all active:scale-95"
               >
-                Cập nhật mật khẩu
+                {isSubmittingPassword ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang cập nhật...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Cập nhật mật khẩu</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

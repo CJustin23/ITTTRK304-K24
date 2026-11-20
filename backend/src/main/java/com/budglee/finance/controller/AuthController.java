@@ -8,16 +8,21 @@ import com.budglee.finance.dto.FamilyOwnerRegisterRequest;
 import com.budglee.finance.dto.ForgotPasswordRequest;
 import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
+import com.budglee.finance.dto.ChangePasswordRequest;
 import com.budglee.finance.dto.VerifyOtpRequest;
+import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -86,6 +91,23 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
                 .message("Đổi mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới")
+                .build());
+    }
+
+    @PostMapping("/change-password")
+    @Operation(summary = "Đổi mật khẩu cho người dùng đang đăng nhập")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        Long userId = currentUser != null ? currentUser.getId() : null;
+        String email = currentUser != null ? currentUser.getEmail() : null;
+        if (userId == null && !StringUtils.hasText(request.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Cần đăng nhập hoặc cung cấp email để đổi mật khẩu");
+        }
+        authService.changePassword(userId, email, request);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Đổi mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới!")
                 .build());
     }
 
