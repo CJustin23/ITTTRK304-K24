@@ -64,9 +64,18 @@ public class BudgetService {
         if (request.getCategoryId() != null) {
             category = categoryRepository.findById(request.getCategoryId())
                     .filter(c -> c.getUser() == null || userId.equals(c.getUser().getId()))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Danh mục không tồn tại hoặc không thuộc về bạn"));
-            if (category.getType() != CategoryType.EXPENSE) {
+                    .orElse(null);
+
+            // Nếu không tìm thấy categoryId cụ thể, fallback tìm danh mục chi (EXPENSE) phù hợp thay vì ném 400
+            if (category == null) {
+                category = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
+                        .stream()
+                        .filter(c -> "Other".equalsIgnoreCase(c.getName()) || "Khác".equalsIgnoreCase(c.getName()) || "Entertainment".equalsIgnoreCase(c.getName()))
+                        .findFirst()
+                        .orElseGet(() -> categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE).stream().findFirst().orElse(null));
+            }
+
+            if (category != null && category.getType() != CategoryType.EXPENSE) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Ngân sách chỉ đặt cho danh mục chi (EXPENSE)");
             }

@@ -1796,6 +1796,7 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Ăn uống & Cà phê': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
   'Food & Drinks': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
   'Mua sắm & Gia đình': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
+  'Mua sắm cá nhân': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
   'Shopping': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
   'Di chuyển & Xăng xe': { id: 3, viName: 'Di chuyển & Xăng xe', enName: 'Travel & Transport', icon: 'Car' },
   'Travel & Transport': { id: 3, viName: 'Di chuyển & Xăng xe', enName: 'Travel & Transport', icon: 'Car' },
@@ -1805,6 +1806,8 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Bills & Utilities': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
   'Giáo dục & Học tập': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
   'Giáo dục & Con cái': { id: 6, viName: 'Giáo dục & Con cái', enName: 'Education', icon: 'BookOpen' },
+  'Giáo dục & Khóa học': { id: 6, viName: 'Giáo dục & Khóa học', enName: 'Education', icon: 'BookOpen' },
+  'Học tập & Phát triển': { id: 6, viName: 'Học tập & Phát triển', enName: 'Education', icon: 'BookOpen' },
   'Education': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
   'Lương & Thưởng': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
   'Salary': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
@@ -1813,15 +1816,31 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Thu nhập khác': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
   'Other Income': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
   'Du lịch & Giải trí': { id: 10, viName: 'Du lịch & Giải trí', enName: 'Entertainment', icon: 'Plane' },
+  'Giải trí & Du lịch': { id: 10, viName: 'Giải trí & Du lịch', enName: 'Entertainment', icon: 'Plane' },
   'Entertainment': { id: 10, viName: 'Du lịch & Giải trí', enName: 'Entertainment', icon: 'Plane' },
   'Khác': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
   'Other': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
+  'Chi tiêu khác': { id: 11, viName: 'Chi tiêu khác', enName: 'Other', icon: 'Ellipsis' },
 };
 
 export const getCategoryIdByName = (name?: string): number => {
   if (!name) return 1;
-  const match = CATEGORY_MAP[name] || Object.values(CATEGORY_MAP).find((c) => c.viName === name || c.enName === name);
-  return match ? match.id : 1;
+  const trimmed = name.trim();
+  if (CATEGORY_MAP[trimmed]) return CATEGORY_MAP[trimmed].id;
+  const match = Object.values(CATEGORY_MAP).find((c) => c.viName === trimmed || c.enName === trimmed);
+  if (match) return match.id;
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('ăn') || lower.includes('uống') || lower.includes('cà phê') || lower.includes('food')) return 1;
+  if (lower.includes('mua') || lower.includes('sắm') || lower.includes('shopping')) return 2;
+  if (lower.includes('xe') || lower.includes('di chuyển') || lower.includes('xăng') || lower.includes('transport') || lower.includes('travel')) return 3;
+  if (lower.includes('sức khỏe') || lower.includes('y tế') || lower.includes('thuốc') || lower.includes('bệnh') || lower.includes('health')) return 4;
+  if (lower.includes('hóa đơn') || lower.includes('tiện ích') || lower.includes('điện') || lower.includes('nước') || lower.includes('bill')) return 5;
+  if (lower.includes('giáo dục') || lower.includes('học') || lower.includes('khóa học') || lower.includes('con') || lower.includes('education')) return 6;
+  if (lower.includes('du lịch') || lower.includes('giải trí') || lower.includes('chơi') || lower.includes('entertainment')) return 10;
+  if (lower.includes('lương') || lower.includes('thưởng') || lower.includes('salary')) return 7;
+  if (lower.includes('đầu tư') || lower.includes('investment')) return 8;
+  return 10;
 };
 
 export const getCategoryViName = (name?: string): string => {
@@ -2825,8 +2844,10 @@ export const useStore = create<AppState>((set, get) => ({
       // Nếu đã có ngân sách cùng danh mục và cùng kỳ thì cập nhật thay vì tạo trùng
       const existingIdx = state.budgets.findIndex(
         (b) =>
-          (b.categoryId && b.categoryId === resolvedCatId && b.periodMonth === periodMonth && b.periodYear === periodYear) ||
-          (b.categoryName && budgetData.categoryName && b.categoryName.trim().toLowerCase() === budgetData.categoryName.trim().toLowerCase() && b.periodMonth === periodMonth && b.periodYear === periodYear)
+          b.periodMonth === periodMonth &&
+          b.periodYear === periodYear &&
+          ((b.categoryName && budgetData.categoryName && b.categoryName.trim().toLowerCase() === budgetData.categoryName.trim().toLowerCase()) ||
+           (b.categoryId && b.categoryId === resolvedCatId && (!b.categoryName || !budgetData.categoryName || b.categoryName.trim().toLowerCase() === budgetData.categoryName.trim().toLowerCase())))
       );
 
       let updatedBudgets: Budget[];
