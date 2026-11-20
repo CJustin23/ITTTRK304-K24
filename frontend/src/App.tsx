@@ -20,6 +20,7 @@ import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewWalletModal } from './components/NewWalletModal';
 import { NewBudgetModal } from './components/NewBudgetModal';
 import { NewGoalModal } from './components/NewGoalModal';
+import { NewFamilyGoalModal } from './components/NewFamilyGoalModal';
 import { DepositGoalModal } from './components/DepositGoalModal';
 import { InviteFamilyModal } from './components/InviteFamilyModal';
 import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
@@ -342,6 +343,7 @@ export const App: React.FC = () => {
       <NewWalletModal />
       <NewBudgetModal />
       <NewGoalModal />
+      <NewFamilyGoalModal />
       <DepositGoalModal />
       <InviteFamilyModal />
       <ConfirmFamilyInviteModal />

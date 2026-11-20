@@ -1657,6 +1657,38 @@ export const mergeSeedGoals = (savedGoals: SavingGoal[], seedGoals: SavingGoal[]
   });
 };
 
+export const getPersonalSeedGoals = (email?: string): SavingGoal[] => {
+  if (!email) return [];
+  const norm = email.toLowerCase().trim();
+  if (norm === 'thanhcanhan@gmail.com' || norm === 'demo@budglee.com') {
+    return [
+      { id: 1, goalName: 'Mua xe Honda SH 160i ABS', targetAmount: 110000000, currentAmount: 75000000, deadline: '2026-12-31', status: 'IN_PROGRESS', color: 'emerald' },
+      { id: 2, goalName: 'Quỹ dự phòng khẩn cấp 6 tháng', targetAmount: 60000000, currentAmount: 60000000, deadline: '2026-10-31', status: 'COMPLETED', color: 'blue' },
+      { id: 3, goalName: 'Du lịch Nhật Bản ngắm hoa anh đào', targetAmount: 45000000, currentAmount: 18000000, deadline: '2027-04-15', status: 'IN_PROGRESS', color: 'teal' },
+      { id: 4, goalName: 'Nâng cấp Laptop MacBook Pro M3', targetAmount: 35000000, currentAmount: 22000000, deadline: '2027-01-20', status: 'IN_PROGRESS', color: 'amber' },
+    ];
+  }
+  if (norm === 'thanhba@gmail.com') {
+    return [
+      { id: 301, goalName: 'Mua đồng hồ thể thao thông minh Garmin', targetAmount: 15000000, currentAmount: 9500000, deadline: '2026-12-31', status: 'IN_PROGRESS', color: 'emerald' },
+      { id: 302, goalName: 'Bộ gậy Golf tập luyện thể thao', targetAmount: 25000000, currentAmount: 25000000, deadline: '2026-09-30', status: 'COMPLETED', color: 'blue' },
+    ];
+  }
+  if (norm === 'thanhme@gmail.com') {
+    return [
+      { id: 401, goalName: 'Khóa học làm bánh & gốm nghệ thuật', targetAmount: 12000000, currentAmount: 8000000, deadline: '2027-02-28', status: 'IN_PROGRESS', color: 'teal' },
+      { id: 402, goalName: 'Máy ép chậm hoa quả gia đình Tefal', targetAmount: 6000000, currentAmount: 6000000, deadline: '2026-08-15', status: 'COMPLETED', color: 'amber' },
+    ];
+  }
+  if (norm === 'thanhcon@gmail.com') {
+    return [
+      { id: 501, goalName: 'Mua xe máy điện VinFast Evo 200 đi học', targetAmount: 22000000, currentAmount: 14000000, deadline: '2026-11-30', status: 'IN_PROGRESS', color: 'indigo' },
+      { id: 502, goalName: 'Lệ phí thi chứng chỉ IELTS 7.5', targetAmount: 5000000, currentAmount: 5000000, deadline: '2026-10-15', status: 'COMPLETED', color: 'purple' },
+    ];
+  }
+  return [];
+};
+
 interface AppState {
   currentUser: User | null;
   token: string | null;
@@ -1665,6 +1697,7 @@ interface AppState {
   recentTransactions: Transaction[];
   budgets: Budget[];
   savingGoals: SavingGoal[];
+  familySavingGoals: SavingGoal[];
   familyMembers: FamilyMember[];
   notifications: NotificationItem[];
   receivedInvitations: FamilyInvitation[];
@@ -1680,6 +1713,7 @@ interface AppState {
   isWalletModalOpen: boolean;
   isBudgetModalOpen: boolean;
   isGoalModalOpen: boolean;
+  isFamilyGoalModalOpen: boolean;
   isFamilyModalOpen: boolean;
   isConfirmInviteModalOpen: boolean;
   selectedInvitationForConfirm: FamilyInvitation | null;
@@ -1713,10 +1747,15 @@ interface AppState {
   updateBudget: (id: number, budgetData: Partial<Budget>) => void;
   deleteBudget: (id: number) => void;
 
-  // Saving Goal actions
+  // Saving Goal actions (Mục tiêu cá nhân)
   setSavingGoals: (goals: SavingGoal[]) => void;
   addSavingGoal: (goal: Omit<SavingGoal, 'id'>) => void;
   depositToGoal: (goalId: number, walletId: number, amount: number) => void;
+
+  // Family Saving Goal actions (Mục tiêu chung gia đình)
+  setFamilySavingGoals: (goals: SavingGoal[]) => void;
+  addFamilySavingGoal: (goal: Omit<SavingGoal, 'id'>, walletId?: number, initialDeposit?: number) => boolean;
+  setFamilyGoalModalOpen: (open: boolean) => void;
 
   // Family actions
   fetchFamilyMembers: () => Promise<void>;
@@ -1850,14 +1889,21 @@ export const persistCurrentUserData = (
     const famId = user.familyGroupId || (isFamilyUser ? 'FAM-HANHPHUC' : null);
     if (famId) {
       const famKey = 'budglee_family_data_' + famId;
+      const currentFamStr = localStorage.getItem(famKey);
+      let currentFamData: any = {};
+      if (currentFamStr) {
+        try { currentFamData = JSON.parse(currentFamStr); } catch {}
+      }
       localStorage.setItem(
         famKey,
         JSON.stringify({
+          ...currentFamData,
           wallets: payload.wallets,
           recentTransactions: payload.recentTransactions,
           budgets: payload.budgets,
-          savingGoals: payload.savingGoals,
           familyMembers: payload.familyMembers,
+          familySavingGoals: currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? FAMILY_SHARED_DATA.savingGoals,
+          savingGoals: currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? FAMILY_SHARED_DATA.savingGoals,
         })
       );
     }
@@ -1968,7 +2014,9 @@ const loadInitialAuthState = () => {
       const loadedWallets = consolidateWallets(famSaved.wallets ?? FAMILY_SHARED_DATA.wallets);
       const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
       const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
-      const loadedGoals = mergeSeedGoals(famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals, FAMILY_SHARED_DATA.savingGoals);
+      const loadedFamilyGoals = mergeSeedGoals(famSaved.familySavingGoals ?? famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals, FAMILY_SHARED_DATA.savingGoals);
+      const personalSeed = getPersonalSeedGoals(emailKey);
+      const loadedPersonalGoals = personalSaved.savingGoals && personalSaved.savingGoals.length > 0 ? personalSaved.savingGoals : personalSeed;
       const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
       const loadedNotifs = mergeRealtimeNotifications(personalSaved.notifications, FAMILY_SHARED_DATA.notifications);
       const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -1980,13 +2028,15 @@ const loadInitialAuthState = () => {
         wallets: loadedWallets,
         recentTransactions: loadedTxs,
         budgets: loadedBudgets,
-        savingGoals: loadedGoals,
+        savingGoals: loadedPersonalGoals,
+        familySavingGoals: loadedFamilyGoals,
         familyMembers: loadedMembers,
         notifications: loadedNotifs,
         dashboardSummary: loadedSummary,
         botRecommendation: loadedBot,
         receivedInvitations: [],
         sentInvitations: [],
+        isFamilyGoalModalOpen: false,
       };
     }
 
@@ -1998,7 +2048,9 @@ const loadInitialAuthState = () => {
         ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
         : (saved.recentTransactions ?? []);
       const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
-      const loadedGoals = mergeSeedGoals(saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []), defaultSet ? defaultSet.savingGoals : []);
+      const personalSeed = getPersonalSeedGoals(emailKey);
+      const loadedGoals = saved.savingGoals && saved.savingGoals.length > 0 ? saved.savingGoals : personalSeed;
+      const loadedFamilyGoals = famDataStr ? (JSON.parse(famDataStr).familySavingGoals ?? JSON.parse(famDataStr).savingGoals ?? []) : [];
       const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
       const loadedNotifs = mergeRealtimeNotifications(saved.notifications, defaultSet ? defaultSet.notifications : []);
       const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -2010,12 +2062,14 @@ const loadInitialAuthState = () => {
         recentTransactions: loadedTxs,
         budgets: loadedBudgets,
         savingGoals: loadedGoals,
+        familySavingGoals: loadedFamilyGoals,
         familyMembers: loadedMembers,
         notifications: loadedNotifs,
         dashboardSummary: loadedSummary,
         botRecommendation: saved.botRecommendation ?? (defaultSet ? defaultSet.botRecommendation : null),
         receivedInvitations: [],
         sentInvitations: [],
+        isFamilyGoalModalOpen: false,
       };
     }
 
@@ -2025,6 +2079,7 @@ const loadInitialAuthState = () => {
         recentTransactions: THANHCANHAN_DATA.recentTransactions,
         budgets: THANHCANHAN_DATA.budgets,
         savingGoals: THANHCANHAN_DATA.savingGoals,
+        familySavingGoals: [],
         familyMembers: [],
         notifications: THANHCANHAN_DATA.notifications,
         dashboardSummary: calculateDashboardSummary(consolidateWallets(THANHCANHAN_DATA.wallets), THANHCANHAN_DATA.recentTransactions, THANHCANHAN_DATA.budgets),
@@ -2037,27 +2092,31 @@ const loadInitialAuthState = () => {
         ...initialPersonal,
         receivedInvitations: [],
         sentInvitations: [],
+        isFamilyGoalModalOpen: false,
       };
     }
 
     if (isFamilyThanh) {
+      const personalSeed = getPersonalSeedGoals(emailKey);
       const initialFam = {
         wallets: consolidateWallets(FAMILY_SHARED_DATA.wallets),
         recentTransactions: FAMILY_SHARED_DATA.recentTransactions,
         budgets: FAMILY_SHARED_DATA.budgets,
-        savingGoals: FAMILY_SHARED_DATA.savingGoals,
+        savingGoals: personalSeed,
+        familySavingGoals: FAMILY_SHARED_DATA.savingGoals,
         familyMembers: FAMILY_SHARED_DATA.familyMembers,
         notifications: FAMILY_SHARED_DATA.notifications,
         dashboardSummary: calculateDashboardSummary(consolidateWallets(FAMILY_SHARED_DATA.wallets), FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets),
         botRecommendation: FAMILY_SHARED_DATA.botRecommendation,
       };
-      persistCurrentUserData(user, initialFam);
+      persistCurrentUserData(user, { ...initialFam, savingGoals: personalSeed });
       return {
         currentUser: user,
         token: storedToken,
         ...initialFam,
         receivedInvitations: [],
         sentInvitations: [],
+        isFamilyGoalModalOpen: false,
       };
     }
 
@@ -2066,6 +2125,7 @@ const loadInitialAuthState = () => {
       recentTransactions: [],
       budgets: [],
       savingGoals: [],
+      familySavingGoals: [],
       familyMembers: [],
       notifications: [],
       dashboardSummary: calculateDashboardSummary([], [], []),
@@ -2078,6 +2138,7 @@ const loadInitialAuthState = () => {
       ...defaultData,
       receivedInvitations: [],
       sentInvitations: [],
+      isFamilyGoalModalOpen: false,
     };
   } catch (err) {
     console.error('Lỗi khi khôi phục phiên đăng nhập:', err);
@@ -2088,12 +2149,14 @@ const loadInitialAuthState = () => {
       recentTransactions: [],
       budgets: [],
       savingGoals: [],
+      familySavingGoals: [],
       familyMembers: [],
       notifications: [],
       dashboardSummary: null,
       botRecommendation: null,
       receivedInvitations: [],
       sentInvitations: [],
+      isFamilyGoalModalOpen: false,
     };
   }
 };
@@ -2109,6 +2172,7 @@ export const useStore = create<AppState>((set, get) => ({
   recentTransactions: initialAuthState.recentTransactions,
   budgets: initialAuthState.budgets,
   savingGoals: initialAuthState.savingGoals,
+  familySavingGoals: (initialAuthState as any).familySavingGoals || FAMILY_SHARED_DATA.savingGoals,
   familyMembers: initialAuthState.familyMembers,
   notifications: initialAuthState.notifications,
   receivedInvitations: initialAuthState.receivedInvitations,
@@ -2122,6 +2186,7 @@ export const useStore = create<AppState>((set, get) => ({
   isWalletModalOpen: false,
   isBudgetModalOpen: false,
   isGoalModalOpen: false,
+  isFamilyGoalModalOpen: false,
   isFamilyModalOpen: false,
   isConfirmInviteModalOpen: false,
   selectedInvitationForConfirm: null,
@@ -2171,7 +2236,9 @@ export const useStore = create<AppState>((set, get) => ({
         const loadedWallets = consolidateWallets(famSaved.wallets ?? FAMILY_SHARED_DATA.wallets);
         const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
         const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
-        const loadedGoals = mergeSeedGoals(famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals, FAMILY_SHARED_DATA.savingGoals);
+        const loadedFamilyGoals = mergeSeedGoals(famSaved.familySavingGoals ?? famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals, FAMILY_SHARED_DATA.savingGoals);
+        const personalSeed = getPersonalSeedGoals(emailKey);
+        const loadedPersonalGoals = personalSaved.savingGoals && personalSaved.savingGoals.length > 0 ? personalSaved.savingGoals : personalSeed;
         const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
         const loadedNotifs = mergeRealtimeNotifications(personalSaved.notifications, FAMILY_SHARED_DATA.notifications);
         const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -2183,7 +2250,8 @@ export const useStore = create<AppState>((set, get) => ({
           wallets: loadedWallets,
           recentTransactions: loadedTxs,
           budgets: loadedBudgets,
-          savingGoals: loadedGoals,
+          savingGoals: loadedPersonalGoals,
+          familySavingGoals: loadedFamilyGoals,
           familyMembers: loadedMembers,
           notifications: loadedNotifs,
           dashboardSummary: loadedSummary,
@@ -2211,7 +2279,9 @@ export const useStore = create<AppState>((set, get) => ({
           ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
           : (saved.recentTransactions ?? []);
         const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
-        const loadedGoals = mergeSeedGoals(saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []), defaultSet ? defaultSet.savingGoals : []);
+        const personalSeed = getPersonalSeedGoals(emailKey);
+        const loadedGoals = saved.savingGoals && saved.savingGoals.length > 0 ? saved.savingGoals : personalSeed;
+        const loadedFamilyGoals = famDataStr ? (JSON.parse(famDataStr).familySavingGoals ?? JSON.parse(famDataStr).savingGoals ?? []) : [];
         const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
         const loadedNotifs = mergeRealtimeNotifications(saved.notifications, defaultSet ? defaultSet.notifications : []);
         const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -2223,6 +2293,7 @@ export const useStore = create<AppState>((set, get) => ({
           recentTransactions: loadedTxs,
           budgets: loadedBudgets,
           savingGoals: loadedGoals,
+          familySavingGoals: loadedFamilyGoals,
           familyMembers: loadedMembers,
           notifications: loadedNotifs,
           dashboardSummary: loadedSummary,
@@ -2248,6 +2319,7 @@ export const useStore = create<AppState>((set, get) => ({
         recentTransactions: THANHCANHAN_DATA.recentTransactions,
         budgets: THANHCANHAN_DATA.budgets,
         savingGoals: THANHCANHAN_DATA.savingGoals,
+        familySavingGoals: [],
         familyMembers: [],
         notifications: THANHCANHAN_DATA.notifications,
         dashboardSummary: personalSummary,
@@ -2271,11 +2343,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (isFamilyThanh && !isNewRegistration) {
       const famWallets = consolidateWallets(FAMILY_SHARED_DATA.wallets);
       const famSummary = calculateDashboardSummary(famWallets, FAMILY_SHARED_DATA.recentTransactions, FAMILY_SHARED_DATA.budgets);
+      const personalSeed = getPersonalSeedGoals(emailKey);
       const famState = {
         wallets: famWallets,
         recentTransactions: FAMILY_SHARED_DATA.recentTransactions,
         budgets: FAMILY_SHARED_DATA.budgets,
-        savingGoals: FAMILY_SHARED_DATA.savingGoals,
+        savingGoals: personalSeed,
+        familySavingGoals: FAMILY_SHARED_DATA.savingGoals,
         familyMembers: FAMILY_SHARED_DATA.familyMembers,
         notifications: FAMILY_SHARED_DATA.notifications,
         dashboardSummary: famSummary,
@@ -2286,6 +2360,7 @@ export const useStore = create<AppState>((set, get) => ({
         token,
         ...famState,
       });
+      persistCurrentUserData(user, { ...famState, savingGoals: personalSeed });
       persistCurrentUserData(user, famState);
       setTimeout(() => {
         get().fetchReceivedInvitations();
@@ -2779,6 +2854,120 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  setFamilySavingGoals: (familySavingGoals) => {
+    set((state) => {
+      const newState = { familySavingGoals };
+      const famId = state.currentUser?.familyGroupId || 'FAM-HANHPHUC';
+      try {
+        const famKey = 'budglee_family_data_' + famId;
+        const famStr = localStorage.getItem(famKey);
+        const famData = famStr ? JSON.parse(famStr) : {};
+        famData.familySavingGoals = familySavingGoals;
+        famData.savingGoals = familySavingGoals;
+        localStorage.setItem(famKey, JSON.stringify(famData));
+      } catch (e) {}
+      return newState;
+    });
+  },
+
+  addFamilySavingGoal: (goalData, walletId, initialDeposit) => {
+    const user = get().currentUser;
+    const isOwnerOrAdmin =
+      user?.role === 'FAMILY_ADMIN' ||
+      (user as any)?.isOwner ||
+      user?.email === 'thanhba@gmail.com';
+
+    if (!isOwnerOrAdmin) {
+      console.warn('Chỉ Chủ hộ mới có quyền tạo mục tiêu chung');
+      return false;
+    }
+
+    const deposit = initialDeposit || 0;
+    let initialContributors: GoalContributor[] = [];
+    if (deposit > 0) {
+      const userName = user?.fullName || (user as any)?.name || user?.email || 'Chủ hộ';
+      const nowStr = formatLocalIsoDate().replace('T', ' ').substring(0, 16);
+      initialContributors = [
+        {
+          userId: user?.id ? Number(user.id) : undefined,
+          userName,
+          userEmail: user?.email,
+          avatarUrl: user?.avatarUrl,
+          totalAmount: deposit,
+          depositCount: 1,
+          percentage: 100,
+          lastDepositAt: nowStr,
+        },
+      ];
+    }
+
+    const newGoal: SavingGoal = {
+      ...goalData,
+      id: Date.now(),
+      currentAmount: deposit,
+      contributors: initialContributors,
+    };
+
+    set((state) => {
+      let updatedWallets = state.wallets;
+      let updatedTxs = state.recentTransactions;
+
+      if (walletId && deposit > 0) {
+        const selectedWallet = updatedWallets.find((w) => w.id === walletId);
+        if (selectedWallet) {
+          updatedWallets = updatedWallets.map((w) =>
+            w.id === walletId ? { ...w, balance: w.balance - deposit } : w
+          );
+          const newTx: Transaction = {
+            id: Date.now() + 1,
+            walletId,
+            walletName: selectedWallet.walletName || 'Tài khoản',
+            categoryName: 'Tích lũy & Mục tiêu',
+            categoryIcon: 'PiggyBank',
+            actionTitle: `Khởi tạo mục tiêu chung: ${newGoal.goalName}`,
+            amount: deposit,
+            transactionType: 'EXPENSE',
+            balanceAfter: selectedWallet.balance - deposit,
+            transactionDate: formatLocalIsoDate().replace('T', ' ').substring(0, 16),
+            note: 'Trích tiền khởi tạo mục tiêu chung gia đình',
+          };
+          updatedTxs = [newTx, ...updatedTxs];
+        }
+      }
+
+      const updatedFamilyGoals = [...state.familySavingGoals, newGoal];
+      const updatedSummary = calculateDashboardSummary(updatedWallets, updatedTxs, state.budgets);
+
+      const newState = {
+        familySavingGoals: updatedFamilyGoals,
+        wallets: updatedWallets,
+        recentTransactions: updatedTxs,
+        dashboardSummary: updatedSummary,
+      };
+
+      const famId = state.currentUser?.familyGroupId || 'FAM-HANHPHUC';
+      try {
+        const famKey = 'budglee_family_data_' + famId;
+        const famStr = localStorage.getItem(famKey);
+        const famData = famStr ? JSON.parse(famStr) : {};
+        famData.familySavingGoals = updatedFamilyGoals;
+        famData.savingGoals = updatedFamilyGoals;
+        localStorage.setItem(famKey, JSON.stringify(famData));
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {}
+
+      persistCurrentUserData(state.currentUser, {
+        wallets: updatedWallets,
+        recentTransactions: updatedTxs,
+        dashboardSummary: updatedSummary,
+      });
+
+      return newState;
+    });
+
+    return true;
+  },
+
   depositToGoal: async (goalId, walletId, amount) => {
     const currentWallets = get().wallets || [];
     const walletExists = currentWallets.some((w) => w.id === walletId);
@@ -2799,7 +2988,11 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((state) => {
       const selectedWallet = state.wallets.find((w) => w.id === walletId);
-      const selectedGoal = state.savingGoals.find((g) => g.id === goalId);
+      const isFamilyGoal = state.familySavingGoals.some((g) => g.id === goalId);
+      const selectedGoal = isFamilyGoal
+        ? state.familySavingGoals.find((g) => g.id === goalId)
+        : state.savingGoals.find((g) => g.id === goalId);
+
       if (!selectedWallet || !selectedGoal) {
         return state;
       }
@@ -2811,64 +3004,71 @@ export const useStore = create<AppState>((set, get) => ({
         return w;
       });
 
-      const updatedGoals = state.savingGoals.map((g) => {
-        if (g.id === goalId) {
-          const updatedCurrent = g.currentAmount + amount;
-          const isDone = updatedCurrent >= g.targetAmount;
+      const updateGoalItem = (g: SavingGoal): SavingGoal => {
+        if (g.id !== goalId) return g;
+        const updatedCurrent = g.currentAmount + amount;
+        const isDone = updatedCurrent >= g.targetAmount;
 
-          const currentContributors: GoalContributor[] = [...(g.contributors || [])];
-          const user = state.currentUser;
-          const userName = user?.fullName || (user as any)?.name || user?.email || 'Thành viên gia đình';
-          const userEmail = user?.email || '';
-          const avatarUrl = user?.avatarUrl;
-          const userId = user?.id ? Number(user.id) : undefined;
+        const currentContributors: GoalContributor[] = [...(g.contributors || [])];
+        const user = state.currentUser;
+        const userName = user?.fullName || (user as any)?.name || user?.email || 'Thành viên gia đình';
+        const userEmail = user?.email || '';
+        const avatarUrl = user?.avatarUrl;
+        const userId = user?.id ? Number(user.id) : undefined;
 
-          const existingIdx = currentContributors.findIndex(
-            (c) => (userId && c.userId === userId) || (userEmail && c.userEmail && c.userEmail === userEmail) || c.userName === userName
-          );
+        const existingIdx = currentContributors.findIndex(
+          (c) => (userId && c.userId === userId) || (userEmail && c.userEmail && c.userEmail === userEmail) || c.userName === userName
+        );
 
-          const nowStr = formatLocalIsoDate().replace('T', ' ').substring(0, 16);
+        const nowStr = formatLocalIsoDate().replace('T', ' ').substring(0, 16);
 
-          if (existingIdx >= 0) {
-            const existing = currentContributors[existingIdx];
-            const newTotal = (existing.totalAmount || 0) + amount;
-            currentContributors[existingIdx] = {
-              ...existing,
-              userName: existing.userName || userName,
-              userEmail: existing.userEmail || userEmail,
-              avatarUrl: existing.avatarUrl || avatarUrl,
-              totalAmount: newTotal,
-              depositCount: (existing.depositCount || 1) + 1,
-              lastDepositAt: nowStr,
-            };
-          } else {
-            currentContributors.push({
-              userId,
-              userName,
-              userEmail,
-              avatarUrl,
-              totalAmount: amount,
-              depositCount: 1,
-              percentage: 0,
-              lastDepositAt: nowStr,
-            });
-          }
-
-          // Tính lại phần trăm đóng góp của từng thành viên
-          const contributorsWithPct = currentContributors.map((c) => ({
-            ...c,
-            percentage: updatedCurrent > 0 ? Math.min(100, Math.round((c.totalAmount / updatedCurrent) * 100)) : 0,
-          }));
-
-          return {
-            ...g,
-            currentAmount: updatedCurrent,
-            status: isDone ? ('COMPLETED' as const) : g.status,
-            contributors: contributorsWithPct,
+        if (existingIdx >= 0) {
+          const existing = currentContributors[existingIdx];
+          const newTotal = (existing.totalAmount || 0) + amount;
+          currentContributors[existingIdx] = {
+            ...existing,
+            userName: existing.userName || userName,
+            userEmail: existing.userEmail || userEmail,
+            avatarUrl: existing.avatarUrl || avatarUrl,
+            totalAmount: newTotal,
+            depositCount: (existing.depositCount || 1) + 1,
+            lastDepositAt: nowStr,
           };
+        } else {
+          currentContributors.push({
+            userId,
+            userName,
+            userEmail,
+            avatarUrl,
+            totalAmount: amount,
+            depositCount: 1,
+            percentage: 0,
+            lastDepositAt: nowStr,
+          });
         }
-        return g;
-      });
+
+        // Tính lại phần trăm đóng góp của từng thành viên
+        const contributorsWithPct = currentContributors.map((c) => ({
+          ...c,
+          percentage: updatedCurrent > 0 ? Math.min(100, Math.round((c.totalAmount / updatedCurrent) * 100)) : 0,
+        }));
+
+        return {
+          ...g,
+          currentAmount: updatedCurrent,
+          status: isDone ? ('COMPLETED' as const) : g.status,
+          contributors: contributorsWithPct,
+        };
+      };
+
+      let updatedPersonalGoals = state.savingGoals;
+      let updatedFamilyGoals = state.familySavingGoals;
+
+      if (isFamilyGoal) {
+        updatedFamilyGoals = state.familySavingGoals.map(updateGoalItem);
+      } else {
+        updatedPersonalGoals = state.savingGoals.map(updateGoalItem);
+      }
 
       const newTx: Transaction = {
         id: Date.now(),
@@ -2881,7 +3081,7 @@ export const useStore = create<AppState>((set, get) => ({
         transactionType: 'EXPENSE',
         balanceAfter: selectedWallet.balance - amount,
         transactionDate: formatLocalIsoDate().replace('T', ' ').substring(0, 16),
-        note: `Trích tiền từ ${selectedWallet.walletName} vào quỹ tích lũy`,
+        note: `Trích tiền từ ${selectedWallet.walletName} vào ${isFamilyGoal ? 'quỹ chung gia đình' : 'quỹ tích lũy cá nhân'}`,
       };
 
       const updatedTxs = [newTx, ...state.recentTransactions];
@@ -2889,21 +3089,23 @@ export const useStore = create<AppState>((set, get) => ({
 
       const newState = {
         wallets: updatedWallets,
-        savingGoals: updatedGoals,
+        savingGoals: updatedPersonalGoals,
+        familySavingGoals: updatedFamilyGoals,
         recentTransactions: updatedTxs,
         dashboardSummary: updatedSummary,
       };
 
       persistCurrentUserData(state.currentUser, newState);
 
-      // Nếu người dùng thuộc quỹ gia đình, cập nhật trực tiếp vào storage gia đình để các thành viên khác thấy ngay
-      if (state.currentUser?.familyGroupId) {
+      // Nếu là mục tiêu gia đình hoặc người dùng thuộc nhóm gia đình, đồng bộ vào budglee_family_data_<familyGroupId>
+      if (isFamilyGoal || state.currentUser?.familyGroupId) {
         try {
-          const famKey = 'budglee_family_data_' + state.currentUser.familyGroupId;
+          const famKey = 'budglee_family_data_' + (state.currentUser?.familyGroupId || 'FAM-HANHPHUC');
           const famStr = localStorage.getItem(famKey);
           if (famStr) {
             const famData = JSON.parse(famStr);
-            famData.savingGoals = updatedGoals;
+            famData.familySavingGoals = updatedFamilyGoals;
+            famData.savingGoals = updatedFamilyGoals;
             localStorage.setItem(famKey, JSON.stringify(famData));
           }
           window.dispatchEvent(new Event('storage'));
@@ -3087,6 +3289,7 @@ export const useStore = create<AppState>((set, get) => ({
   setWalletModalOpen: (isWalletModalOpen) => set({ isWalletModalOpen }),
   setBudgetModalOpen: (isBudgetModalOpen) => set({ isBudgetModalOpen }),
   setGoalModalOpen: (isGoalModalOpen) => set({ isGoalModalOpen }),
+  setFamilyGoalModalOpen: (isFamilyGoalModalOpen) => set({ isFamilyGoalModalOpen }),
   setFamilyModalOpen: (isFamilyModalOpen) => set({ isFamilyModalOpen }),
   setConfirmInviteModalOpen: (isConfirmInviteModalOpen) => set({ isConfirmInviteModalOpen }),
   setSelectedInvitationForConfirm: (selectedInvitationForConfirm) => set({ selectedInvitationForConfirm }),
@@ -3323,7 +3526,20 @@ export const useStore = create<AppState>((set, get) => ({
       members = get().familyMembers.length > 0 ? get().familyMembers : FAMILY_SHARED_DATA.familyMembers;
     }
 
-    set({ familyMembers: members });
+    // Đồng bộ familySavingGoals từ famKey nếu có trong cache
+    const famSavedStrForGoals = localStorage.getItem(famKey);
+    let famGoalsToSet = get().familySavingGoals;
+    if (famSavedStrForGoals) {
+      try {
+        const famSaved = JSON.parse(famSavedStrForGoals);
+        const goals = famSaved.familySavingGoals ?? famSaved.savingGoals;
+        if (goals && Array.isArray(goals) && goals.length > 0) {
+          famGoalsToSet = goals;
+        }
+      } catch (e) {}
+    }
+
+    set({ familyMembers: members, familySavingGoals: famGoalsToSet });
   },
 
   fetchReceivedInvitations: async () => {

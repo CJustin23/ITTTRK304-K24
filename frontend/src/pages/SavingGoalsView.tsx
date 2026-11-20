@@ -4,33 +4,67 @@ import { useStore } from '../store/useStore';
 import { SavingGoal } from '../types';
 
 export const SavingGoalsView: React.FC = () => {
-  const { savingGoals, setGoalModalOpen } = useStore();
+  const { savingGoals, setGoalModalOpen, currentUser } = useStore();
   const [selectedGoalForDeposit, setSelectedGoalForDeposit] = useState<SavingGoal | null>(null);
 
   const totalTarget = savingGoals.reduce((sum, g) => sum + g.targetAmount, 0);
   const totalCurrent = savingGoals.reduce((sum, g) => sum + g.currentAmount, 0);
   const totalCompletedGoals = savingGoals.filter((g) => g.status === 'COMPLETED').length;
 
+  const isInFamily = Boolean(currentUser?.familyGroupId || currentUser?.role === 'FAMILY_ADMIN' || currentUser?.role === 'FAMILY_MEMBER');
+
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-            Mục tiêu Tiết kiệm & Tích lũy (Goals)
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+              Mục tiêu Tiết kiệm Cá nhân (Personal Goals)
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold border border-slate-200">
+              Cá nhân
+            </span>
+          </div>
           <p className="text-sm text-slate-500 mt-1">
-            Lập kế hoạch tài chính dài hạn, theo dõi tiến độ tích lũy và hoàn thành ước mơ
+            Lập kế hoạch tài chính và tích lũy riêng của tài khoản {currentUser?.fullName || currentUser?.email || 'bạn'}
           </p>
         </div>
         <button
           onClick={() => setGoalModalOpen(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all hover:shadow-lg active:scale-95"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all hover:shadow-lg active:scale-95 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Tạo mục tiêu tiết kiệm</span>
+          <span>+ Tạo mục tiêu cá nhân</span>
         </button>
       </div>
+
+      {/* Family Workspace Link Banner */}
+      {isInFamily && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100/80 text-indigo-950">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                Bạn đang xem Mục tiêu Tiết kiệm Cá nhân
+              </p>
+              <p className="text-xs text-slate-500">
+                Để đóng góp hoặc theo dõi mục tiêu tích lũy chung của cả gia đình, hãy chuyển sang mục Quỹ gia đình.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              (window as any).setActiveTab && (window as any).setActiveTab('family');
+            }}
+            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm transition-all shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            Đến Quỹ gia đình →
+          </button>
+        </div>
+      )}
 
       {/* Aggregate Overview Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

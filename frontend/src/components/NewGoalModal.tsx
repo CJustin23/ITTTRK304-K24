@@ -99,7 +99,10 @@ export const NewGoalModal: React.FC = () => {
             <div className="p-2 rounded-xl bg-teal-100 text-teal-700">
               <Target className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Tạo Mục tiêu Tiết kiệm mới</h3>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Tạo Mục tiêu Tiết kiệm Cá nhân</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Kế hoạch tích lũy riêng của tài khoản</p>
+            </div>
           </div>
           <button
             onClick={() => {
