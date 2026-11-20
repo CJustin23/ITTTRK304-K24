@@ -43,19 +43,73 @@ export const AiChatService = {
     return sid;
   },
 
-  getConversationId(): string {
-    let cid = localStorage.getItem('budglee_ai_conv_id');
+  getStorageKey(userEmail?: string): string {
+    const email = userEmail || useStore.getState().currentUser?.email;
+    return 'budglee_chat_history_' + (email ? email.toLowerCase() : 'guest');
+  },
+
+  getConversationId(userEmail?: string): string {
+    const email = userEmail || useStore.getState().currentUser?.email;
+    const key = 'budglee_ai_conv_id_' + (email ? email.toLowerCase() : 'guest');
+    let cid = localStorage.getItem(key);
     if (!cid) {
-      cid = 'conv_' + this.getSessionId().substring(0, 8) + '_' + Date.now();
-      localStorage.setItem('budglee_ai_conv_id', cid);
+      const legacyCid = localStorage.getItem('budglee_ai_conv_id');
+      if (legacyCid) {
+        cid = legacyCid;
+      } else {
+        const prefix = email ? email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') : this.getSessionId().substring(0, 8);
+        cid = `conv_${prefix}_${Date.now()}`;
+      }
+      localStorage.setItem(key, cid);
     }
     return cid;
   },
 
-  resetConversation(): string {
-    const newCid = 'conv_' + this.getSessionId().substring(0, 8) + '_' + Date.now();
-    localStorage.setItem('budglee_ai_conv_id', newCid);
+  resetConversation(userEmail?: string): string {
+    const email = userEmail || useStore.getState().currentUser?.email;
+    const key = 'budglee_ai_conv_id_' + (email ? email.toLowerCase() : 'guest');
+    const prefix = email ? email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') : this.getSessionId().substring(0, 8);
+    const newCid = `conv_${prefix}_${Date.now()}`;
+    localStorage.setItem(key, newCid);
+    localStorage.removeItem(this.getStorageKey(email));
     return newCid;
+  },
+
+  getLocalHistory(userEmail?: string): ChatMessage[] {
+    try {
+      const key = this.getStorageKey(userEmail);
+      const str = localStorage.getItem(key);
+      if (str) {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((m: any) => ({
+            ...m,
+            isStreaming: false,
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc lịch sử chat từ localStorage:', e);
+    }
+    return [];
+  },
+
+  saveLocalHistory(messages: ChatMessage[], userEmail?: string): void {
+    try {
+      if (!messages || messages.length === 0) return;
+      const key = this.getStorageKey(userEmail);
+      // Chỉ lưu tối đa 100 tin nhắn gần nhất, loại bỏ trạng thái isStreaming
+      const cleaned = messages.slice(-100).map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp || Date.now(),
+        confirmation: m.confirmation || null,
+      }));
+      localStorage.setItem(key, JSON.stringify(cleaned));
+    } catch (e) {
+      console.warn('Lỗi lưu lịch sử chat vào localStorage:', e);
+    }
   },
 
   async fetchHistory(conversationId: string): Promise<ChatMessage[]> {

@@ -2268,8 +2268,6 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.removeItem('budglee_token_expires_at');
       localStorage.removeItem('budglee_current_user');
       localStorage.removeItem('budglee_active_tab');
-      localStorage.removeItem('budglee_ai_conv_id');
-      localStorage.removeItem('budglee_ai_session_id');
     } catch (e) {
       console.warn('Lỗi dọn dẹp cache localStorage khi đăng xuất:', e);
     }
