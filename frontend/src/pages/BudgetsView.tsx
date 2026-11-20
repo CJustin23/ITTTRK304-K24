@@ -105,9 +105,21 @@ export const BudgetsView: React.FC = () => {
   const handleOpenEdit = (b: Budget) => {
     setEditingBudget(b);
     setEditCategoryName(b.categoryName || 'Ăn uống & Cà phê');
-    setEditAmountLimit(b.amountLimit.toString());
+    const formattedLimit = b.amountLimit ? new Intl.NumberFormat('vi-VN').format(b.amountLimit) : '';
+    setEditAmountLimit(formattedLimit);
     setEditAlertThreshold((b.alertThreshold || 80).toString());
     setEditErrors({});
+  };
+
+  const handleEditAmountLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setEditAmountLimit('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setEditAmountLimit(formatted);
+    if (editErrors.amountLimit) setEditErrors((prev) => ({ ...prev, amountLimit: '' }));
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -115,9 +127,10 @@ export const BudgetsView: React.FC = () => {
     if (!editingBudget) return;
 
     const errs: Record<string, string> = {};
-    const numLimit = parseFloat(editAmountLimit);
+    const rawLimit = editAmountLimit.replace(/\./g, '');
+    const numLimit = parseFloat(rawLimit);
 
-    if (!editAmountLimit.trim()) {
+    if (!rawLimit.trim()) {
       errs.amountLimit = 'Vui lòng nhập hạn mức ngân sách';
     } else if (isNaN(numLimit) || numLimit <= 0) {
       errs.amountLimit = 'Hạn mức ngân sách phải lớn hơn 0 ₫';
@@ -443,14 +456,11 @@ export const BudgetsView: React.FC = () => {
                 <div className="relative">
                   <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="number"
-                    step="100000"
-                    placeholder="VD: 5000000"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="VD: 5.000.000"
                     value={editAmountLimit}
-                    onChange={(e) => {
-                      setEditAmountLimit(e.target.value);
-                      if (editErrors.amountLimit) setEditErrors((prev) => ({ ...prev, amountLimit: '' }));
-                    }}
+                    onChange={handleEditAmountLimitChange}
                     className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-semibold ${
                       editErrors.amountLimit
                         ? 'border-rose-500 bg-rose-50/30 ring-1 ring-rose-500'
