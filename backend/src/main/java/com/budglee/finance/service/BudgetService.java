@@ -95,6 +95,16 @@ public class BudgetService {
         return saved;
     }
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
+    @Transactional
+    public void deleteBudget(Long userId, Long budgetId) {
+        Budget budget = budgetRepository.findById(budgetId)
+                .filter(b -> b.getUser() != null && userId.equals(b.getUser().getId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ngân sách không tồn tại hoặc không thuộc về bạn"));
+        budgetRepository.delete(budget);
+        log.info("Đã xóa thành công ngân sách id={} của userId={}", budgetId, userId);
+    }
+
     private Budget findExisting(Long userId, BudgetRequest request, Category category) {
         if (category != null) {
             return budgetRepository.findByUserIdAndCategoryIdAndPeriodMonthAndPeriodYear(

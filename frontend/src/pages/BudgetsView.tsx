@@ -18,6 +18,8 @@ import {
   DollarSign,
   Percent,
   Check,
+  Zap,
+  Info,
 } from 'lucide-react';
 import { useStore, getCategoryIdByName, CATEGORY_MAP } from '../store/useStore';
 import { Budget } from '../types';
@@ -351,7 +353,7 @@ export const BudgetsView: React.FC = () => {
 
                 {/* Status Alert Badge */}
                 <div
-                  className={`flex items-center gap-2 p-3 rounded-xl text-xs font-medium border ${
+                  className={`p-3 rounded-xl text-xs font-medium border transition-all ${
                     isOverspent
                       ? 'bg-rose-50 border-rose-200 text-rose-700'
                       : isWarning
@@ -360,20 +362,31 @@ export const BudgetsView: React.FC = () => {
                   }`}
                 >
                   {isOverspent ? (
-                    <>
-                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                      <span>Cảnh báo đỏ: Đã vượt quá 100% ngân sách đề ra!</span>
-                    </>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                        <span>Cảnh báo đỏ: Đã vượt 100% ngân sách đề ra!</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(b)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] shadow-sm transition-all cursor-pointer flex items-center gap-1 self-start sm:self-auto shrink-0 hover:scale-105 active:scale-95"
+                        title="Tăng hạn mức ngân sách để chuyển sang trạng thái an toàn"
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span>Nâng hạn mức</span>
+                      </button>
+                    </div>
                   ) : isWarning ? (
-                    <>
+                    <div className="flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
                       <span>Cảnh báo vàng: Đã chạm ngưỡng {b.alertThreshold}% ngân sách!</span>
-                    </>
+                    </div>
                   ) : (
-                    <>
+                    <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" />
                       <span>An toàn: Tiến độ chi tiêu nằm trong tầm kiểm soát.</span>
-                    </>
+                    </div>
                   )}
                 </div>
               </div>

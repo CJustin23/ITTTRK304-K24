@@ -275,4 +275,20 @@ class BudgetAlertFlowTest {
 
         assertThat(setBudget(token, currentPeriod(foodId, "0")).getResponse().getStatus()).isEqualTo(400);
     }
+
+    @Test
+    void userCanDeleteOwnBudget() throws Exception {
+        String token = loginNewUser();
+        long foodId = category(token, "Ăn cần xóa", "EXPENSE");
+        long budgetId = json(setBudget(token, currentPeriod(foodId, "100000"))).at("/data/id").asLong();
+
+        assertThat(budgets(token).size()).isEqualTo(1);
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/budgets/" + budgetId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        assertThat(budgets(token).size()).isZero();
+        assertThat(budgetRepository.findById(budgetId)).isEmpty();
+    }
 }

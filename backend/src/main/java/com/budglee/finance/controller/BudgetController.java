@@ -42,4 +42,13 @@ public class BudgetController {
         List<BudgetResponse> budgets = budgetService.getUserBudgets(currentUser.getId(), month, year);
         return ResponseEntity.ok(ApiResponse.ok(budgets, "Lấy danh sách ngân sách thành công"));
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Xóa ngân sách theo ID")
+    public ResponseEntity<ApiResponse<Void>> deleteBudget(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long id) {
+        budgetService.deleteBudget(currentUser.getId(), id);
+        return ResponseEntity.ok(ApiResponse.ok("Xóa ngân sách thành công", null));
+    }
 }
