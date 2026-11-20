@@ -164,7 +164,7 @@ export const SavingGoalApiService = {
     const response = await api.put(`/saving-goals/${id}`, data);
     return response.data.data;
   },
-  deposit: async (id: number, amount: number, fromWalletId?: number): Promise<SavingGoal> => {
+  deposit: async (id: number, amount: number, fromWalletId: number): Promise<SavingGoal> => {
     const response = await api.post(`/saving-goals/${id}/deposit`, { amount, fromWalletId });
     return response.data.data;
   },

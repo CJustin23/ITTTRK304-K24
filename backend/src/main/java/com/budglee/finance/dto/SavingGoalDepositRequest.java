@@ -18,6 +18,7 @@ public class SavingGoalDepositRequest {
     @DecimalMin(value = "0.01", message = "Số tiền nạp phải lớn hơn 0")
     private BigDecimal amount;
 
+    @NotNull(message = "Nguồn tiền (Ví / Thẻ) trích xuất không được để trống")
     private Long fromWalletId;
 }
 

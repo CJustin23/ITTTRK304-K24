@@ -2680,15 +2680,29 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   depositToGoal: async (goalId, walletId, amount) => {
+    const currentWallets = get().wallets || [];
+    const walletExists = currentWallets.some((w) => w.id === walletId);
+    if (!walletExists) {
+      console.warn('Không thể nạp tiền: Nguồn tiền không tồn tại trong danh sách ví.');
+      return;
+    }
+
     try {
       await SavingGoalApiService.deposit(goalId, amount, walletId);
     } catch (e) {
       console.warn('API deposit error:', e);
+      if (get().token) {
+        // Có đăng nhập backend nhưng API trả lỗi -> không cập nhật optimistic để tránh sinh giao dịch ảo
+        return;
+      }
     }
 
     set((state) => {
       const selectedWallet = state.wallets.find((w) => w.id === walletId);
       const selectedGoal = state.savingGoals.find((g) => g.id === goalId);
+      if (!selectedWallet || !selectedGoal) {
+        return state;
+      }
 
       const updatedWallets = state.wallets.map((w) => {
         if (w.id === walletId) {
@@ -2713,15 +2727,15 @@ export const useStore = create<AppState>((set, get) => ({
       const newTx: Transaction = {
         id: Date.now(),
         walletId,
-        walletName: selectedWallet?.walletName || 'Tài khoản',
+        walletName: selectedWallet.walletName || 'Tài khoản',
         categoryName: 'Tích lũy & Mục tiêu',
         categoryIcon: 'PiggyBank',
-        actionTitle: `Nạp tiền tích lũy: ${selectedGoal?.goalName || 'Mục tiêu'}`,
+        actionTitle: `Nạp tiền tích lũy: ${selectedGoal.goalName || 'Mục tiêu'}`,
         amount,
         transactionType: 'EXPENSE',
-        balanceAfter: (selectedWallet?.balance || 0) - amount,
+        balanceAfter: selectedWallet.balance - amount,
         transactionDate: formatLocalIsoDate().replace('T', ' ').substring(0, 16),
-        note: `Trích tiền từ ${selectedWallet?.walletName || 'ví'} vào quỹ tích lũy`,
+        note: `Trích tiền từ ${selectedWallet.walletName} vào quỹ tích lũy`,
       };
 
       const updatedTxs = [newTx, ...state.recentTransactions];
