@@ -45,21 +45,17 @@ export const AiChatService = {
 
   getStorageKey(userEmail?: string): string {
     const email = userEmail || useStore.getState().currentUser?.email;
-    return 'budglee_chat_history_' + (email ? email.toLowerCase() : 'guest');
+    return 'budglee_chat_history_' + (email ? email.trim().toLowerCase() : 'guest');
   },
 
   getConversationId(userEmail?: string): string {
     const email = userEmail || useStore.getState().currentUser?.email;
-    const key = 'budglee_ai_conv_id_' + (email ? email.toLowerCase() : 'guest');
+    const emailKey = email ? email.trim().toLowerCase() : 'guest';
+    const key = 'budglee_ai_conv_id_' + emailKey;
     let cid = localStorage.getItem(key);
     if (!cid) {
-      const legacyCid = localStorage.getItem('budglee_ai_conv_id');
-      if (legacyCid) {
-        cid = legacyCid;
-      } else {
-        const prefix = email ? email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') : this.getSessionId().substring(0, 8);
-        cid = `conv_${prefix}_${Date.now()}`;
-      }
+      const prefix = email ? email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') : this.getSessionId().substring(0, 8);
+      cid = `conv_${prefix}_${Date.now()}`;
       localStorage.setItem(key, cid);
     }
     return cid;
@@ -67,7 +63,8 @@ export const AiChatService = {
 
   resetConversation(userEmail?: string): string {
     const email = userEmail || useStore.getState().currentUser?.email;
-    const key = 'budglee_ai_conv_id_' + (email ? email.toLowerCase() : 'guest');
+    const emailKey = email ? email.trim().toLowerCase() : 'guest';
+    const key = 'budglee_ai_conv_id_' + emailKey;
     const prefix = email ? email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') : this.getSessionId().substring(0, 8);
     const newCid = `conv_${prefix}_${Date.now()}`;
     localStorage.setItem(key, newCid);

@@ -25,13 +25,35 @@ import { ChatMessageReview } from './ChatMessageReview';
 import { TransactionConfirmationCard } from './TransactionConfirmationCard';
 
 export const FloatingChatWidget: React.FC = () => {
+  const fetchCoreData = useStore((state) => state.fetchCoreData);
+  const currentUser = useStore((state) => state.currentUser);
+  const userEmail = currentUser?.email;
+
+  const createWelcomeMsg = (name?: string): ChatMessage => ({
+    id: 'welcome_' + Date.now(),
+    role: 'assistant',
+    content: `Xin chào ${name ? name : 'bạn'}! 👋 Tôi là **Budglee AI Financial Advisor**.\nTôi có thể giúp bạn kiểm tra số dư các ví, xem lịch sử giao dịch, ghi nhanh các khoản thu chi, đánh giá hạn mức ngân sách tháng hoặc giải đáp quy tắc tài chính thông minh (như quy tắc 50/30/20). Bạn cần hỗ trợ gì hôm nay?`,
+    timestamp: Date.now(),
+  });
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'settings'>('chat');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Khởi tạo trạng thái tin nhắn ngay từ đầu cô lập cho đúng tài khoản
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const local = AiChatService.getLocalHistory(userEmail);
+    if (local && local.length > 0) {
+      return local;
+    }
+    return [createWelcomeMsg(currentUser?.fullName)];
+  });
+
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [statusText, setStatusText] = useState('');
-  const [conversationId, setConversationId] = useState<string>('');
+  const [conversationId, setConversationId] = useState<string>(() => {
+    return AiChatService.getConversationId(userEmail);
+  });
   
   // BYOK Settings State
   const [keyStatus, setKeyStatus] = useState<AiKeyStatus>({ hasKey: false });
@@ -42,14 +64,20 @@ export const FloatingChatWidget: React.FC = () => {
 
   // Tool Confirmation Loading state
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [confirmedSuccessIds, setConfirmedSuccessIds] = useState<Set<string>>(new Set());
+  const [confirmedSuccessIds, setConfirmedSuccessIds] = useState<Set<string>>(() => {
+    const local = AiChatService.getLocalHistory(userEmail);
+    const confirmedSet = new Set<string>();
+    local.forEach((m) => {
+      if (m.confirmation?.confirmationId && (m.content.includes('Đã xác nhận') || m.content.includes('thành công'))) {
+        confirmedSet.add(m.confirmation.confirmationId);
+      }
+    });
+    return confirmedSet;
+  });
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const fetchCoreData = useStore((state) => state.fetchCoreData);
-  const currentUser = useStore((state) => state.currentUser);
 
   // Đăng ký API mở chat toàn cục để Sidebar hoặc nút khác có thể mở trực tiếp
   useEffect(() => {
@@ -65,52 +93,30 @@ export const FloatingChatWidget: React.FC = () => {
     };
   }, []);
 
-  // Khởi tạo phiên trò chuyện và tải lịch sử
+  // Đồng bộ lịch sử từ backend nếu local chưa có tin nhắn nào
   useEffect(() => {
-    const userEmail = currentUser?.email;
     const cid = AiChatService.getConversationId(userEmail);
     setConversationId(cid);
 
-    // 1. Ưu tiên nạp lịch sử đã lưu trữ cục bộ cho tài khoản này (giữ nguyên sau khi logout/login)
     const localHistory = AiChatService.getLocalHistory(userEmail);
-    if (localHistory && localHistory.length > 0) {
-      setMessages(localHistory);
-      const confirmedSet = new Set<string>();
-      localHistory.forEach((m) => {
-        if (m.confirmation?.confirmationId && (m.content.includes('Đã xác nhận') || m.content.includes('thành công'))) {
-          confirmedSet.add(m.confirmation.confirmationId);
-        }
-      });
-      if (confirmedSet.size > 0) setConfirmedSuccessIds(confirmedSet);
-    } else {
-      // 2. Nếu local chưa có, thử tải từ backend
+    if (!localHistory || localHistory.length === 0) {
       AiChatService.fetchHistory(cid).then((history) => {
-        if (history.length > 0) {
+        if (history && history.length > 0) {
           setMessages(history);
           AiChatService.saveLocalHistory(history, userEmail);
-        } else {
-          // Tin nhắn chào mừng ban đầu
-          const welcomeMsg: ChatMessage = {
-            id: 'welcome',
-            role: 'assistant',
-            content: `Xin chào ${currentUser?.fullName ? currentUser.fullName : 'bạn'}! 👋 Tôi là **Budglee AI Financial Advisor**.\nTôi có thể giúp bạn kiểm tra số dư các ví, xem lịch sử giao dịch, ghi nhanh các khoản thu chi, đánh giá hạn mức ngân sách tháng hoặc giải đáp quy tắc tài chính thông minh (như quy tắc 50/30/20). Bạn cần hỗ trợ gì hôm nay?`,
-            timestamp: Date.now(),
-          };
-          setMessages([welcomeMsg]);
-          AiChatService.saveLocalHistory([welcomeMsg], userEmail);
         }
       });
     }
 
     AiChatService.getKeyStatus().then(setKeyStatus);
-  }, [currentUser]);
+  }, [userEmail]);
 
-  // Tự động lưu tin nhắn vào localStorage mỗi khi có cập nhật và không trong trạng thái streaming dở dang
+  // Tự động lưu tin nhắn vào localStorage mỗi khi có cập nhật cho đúng tài khoản
   useEffect(() => {
     if (messages.length > 0 && !isStreaming) {
-      AiChatService.saveLocalHistory(messages, currentUser?.email);
+      AiChatService.saveLocalHistory(messages, userEmail);
     }
-  }, [messages, isStreaming, currentUser]);
+  }, [messages, isStreaming, userEmail]);
 
   // Tự động cuộn xuống tin nhắn mới nhất
   useEffect(() => {
