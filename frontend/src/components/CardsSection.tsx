@@ -56,7 +56,7 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
             </div>
 
             <div className="flex justify-between items-center text-xs text-slate-300 font-mono">
-              <span>{primaryWallet.cardNumberMasked || (primaryWallet.type === 'CASH' ? 'Tiền mặt' : 'Tài khoản chính')}</span>
+              <span>{primaryWallet.cardNumberMasked || (primaryWallet.type === 'CASH' ? 'Tiền mặt' : primaryWallet.type === 'BANK' ? 'Tài khoản ngân hàng' : 'Thẻ thanh toán')}</span>
               <span>{primaryWallet.type}</span>
             </div>
 
@@ -99,7 +99,7 @@ export const CardsSection: React.FC<CardsSectionProps> = ({
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{w.walletName}</p>
-                    <p className="text-xs text-slate-400">{w.cardNumberMasked || 'Tiền mặt'}</p>
+                    <p className="text-xs text-slate-400">{w.cardNumberMasked || (w.type === 'CASH' ? 'Tiền mặt' : w.type === 'BANK' ? 'Tài khoản ngân hàng' : 'Thẻ thanh toán')}</p>
                   </div>
                 </div>
                 <span className="text-sm font-bold text-slate-700">
