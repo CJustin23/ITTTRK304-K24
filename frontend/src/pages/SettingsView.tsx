@@ -21,6 +21,8 @@ import {
   Loader2,
   Building2,
   Settings as SettingsIcon,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Role } from '../types';
@@ -52,6 +54,9 @@ export const SettingsView: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
   const [passwordErrors, setPasswordErrors] = useState<{ current?: string; new?: string; confirm?: string }>({});
   const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
@@ -138,6 +143,9 @@ export const SettingsView: React.FC = () => {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
       setTimeout(() => setPasswordMsg({ type: '', text: '' }), 4000);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.';
@@ -736,18 +744,28 @@ export const SettingsView: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 Mật khẩu hiện tại <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={currentPassword}
-                onChange={(e) => {
-                  setCurrentPassword(e.target.value);
-                  if (passwordErrors.current) setPasswordErrors((prev) => ({ ...prev, current: undefined }));
-                }}
-                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
-                  passwordErrors.current ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={currentPassword}
+                  onChange={(e) => {
+                    setCurrentPassword(e.target.value);
+                    if (passwordErrors.current) setPasswordErrors((prev) => ({ ...prev, current: undefined }));
+                  }}
+                  className={`w-full pl-4 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                    passwordErrors.current ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                  title={showCurrentPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {passwordErrors.current && (
                 <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -760,18 +778,28 @@ export const SettingsView: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 Mật khẩu mới (tối thiểu 6 ký tự) <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  if (passwordErrors.new) setPasswordErrors((prev) => ({ ...prev, new: undefined }));
-                }}
-                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
-                  passwordErrors.new ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    if (passwordErrors.new) setPasswordErrors((prev) => ({ ...prev, new: undefined }));
+                  }}
+                  className={`w-full pl-4 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                    passwordErrors.new ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                  title={showNewPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {passwordErrors.new && (
                 <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -784,18 +812,28 @@ export const SettingsView: React.FC = () => {
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 Xác nhận lại mật khẩu mới <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  if (passwordErrors.confirm) setPasswordErrors((prev) => ({ ...prev, confirm: undefined }));
-                }}
-                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
-                  passwordErrors.confirm ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (passwordErrors.confirm) setPasswordErrors((prev) => ({ ...prev, confirm: undefined }));
+                  }}
+                  className={`w-full pl-4 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-800 font-medium focus:outline-none transition-all ${
+                    passwordErrors.confirm ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                  title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {passwordErrors.confirm && (
                 <p className="mt-1.5 text-xs text-rose-500 flex items-center gap-1 font-medium animate-in fade-in">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
