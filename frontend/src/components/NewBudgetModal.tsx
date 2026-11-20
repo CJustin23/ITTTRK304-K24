@@ -105,6 +105,7 @@ export const NewBudgetModal: React.FC = () => {
               <option value="Sức khỏe & Y tế">Sức khỏe & Y tế</option>
               <option value="Giáo dục & Khóa học">Giáo dục & Khóa học</option>
               <option value="Giải trí & Du lịch">Giải trí & Du lịch</option>
+              <option value="Chi tiêu khác">Chi tiêu khác</option>
             </select>
           </div>
 
