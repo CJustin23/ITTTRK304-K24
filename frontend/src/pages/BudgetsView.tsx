@@ -45,6 +45,20 @@ export const BudgetsView: React.FC = () => {
 
     const matchedTxs = recentTransactions.filter((t) => {
       if (t.transactionType !== 'EXPENSE') return false;
+      // Bỏ qua các giao dịch nạp tiền tích lũy / mục tiêu tiết kiệm vì đây không phải chi tiêu sinh hoạt của ngân sách
+      if (
+        (t.categoryName && (
+          t.categoryName.toLowerCase().includes('tích lũy') ||
+          t.categoryName.toLowerCase().includes('savings') ||
+          t.categoryName.toLowerCase().includes('mục tiêu')
+        )) ||
+        (t.actionTitle && (
+          t.actionTitle.toLowerCase().includes('nạp tiền tích lũy') ||
+          t.actionTitle.toLowerCase().includes('khởi tạo mục tiêu')
+        ))
+      ) {
+        return false;
+      }
       // Khớp theo kỳ tháng/năm của ngân sách
       if (b.periodMonth && b.periodYear && t.transactionDate) {
         const d = new Date(t.transactionDate.includes('T') ? t.transactionDate : t.transactionDate.replace(' ', 'T'));

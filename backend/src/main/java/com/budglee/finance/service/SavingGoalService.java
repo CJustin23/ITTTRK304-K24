@@ -152,8 +152,20 @@ public class SavingGoalService {
         wallet.setBalance(wallet.getBalance().subtract(depositAmount));
         walletRepository.save(wallet);
 
-        Category cat = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
-                .stream().findFirst().orElse(null);
+        Category cat = categoryRepository.findAllAvailableForUser(userId)
+                .stream()
+                .filter(c -> "Savings & Goals".equalsIgnoreCase(c.getName())
+                        || "Tích lũy & Mục tiêu".equalsIgnoreCase(c.getName())
+                        || "Tiết kiệm & Mục tiêu".equalsIgnoreCase(c.getName())
+                        || "Tích lũy".equalsIgnoreCase(c.getName()))
+                .findFirst()
+                .orElseGet(() -> categoryRepository.save(Category.builder()
+                        .name("Savings & Goals")
+                        .type(CategoryType.EXPENSE)
+                        .icon("PiggyBank")
+                        .colorCode("#10B981")
+                        .user(null)
+                        .build()));
 
         Transaction tx = Transaction.builder()
                 .user(user)

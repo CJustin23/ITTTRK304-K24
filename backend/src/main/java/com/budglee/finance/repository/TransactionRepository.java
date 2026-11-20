@@ -80,6 +80,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
            "WHERE t.user.id = :userId AND t.transactionType = 'EXPENSE' " +
            "AND t.linkedTransactionId IS NULL " +
            "AND t.category IS NOT NULL " +
+           "AND (t.actionTitle NOT LIKE 'Nạp tiền tích lũy:%' AND t.actionTitle NOT LIKE 'Khởi tạo mục tiêu:%') " +
            "AND t.transactionDate BETWEEN :startDate AND :endDate " +
            "GROUP BY t.category.id")
     List<Object[]> getCategoryExpenseSums(

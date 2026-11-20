@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, ShoppingBag, Car, HeartPulse, Receipt, Edit2, Layers } from 'lucide-react';
+import { Utensils, ShoppingBag, Car, HeartPulse, Receipt, Edit2, Layers, PiggyBank } from 'lucide-react';
 
 interface CategoryListProps {
   categories: Record<string, number>;
@@ -12,6 +12,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit }
     if (name.includes('Mua sắm') || name.includes('Shopping')) return ShoppingBag;
     if (name.includes('Di chuyển') || name.includes('Travel')) return Car;
     if (name.includes('Sức khỏe') || name.includes('Health')) return HeartPulse;
+    if (name.includes('Tích lũy') || name.includes('Savings') || name.includes('Mục tiêu')) return PiggyBank;
     return Receipt;
   };
 
@@ -20,6 +21,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, onEdit }
     if (name.includes('Mua sắm')) return 'bg-rose-100 text-rose-700';
     if (name.includes('Di chuyển')) return 'bg-blue-100 text-blue-700';
     if (name.includes('Sức khỏe')) return 'bg-emerald-100 text-emerald-700';
+    if (name.includes('Tích lũy') || name.includes('Savings') || name.includes('Mục tiêu')) return 'bg-teal-100 text-teal-700';
     return 'bg-purple-100 text-purple-700';
   };
 
