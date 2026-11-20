@@ -67,9 +67,6 @@ export const SettingsView: React.FC = () => {
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const [inviteSuccessMsg, setInviteSuccessMsg] = useState('');
   const [familySuccessMsg, setFamilySuccessMsg] = useState('');
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  const inviteCode = currentUser?.familyGroupId || 'BUDGLEE-FAM-2026';
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,12 +241,6 @@ export const SettingsView: React.FC = () => {
     } finally {
       setIsSendingInvite(false);
     }
-  };
-
-  const handleCopyInviteCode = () => {
-    navigator.clipboard.writeText(inviteCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   return (
@@ -525,25 +516,17 @@ export const SettingsView: React.FC = () => {
                     {currentUser?.familyGroupName || 'Sổ quỹ Gia đình'}
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Mã sổ quỹ: <span className="font-mono font-bold text-slate-700">{inviteCode}</span> • {familyMembers.length} thành viên tham gia
+                    {familyMembers.length} thành viên tham gia • Mời thành viên mới trực tiếp qua Email
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={handleCopyInviteCode}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-                  >
-                    {copiedCode ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedCode ? 'Đã sao chép mã' : 'Sao chép mã mời'}</span>
-                  </button>
-
-                  <button
                     onClick={() => setFamilyModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-600/20 transition-all"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
                   >
                     <UserPlus className="w-4 h-4" />
-                    <span>+ Mời thành viên</span>
+                    <span>+ Mời thành viên qua Email</span>
                   </button>
                 </div>
               </div>

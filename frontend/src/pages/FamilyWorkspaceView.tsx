@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Users, UserPlus, Shield, Copy, Check, Crown, Sparkles, ArrowRight, Clock, Target, PiggyBank, Plus, CheckCircle, Calendar } from 'lucide-react';
+import React from 'react';
+import { Users, UserPlus, Shield, Crown, Sparkles, ArrowRight, Clock, Target, PiggyBank, Plus, CheckCircle, Calendar } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export const FamilyWorkspaceView: React.FC = () => {
@@ -16,18 +16,9 @@ export const FamilyWorkspaceView: React.FC = () => {
     setSelectedInvitationForConfirm,
     cancelSentInvitation,
   } = useStore();
-  const [copied, setCopied] = useState(false);
 
   const pendingReceived = (receivedInvitations || []).filter((i) => i.status === 'PENDING');
   const pendingSent = (sentInvitations || []).filter((i) => i.status === 'PENDING');
-
-  const inviteCode = currentUser?.familyGroupId || 'BUDGLEE-FAM-KS24';
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const ownerMember =
     familyMembers.find((m) => m.isOwner) ||
@@ -112,7 +103,7 @@ export const FamilyWorkspaceView: React.FC = () => {
             </div>
             <h3 className="text-2xl font-black text-white">Bạn đang sử dụng tài khoản Cá nhân</h3>
             <p className="text-sm text-slate-400">
-              Hãy kích hoạt Sổ quỹ Gia đình trong mục <strong>Cài đặt</strong> để trở thành Chủ hộ, tạo mã mời và cùng các thành viên quản lý chi tiêu chung minh bạch.
+              Hãy kích hoạt Sổ quỹ Gia đình trong mục <strong>Cài đặt</strong> để trở thành Chủ hộ, mời các thành viên tham gia qua email và cùng quản lý chi tiêu chung minh bạch.
             </p>
           </div>
           <button
@@ -139,25 +130,19 @@ export const FamilyWorkspaceView: React.FC = () => {
                 {familyTitle}
               </h3>
               <p className="text-sm text-slate-400 mt-1">
-                Quy mô: {familyMembers.length} thành viên • Mã không gian: <span className="font-mono text-emerald-400">{inviteCode}</span>
+                Quy mô: {familyMembers.length} thành viên • Quản lý minh bạch thu chi và mục tiêu chung
               </p>
             </div>
 
-            {/* Quick Invite Box */}
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-2">
-              <p className="text-xs text-slate-300 font-medium">Mã mời thành viên gia đình:</p>
-              <div className="flex items-center gap-2">
-                <code className="px-3 py-1.5 rounded-xl bg-slate-950/80 text-emerald-400 font-mono text-sm font-bold border border-slate-700">
-                  {inviteCode}
-                </code>
-                <button
-                  onClick={handleCopyCode}
-                  className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copied ? 'Đã sao chép' : 'Copy'}</span>
-                </button>
-              </div>
+            {/* Quick Invite Button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setFamilyModalOpen(true)}
+                className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Mời thành viên qua Email</span>
+              </button>
             </div>
           </div>
 
