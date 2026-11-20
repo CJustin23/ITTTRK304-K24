@@ -1736,6 +1736,8 @@ interface AppState {
   // Wallet actions
   setWallets: (wallets: Wallet[]) => void;
   addWallet: (wallet: Omit<Wallet, 'id'>) => void;
+  updateWallet: (id: number, walletData: Partial<Wallet>) => Promise<boolean>;
+  deleteWallet: (id: number) => Promise<boolean>;
 
   // Transaction actions
   setTransactions: (transactions: Transaction[]) => void;
@@ -2583,6 +2585,90 @@ export const useStore = create<AppState>((set, get) => ({
         })
         .catch((e) => console.warn('Background sync wallet to API:', e?.message));
     }
+  },
+
+  updateWallet: async (id, walletData) => {
+    const isCash = walletData.type === 'CASH';
+    const cleanName = isCash ? 'Tiền mặt' : (walletData.walletName || 'Ví').trim();
+    let cleanCard = isCash ? '' : (walletData.cardNumberMasked || '').trim();
+    if (!isCash && cleanCard) {
+      const digits = cleanCard.replace(/\D/g, '').slice(-4);
+      if (digits) {
+        cleanCard = `**** ${digits}`;
+      }
+    }
+
+    if (get().token) {
+      try {
+        await WalletService.update(id, {
+          walletName: cleanName,
+          type: walletData.type || 'BANK',
+          currency: walletData.currency || 'VND',
+          cardNumberMasked: cleanCard || undefined,
+        });
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Cập nhật thông tin ví thất bại';
+        console.warn('API update wallet error:', msg);
+        throw new Error(msg);
+      }
+    }
+
+    set((state) => {
+      const updatedWallets = state.wallets.map((w) => {
+        if (String(w.id) === String(id)) {
+          return {
+            ...w,
+            ...walletData,
+            walletName: cleanName,
+            type: walletData.type || w.type,
+            cardNumberMasked: cleanCard,
+          };
+        }
+        return w;
+      });
+      const finalWallets = consolidateWallets(updatedWallets);
+      const updatedSummary = calculateDashboardSummary(finalWallets, state.recentTransactions, state.budgets);
+      const newState = { wallets: finalWallets, dashboardSummary: updatedSummary };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
+    });
+
+    if (get().token) {
+      get().fetchCoreData();
+    }
+    return true;
+  },
+
+  deleteWallet: async (id) => {
+    const txs = get().recentTransactions || [];
+    const hasTxs = txs.some((t) => String(t.walletId) === String(id));
+    if (hasTxs) {
+      throw new Error('Nguồn tiền này đã có lịch sử giao dịch phát sinh nên không thể xóa!');
+    }
+
+    if (get().token) {
+      try {
+        await WalletService.delete(id);
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Xóa ví thất bại';
+        console.warn('API delete wallet error:', msg);
+        throw new Error(msg);
+      }
+    }
+
+    set((state) => {
+      const updatedWallets = state.wallets.filter((w) => String(w.id) !== String(id));
+      const finalWallets = consolidateWallets(updatedWallets);
+      const updatedSummary = calculateDashboardSummary(finalWallets, state.recentTransactions, state.budgets);
+      const newState = { wallets: finalWallets, dashboardSummary: updatedSummary };
+      persistCurrentUserData(state.currentUser, newState);
+      return newState;
+    });
+
+    if (get().token) {
+      get().fetchCoreData();
+    }
+    return true;
   },
 
   setTransactions: (recentTransactions) => {
