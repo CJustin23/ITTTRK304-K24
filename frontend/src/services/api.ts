@@ -149,6 +149,9 @@ export const BudgetService = {
     const response = await api.post('/budgets', data);
     return response.data.data;
   },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/budgets/${id}`);
+  },
 };
 
 export const SavingGoalApiService = {

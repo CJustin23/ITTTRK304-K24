@@ -2755,6 +2755,17 @@ export const useStore = create<AppState>((set, get) => ({
         });
 
         if (apiBudget && apiBudget.id) {
+          // Xóa ngay apiBudget.id khỏi budglee_deleted_budgets_ nếu nó trùng ID cũ được tái sử dụng
+          const user = get().currentUser;
+          if (user?.email) {
+            try {
+              const delKey = 'budglee_deleted_budgets_' + user.email.toLowerCase();
+              const deletedIds: number[] = JSON.parse(localStorage.getItem(delKey) || '[]');
+              const cleaned = deletedIds.filter((dId) => dId !== apiBudget.id);
+              localStorage.setItem(delKey, JSON.stringify(cleaned));
+            } catch (e) {}
+          }
+
           set((state) => {
             const updatedBudgets = state.budgets.map((b) =>
               b.id === newBudget.id ||
@@ -2826,6 +2837,12 @@ export const useStore = create<AppState>((set, get) => ({
       persistCurrentUserData(state.currentUser, newState);
       return newState;
     });
+
+    if (get().token && id && id < 1000000000000) {
+      BudgetService.delete(id).catch((err: any) => {
+        console.warn('API delete budget failed (will stay deleted locally):', err?.message);
+      });
+    }
   },
 
   setSavingGoals: (savingGoals) => {
@@ -3382,8 +3399,14 @@ export const useStore = create<AppState>((set, get) => ({
           } catch (e) {}
         }
 
+        // Lấy danh sách ID các ngân sách hiện đang có trong state (hoặc vừa được thêm mới)
+        const currentBudgets = get().budgets || [];
+        const activeStateBudgetIds = new Set(currentBudgets.map((b) => b.id));
+        // Loại bỏ các ID đang active khỏi danh sách xóa để không bao giờ bị ẩn nhầm
+        const effectiveDeletedIds = deletedIds.filter((dId) => !activeStateBudgetIds.has(dId));
+
         const apiBudgets = budgetsRes.value
-          .filter((b: any) => !deletedIds.includes(b.id))
+          .filter((b: any) => !effectiveDeletedIds.includes(b.id))
           .map((b: any) => {
             const rawCatName = b.category?.name || b.categoryName || '';
             const viCatName = getCategoryViName(rawCatName);
@@ -3400,11 +3423,10 @@ export const useStore = create<AppState>((set, get) => ({
             };
           });
 
-        const currentBudgets = get().budgets || [];
         // Giữ lại các ngân sách đã tạo ở local mà API chưa có hoặc chưa kịp trả về
         const pendingLocalBudgets = currentBudgets.filter(
           (lb) =>
-            !deletedIds.includes(lb.id) &&
+            !effectiveDeletedIds.includes(lb.id) &&
             !apiBudgets.some(
               (ab: any) =>
                 ab.id === lb.id ||
