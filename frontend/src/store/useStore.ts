@@ -2457,6 +2457,10 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.removeItem('budglee_token_expires_at');
       localStorage.removeItem('budglee_current_user');
       localStorage.removeItem('budglee_active_tab');
+      // Dọn dẹp session và lịch sử chat của guest / legacy để không rò rỉ dữ liệu giữa các phiên
+      localStorage.removeItem('budglee_ai_conv_id');
+      localStorage.removeItem('budglee_ai_conv_id_guest');
+      localStorage.removeItem('budglee_chat_history_guest');
     } catch (e) {
       console.warn('Lỗi dọn dẹp cache localStorage khi đăng xuất:', e);
     }

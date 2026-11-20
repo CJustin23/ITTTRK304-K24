@@ -94,9 +94,11 @@ public class AiChatController {
     @Operation(summary = "Lấy lịch sử tin nhắn của cuộc trò chuyện (Sliding Window Memory)")
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<AiChatService.MessageRecord>>> getHistory(
+            @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam String conversationId
     ) {
-        return ResponseEntity.ok(ApiResponse.ok(aiChatService.getHistory(conversationId), "Lấy lịch sử hội thoại thành công"));
+        Long userId = principal != null ? principal.getId() : null;
+        return ResponseEntity.ok(ApiResponse.ok(aiChatService.getHistory(userId, conversationId), "Lấy lịch sử hội thoại thành công"));
     }
 
     @Operation(summary = "Lưu API Key cá nhân người dùng (BYOK) - Mã hóa AES-256-GCM")

@@ -348,8 +348,8 @@ export const App: React.FC = () => {
       <InviteFamilyModal />
       <ConfirmFamilyInviteModal />
 
-      {/* 3. Floating AI Chat Widget */}
-      <FloatingChatWidget />
+      {/* 3. Floating AI Chat Widget (cô lập hoàn toàn instance theo từng tài khoản) */}
+      <FloatingChatWidget key={currentUser?.email ? `chat_user_${currentUser.email.toLowerCase()}` : 'chat_guest'} />
     </div>
   );
 };

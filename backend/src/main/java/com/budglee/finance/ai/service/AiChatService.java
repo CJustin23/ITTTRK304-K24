@@ -51,6 +51,8 @@ public class AiChatService {
 
     // Lưu trữ lịch sử hội thoại trong bộ nhớ theo conversationId (Sliding Window Memory)
     private final Map<String, List<MessageRecord>> conversationMemory = new ConcurrentHashMap<>();
+    // Lưu trữ quyền sở hữu cuộc trò chuyện theo userId để cô lập dữ liệu hoàn toàn giữa các tài khoản
+    private final Map<String, Long> conversationOwner = new ConcurrentHashMap<>();
 
     public record MessageRecord(String role, String content, Long timestamp, ToolConfirmationDto confirmation) {}
 
@@ -67,10 +69,21 @@ public class AiChatService {
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     /**
-     * Lấy danh sách tin nhắn của một cuộc trò chuyện (Sliding Window Memory).
+     * Lấy danh sách tin nhắn của một cuộc trò chuyện (Sliding Window Memory),
+     * có kiểm tra quyền sở hữu của userId để đảm bảo acc nào chỉ đọc được chat của acc đó.
      */
-    public List<MessageRecord> getHistory(String conversationId) {
-        if (conversationId == null) return List.of();
+    public List<MessageRecord> getHistory(Long userId, String conversationId) {
+        if (conversationId == null || conversationId.isBlank()) return List.of();
+        Long owner = conversationOwner.get(conversationId);
+        // Nếu cuộc trò chuyện này đã thuộc về 1 user khác, từ chối trả về lịch sử
+        if (owner != null && !owner.equals(userId)) {
+            log.warn("Cảnh báo truy cập trái phép lịch sử chat: user {} cố truy cập conversationId {} của user {}", userId, conversationId, owner);
+            return List.of();
+        }
+        // Nếu user hiện tại là khách (chưa đăng nhập) nhưng hội thoại này thuộc về người dùng đã đăng nhập
+        if (userId == null && owner != null) {
+            return List.of();
+        }
         List<MessageRecord> list = conversationMemory.get(conversationId);
         if (list == null) return List.of();
         // Sliding window lấy 15 tin nhắn gần nhất
@@ -78,18 +91,22 @@ public class AiChatService {
         return new ArrayList<>(list.subList(start, list.size()));
     }
 
+    public List<MessageRecord> getHistory(String conversationId) {
+        return getHistory(null, conversationId);
+    }
+
     /**
      * Xử lý câu hỏi của người dùng và trả về phản hồi đồng bộ (Non-streaming).
      */
     public AiChatResponse processChat(Long userId, AiChatRequest request) {
-        String convId = resolveConversationId(request.getConversationId(), request.getSessionId());
+        String convId = resolveConversationId(request.getConversationId(), request.getSessionId(), userId);
         String userMsg = request.getMessage().trim();
 
         // 1. Kiểm tra Input Guardrail (chống Prompt Injection)
         if (guardrailService.isMalicious(userMsg)) {
             String safeResp = guardrailService.getSafeRejectionResponse();
-            recordMessage(convId, "user", userMsg, null);
-            recordMessage(convId, "assistant", safeResp, null);
+            recordMessage(convId, "user", userMsg, null, userId);
+            recordMessage(convId, "assistant", safeResp, null, userId);
             return AiChatResponse.builder()
                     .conversationId(convId)
                     .role("assistant")
@@ -98,7 +115,7 @@ public class AiChatService {
                     .build();
         }
 
-        recordMessage(convId, "user", userMsg, null);
+        recordMessage(convId, "user", userMsg, null, userId);
 
         // 2. Tra cứu RAG Context từ pgvector / internal knowledge base
         String ragContext = ragVectorService.buildRagContext(userMsg);
@@ -116,7 +133,7 @@ public class AiChatService {
         }
 
         if (result.confirmation != null) {
-            recordMessage(convId, "assistant", result.replyText, result.confirmation);
+            recordMessage(convId, "assistant", result.replyText, result.confirmation, userId);
             return AiChatResponse.builder()
                     .conversationId(convId)
                     .role("assistant")
@@ -127,7 +144,7 @@ public class AiChatService {
                     .build();
         }
 
-        recordMessage(convId, "assistant", result.replyText, null);
+        recordMessage(convId, "assistant", result.replyText, null, userId);
         return AiChatResponse.builder()
                     .conversationId(convId)
                     .role("assistant")
@@ -144,7 +161,7 @@ public class AiChatService {
 
         executorService.submit(() -> {
             try {
-                String convId = resolveConversationId(request.getConversationId(), request.getSessionId());
+                String convId = resolveConversationId(request.getConversationId(), request.getSessionId(), userId);
                 String userMsg = request.getMessage().trim();
 
                 // Gửi event khởi tạo session
@@ -154,14 +171,14 @@ public class AiChatService {
                 if (guardrailService.isMalicious(userMsg)) {
                     String safe = guardrailService.getSafeRejectionResponse();
                     streamWords(emitter, safe);
-                    recordMessage(convId, "user", userMsg, null);
-                    recordMessage(convId, "assistant", safe, null);
+                    recordMessage(convId, "user", userMsg, null, userId);
+                    recordMessage(convId, "assistant", safe, null, userId);
                     emitter.send(SseEmitter.event().name("done").data(Map.of("conversationId", convId)));
                     emitter.complete();
                     return;
                 }
 
-                recordMessage(convId, "user", userMsg, null);
+                recordMessage(convId, "user", userMsg, null, userId);
 
                 // 2. Tra cứu RAG
                 emitter.send(SseEmitter.event().name("status").data(Map.of("status", "Đang tra cứu dữ liệu tài chính...")));
@@ -182,11 +199,11 @@ public class AiChatService {
 
                 // Nếu có yêu cầu xác nhận thao tác (Human-in-the-loop)
                 if (result.confirmation != null) {
-                    recordMessage(convId, "assistant", result.replyText, result.confirmation);
+                    recordMessage(convId, "assistant", result.replyText, result.confirmation, userId);
                     emitter.send(SseEmitter.event().name("tool_confirmation").data(result.confirmation));
                     emitter.send(SseEmitter.event().name("confirmation").data(result.confirmation));
                 } else {
-                    recordMessage(convId, "assistant", result.replyText, null);
+                    recordMessage(convId, "assistant", result.replyText, null, userId);
                 }
 
                 // Stream văn bản từng từ
@@ -261,7 +278,7 @@ public class AiChatService {
 
         // Xây dựng Sliding Window Contents
         List<Map<String, Object>> contents = new ArrayList<>();
-        List<MessageRecord> history = getHistory(convId);
+        List<MessageRecord> history = getHistory(userId, convId);
         for (MessageRecord m : history) {
             String role = "user".equalsIgnoreCase(m.role()) ? "user" : "model";
             contents.add(Map.of("role", role, "parts", List.of(Map.of("text", m.content()))));
@@ -429,7 +446,7 @@ public class AiChatService {
                 "Bạn là Budglee AI - Trợ lý Tài chính Cá nhân. Trả lời tiếng Việt súc tích, thân thiện, chính xác.\n" +
                 "Dữ liệu tri thức nội bộ:\n" + ragContext));
 
-        List<MessageRecord> history = getHistory(convId);
+        List<MessageRecord> history = getHistory(userId, convId);
         for (MessageRecord m : history) {
             messages.add(Map.of("role", m.role(), "content", m.content()));
         }
@@ -874,13 +891,41 @@ public class AiChatService {
         return "Other";
     }
 
-    private String resolveConversationId(String convId, String sessionId) {
-        if (convId != null && !convId.isBlank()) return convId;
-        return "conv_" + (sessionId != null ? sessionId.substring(0, Math.min(8, sessionId.length())) : "guest") + "_" + System.currentTimeMillis();
+    private String resolveConversationId(String convId, String sessionId, Long userId) {
+        if (convId != null && !convId.isBlank()) {
+            Long owner = conversationOwner.get(convId);
+            if (owner != null) {
+                // Nếu hội thoại đã thuộc về người dùng khác, tạo convId mới cô lập cho user hiện tại
+                if (!owner.equals(userId)) {
+                    log.info("Chuyển đổi convId do khác chủ sở hữu: requested={}, owner={}, current={}", convId, owner, userId);
+                    return generateNewConversationId(userId, sessionId);
+                }
+            } else if (userId != null) {
+                conversationOwner.put(convId, userId);
+            }
+            return convId;
+        }
+        return generateNewConversationId(userId, sessionId);
+    }
+
+    private String generateNewConversationId(Long userId, String sessionId) {
+        String prefix = userId != null ? ("u" + userId) : (sessionId != null ? sessionId.substring(0, Math.min(8, sessionId.length())) : "guest");
+        String newId = "conv_" + prefix + "_" + System.currentTimeMillis();
+        if (userId != null) {
+            conversationOwner.put(newId, userId);
+        }
+        return newId;
+    }
+
+    private void recordMessage(String convId, String role, String content, ToolConfirmationDto confirm, Long userId) {
+        if (userId != null) {
+            conversationOwner.putIfAbsent(convId, userId);
+        }
+        conversationMemory.computeIfAbsent(convId, k -> new CopyOnWriteArrayList<>())
+                .add(new MessageRecord(role, content, System.currentTimeMillis(), confirm));
     }
 
     private void recordMessage(String convId, String role, String content, ToolConfirmationDto confirm) {
-        conversationMemory.computeIfAbsent(convId, k -> new CopyOnWriteArrayList<>())
-                .add(new MessageRecord(role, content, System.currentTimeMillis(), confirm));
+        recordMessage(convId, role, content, confirm, null);
     }
 }
