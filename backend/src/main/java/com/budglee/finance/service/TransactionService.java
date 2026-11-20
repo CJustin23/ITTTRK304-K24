@@ -185,11 +185,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public Page<Transaction> getUserTransactions(Long userId, Pageable pageable) {
-        List<Long> walletIds = visibleWalletIds(userId);
-        if (walletIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        return transactionRepository.findByWalletIdInOrderByTransactionDateDesc(walletIds, pageable);
+        return transactionRepository.findByUserIdOrderByTransactionDateDesc(userId, pageable);
     }
 
     @Transactional
