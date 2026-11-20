@@ -147,32 +147,38 @@ public class SavingGoalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền nạp phải lớn hơn 0");
         }
 
-        // Nếu nạp từ ví, trừ tiền ví và ghi nhận một giao dịch khoản chi (EXPENSE)
-        if (request.getFromWalletId() != null) {
-            Wallet wallet = walletRepository.findById(request.getFromWalletId())
-                    .filter(w -> w.getUser() != null && (w.getUser().getId().equals(userId)
-                            || (user.getFamilyGroupId() != null && user.getFamilyGroupId().equals(w.getFamilyGroupId()))))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ví nạp tiền không tồn tại"));
-
-            wallet.setBalance(wallet.getBalance().subtract(depositAmount));
-            walletRepository.save(wallet);
-
-            Category cat = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
-                    .stream().findFirst().orElse(null);
-
-            Transaction tx = Transaction.builder()
-                    .user(user)
-                    .wallet(wallet)
-                    .category(cat)
-                    .actionTitle("Nạp tiền tích lũy: " + goal.getGoalName())
-                    .amount(depositAmount)
-                    .transactionType(TransactionType.EXPENSE)
-                    .balanceAfter(wallet.getBalance())
-                    .transactionDate(LocalDateTime.now())
-                    .note("Trích tiền từ " + wallet.getWalletName() + " vào mục tiêu: " + goal.getGoalName())
-                    .build();
-            transactionRepository.save(tx);
+        // Bắt buộc phải có nguồn tiền (Ví / Thẻ) hợp lệ
+        if (request.getFromWalletId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phải có nguồn tiền (Ví / Thẻ) để nạp vào mục tiêu tiết kiệm");
         }
+
+        Wallet wallet = walletRepository.findById(request.getFromWalletId())
+                .filter(w -> w.getUser() != null && (w.getUser().getId().equals(userId)
+                        || (user.getFamilyGroupId() != null && user.getFamilyGroupId().equals(w.getFamilyGroupId()))))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ví nạp tiền không tồn tại"));
+
+        if (wallet.getBalance().compareTo(depositAmount) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số dư nguồn tiền không đủ để nạp vào mục tiêu tiết kiệm");
+        }
+
+        wallet.setBalance(wallet.getBalance().subtract(depositAmount));
+        walletRepository.save(wallet);
+
+        Category cat = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
+                .stream().findFirst().orElse(null);
+
+        Transaction tx = Transaction.builder()
+                .user(user)
+                .wallet(wallet)
+                .category(cat)
+                .actionTitle("Nạp tiền tích lũy: " + goal.getGoalName())
+                .amount(depositAmount)
+                .transactionType(TransactionType.EXPENSE)
+                .balanceAfter(wallet.getBalance())
+                .transactionDate(LocalDateTime.now())
+                .note("Trích tiền từ " + wallet.getWalletName() + " vào mục tiêu: " + goal.getGoalName())
+                .build();
+        transactionRepository.save(tx);
 
         BigDecimal newCurrent = goal.getCurrentAmount().add(depositAmount);
         goal.setCurrentAmount(newCurrent);
