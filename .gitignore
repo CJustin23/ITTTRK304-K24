@@ -50,3 +50,4 @@ backups/
 # Logs
 logs/
 *.log
+scratch/

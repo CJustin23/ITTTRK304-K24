@@ -83,6 +83,10 @@ export const AuthService = {
     const response = await api.post('/auth/reset-password', data);
     return response.data.data;
   },
+  changePassword: async (data: { currentPassword: string; newPassword: string; email?: string }): Promise<void> => {
+    const response = await api.post('/auth/change-password', data);
+    return response.data.data;
+  },
 };
 
 export const DashboardService = {

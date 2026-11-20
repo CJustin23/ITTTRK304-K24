@@ -8,6 +8,7 @@ import com.budglee.finance.entity.FamilyGroup;
 import com.budglee.finance.dto.ForgotPasswordRequest;
 import com.budglee.finance.dto.ForgotPasswordResponse;
 import com.budglee.finance.dto.ResetPasswordRequest;
+import com.budglee.finance.dto.ChangePasswordRequest;
 import com.budglee.finance.dto.VerifyOtpRequest;
 import com.budglee.finance.security.PasswordResetService;
 import com.budglee.finance.security.SingleAdminSessionRegistry;
@@ -260,6 +261,38 @@ public class AuthService {
         userRepository.save(user);
 
         log.info("Đổi mật khẩu thành công cho email={}", email);
+    }
+
+    @Transactional
+    public void changePassword(Long userId, String email, ChangePasswordRequest request) {
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId).orElse(null);
+        }
+        if (user == null && (email != null || request.getEmail() != null)) {
+            String targetEmail = (email != null ? email : request.getEmail()).trim().toLowerCase(Locale.ROOT);
+            user = userRepository.findByEmail(targetEmail).orElse(null);
+        }
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản người dùng");
+        }
+
+        if (Boolean.FALSE.equals(user.getEnabled())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản đã bị khoá, liên hệ quản trị viên");
+        }
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu hiện tại không chính xác");
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu mới không được trùng với mật khẩu hiện tại");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        log.info("Đổi mật khẩu thành công cho userId={}, email={}", user.getId(), user.getEmail());
     }
 
     public void verifyOtp(VerifyOtpRequest request) {
