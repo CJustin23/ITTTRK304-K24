@@ -1,6 +1,6 @@
 import React from 'react';
 import { Users, UserPlus, Shield, Crown, Sparkles, ArrowRight, Clock, Target, PiggyBank, Plus, CheckCircle, Calendar } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, isDemoGoal } from '../store/useStore';
 
 export const FamilyWorkspaceView: React.FC = () => {
   const {
@@ -38,6 +38,14 @@ export const FamilyWorkspaceView: React.FC = () => {
     currentUser?.role === 'FAMILY_ADMIN' ||
     (currentUser as any)?.isOwner ||
     currentUser?.email === 'thanhba@gmail.com';
+
+  const isDemoFam =
+    currentUser?.familyGroupId === 'FAM-HANHPHUC' ||
+    ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes((currentUser?.email || '').toLowerCase());
+
+  const displayedGoals = isDemoFam
+    ? familySavingGoals
+    : familySavingGoals.filter((g) => !isDemoGoal(g));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
@@ -226,7 +234,7 @@ export const FamilyWorkspaceView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                   <Target className="w-5 h-5 text-emerald-600" />
-                  <span>Mục tiêu tích lũy chung của gia đình ({familySavingGoals.length})</span>
+                  <span>Mục tiêu tích lũy chung của gia đình ({displayedGoals.length})</span>
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
                   Chung
@@ -253,7 +261,7 @@ export const FamilyWorkspaceView: React.FC = () => {
             )}
           </div>
 
-          {familySavingGoals.length === 0 ? (
+          {displayedGoals.length === 0 ? (
             <div className="bg-white rounded-3xl p-8 text-center border border-slate-200/80 shadow-sm">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
                 <PiggyBank className="w-6 h-6" />
@@ -275,7 +283,7 @@ export const FamilyWorkspaceView: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {familySavingGoals.map((goal) => {
+              {displayedGoals.map((goal) => {
                 const percentage = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
                 const isCompleted = goal.status === 'COMPLETED' || percentage >= 100;
                 const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
