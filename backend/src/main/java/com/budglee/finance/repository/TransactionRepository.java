@@ -86,4 +86,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("userId") Long userId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT t.user.id, t.user.fullName, t.user.email, t.user.avatarUrl, SUM(t.amount), COUNT(t.id), MAX(t.transactionDate) " +
+           "FROM Transaction t " +
+           "WHERE t.actionTitle = :actionTitle " +
+           "GROUP BY t.user.id, t.user.fullName, t.user.email, t.user.avatarUrl")
+    List<Object[]> getGoalContributors(@Param("actionTitle") String actionTitle);
 }

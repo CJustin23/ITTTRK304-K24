@@ -62,6 +62,17 @@ export interface Budget {
   alertThreshold: number; // percentage (e.g. 80)
 }
 
+export interface GoalContributor {
+  userId?: number;
+  userName: string;
+  userEmail?: string;
+  avatarUrl?: string;
+  totalAmount: number;
+  percentage?: number;
+  depositCount?: number;
+  lastDepositAt?: string;
+}
+
 export interface SavingGoal {
   id: number;
   goalName: string;
@@ -70,6 +81,7 @@ export interface SavingGoal {
   deadline?: string;
   status: 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   color?: string;
+  contributors?: GoalContributor[];
 }
 
 export interface FamilyMember {

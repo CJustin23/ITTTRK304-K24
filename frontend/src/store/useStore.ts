@@ -5,6 +5,7 @@ import {
   Transaction,
   Budget,
   SavingGoal,
+  GoalContributor,
   FamilyMember,
   DashboardSummary,
   HabitRecommendation,
@@ -1330,9 +1331,99 @@ export const FAMILY_SHARED_DATA: {
     { id: 205, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 5000000, spentAmount: 3200000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
   ],
   savingGoals: [
-    { id: 201, goalName: 'Đổi ô tô VinFast VF7 gia đình', targetAmount: 850000000, currentAmount: 420000000, deadline: '2027-12-31', status: 'IN_PROGRESS', color: 'emerald' },
-    { id: 202, goalName: 'Quỹ học Đại học tương lai cho Con', targetAmount: 300000000, currentAmount: 185000000, deadline: '2029-06-30', status: 'IN_PROGRESS', color: 'blue' },
-    { id: 203, goalName: 'Du lịch hè Phú Quốc cả gia đình', targetAmount: 35000000, currentAmount: 35000000, deadline: '2026-07-30', status: 'COMPLETED', color: 'teal' },
+    {
+      id: 201,
+      goalName: 'Đổi ô tô VinFast VF7 gia đình',
+      targetAmount: 850000000,
+      currentAmount: 420000000,
+      deadline: '2027-12-31',
+      status: 'IN_PROGRESS',
+      color: 'emerald',
+      contributors: [
+        {
+          userId: 1002,
+          userName: 'Nguyễn Tiến Ba (Ba)',
+          userEmail: 'thanhba@gmail.com',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+          totalAmount: 260000000,
+          depositCount: 5,
+          percentage: 62,
+          lastDepositAt: '2026-11-15 14:30',
+        },
+        {
+          userId: 1003,
+          userName: 'Trần Thị Mẹ (Mẹ)',
+          userEmail: 'thanhme@gmail.com',
+          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
+          totalAmount: 160000000,
+          depositCount: 3,
+          percentage: 38,
+          lastDepositAt: '2026-11-18 10:15',
+        },
+      ],
+    },
+    {
+      id: 202,
+      goalName: 'Quỹ học Đại học tương lai cho Con',
+      targetAmount: 300000000,
+      currentAmount: 185000000,
+      deadline: '2029-06-30',
+      status: 'IN_PROGRESS',
+      color: 'blue',
+      contributors: [
+        {
+          userId: 1002,
+          userName: 'Nguyễn Tiến Ba (Ba)',
+          userEmail: 'thanhba@gmail.com',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+          totalAmount: 100000000,
+          depositCount: 2,
+          percentage: 54,
+          lastDepositAt: '2026-11-10 09:00',
+        },
+        {
+          userId: 1003,
+          userName: 'Trần Thị Mẹ (Mẹ)',
+          userEmail: 'thanhme@gmail.com',
+          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
+          totalAmount: 85000000,
+          depositCount: 2,
+          percentage: 46,
+          lastDepositAt: '2026-11-16 16:45',
+        },
+      ],
+    },
+    {
+      id: 203,
+      goalName: 'Du lịch hè Phú Quốc cả gia đình',
+      targetAmount: 35000000,
+      currentAmount: 35000000,
+      deadline: '2026-07-30',
+      status: 'COMPLETED',
+      color: 'teal',
+      contributors: [
+        {
+          userId: 1002,
+          userName: 'Nguyễn Tiến Ba (Ba)',
+          userEmail: 'thanhba@gmail.com',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
+          totalAmount: 20000000,
+          depositCount: 1,
+          percentage: 57,
+          lastDepositAt: '2026-07-15 11:20',
+        },
+        {
+          userId: 1003,
+          userName: 'Trần Thị Mẹ (Mẹ)',
+          userEmail: 'thanhme@gmail.com',
+          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces',
+          totalAmount: 15000000,
+          depositCount: 1,
+          percentage: 43,
+          lastDepositAt: '2026-07-20 18:00',
+        },
+      ],
+    },
   ],
   familyMembers: [
     {
@@ -1553,6 +1644,17 @@ export const mergeRealtimeNotifications = (
   defaultNotifs.forEach((dn) => notifMap.set(dn.id, dn));
   dynamicNotifs.forEach((dyn) => notifMap.set(dyn.id, dyn));
   return Array.from(notifMap.values());
+};
+
+export const mergeSeedGoals = (savedGoals: SavingGoal[], seedGoals: SavingGoal[]): SavingGoal[] => {
+  if (!savedGoals || savedGoals.length === 0) return seedGoals || [];
+  return savedGoals.map((g) => {
+    const seed = (seedGoals || []).find((s) => s.id === g.id);
+    if (seed && (!g.contributors || g.contributors.length === 0) && seed.contributors && seed.contributors.length > 0) {
+      return { ...g, contributors: seed.contributors };
+    }
+    return g;
+  });
 };
 
 interface AppState {
@@ -1866,7 +1968,7 @@ const loadInitialAuthState = () => {
       const loadedWallets = consolidateWallets(famSaved.wallets ?? FAMILY_SHARED_DATA.wallets);
       const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
       const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
-      const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
+      const loadedGoals = mergeSeedGoals(famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals, FAMILY_SHARED_DATA.savingGoals);
       const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
       const loadedNotifs = mergeRealtimeNotifications(personalSaved.notifications, FAMILY_SHARED_DATA.notifications);
       const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -1896,7 +1998,7 @@ const loadInitialAuthState = () => {
         ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
         : (saved.recentTransactions ?? []);
       const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
-      const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
+      const loadedGoals = mergeSeedGoals(saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []), defaultSet ? defaultSet.savingGoals : []);
       const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
       const loadedNotifs = mergeRealtimeNotifications(saved.notifications, defaultSet ? defaultSet.notifications : []);
       const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -2069,7 +2171,7 @@ export const useStore = create<AppState>((set, get) => ({
         const loadedWallets = consolidateWallets(famSaved.wallets ?? FAMILY_SHARED_DATA.wallets);
         const loadedTxs = mergeSeedTransactions(famSaved.recentTransactions ?? [], FAMILY_SHARED_DATA.recentTransactions);
         const loadedBudgets = famSaved.budgets ?? FAMILY_SHARED_DATA.budgets;
-        const loadedGoals = famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
+        const loadedGoals = mergeSeedGoals(famSaved.savingGoals ?? FAMILY_SHARED_DATA.savingGoals, FAMILY_SHARED_DATA.savingGoals);
         const loadedMembers = famSaved.familyMembers ?? FAMILY_SHARED_DATA.familyMembers;
         const loadedNotifs = mergeRealtimeNotifications(personalSaved.notifications, FAMILY_SHARED_DATA.notifications);
         const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -2109,7 +2211,7 @@ export const useStore = create<AppState>((set, get) => ({
           ? mergeSeedTransactions(saved.recentTransactions ?? [], defaultSet.recentTransactions)
           : (saved.recentTransactions ?? []);
         const loadedBudgets = saved.budgets ?? (defaultSet ? defaultSet.budgets : []);
-        const loadedGoals = saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []);
+        const loadedGoals = mergeSeedGoals(saved.savingGoals ?? (defaultSet ? defaultSet.savingGoals : []), defaultSet ? defaultSet.savingGoals : []);
         const loadedMembers = saved.familyMembers ?? (isFamilyThanh ? FAMILY_SHARED_DATA.familyMembers : []);
         const loadedNotifs = mergeRealtimeNotifications(saved.notifications, defaultSet ? defaultSet.notifications : []);
         const loadedSummary = calculateDashboardSummary(loadedWallets, loadedTxs, loadedBudgets);
@@ -2713,10 +2815,56 @@ export const useStore = create<AppState>((set, get) => ({
         if (g.id === goalId) {
           const updatedCurrent = g.currentAmount + amount;
           const isDone = updatedCurrent >= g.targetAmount;
+
+          const currentContributors: GoalContributor[] = [...(g.contributors || [])];
+          const user = state.currentUser;
+          const userName = user?.fullName || (user as any)?.name || user?.email || 'Thành viên gia đình';
+          const userEmail = user?.email || '';
+          const avatarUrl = user?.avatarUrl;
+          const userId = user?.id ? Number(user.id) : undefined;
+
+          const existingIdx = currentContributors.findIndex(
+            (c) => (userId && c.userId === userId) || (userEmail && c.userEmail && c.userEmail === userEmail) || c.userName === userName
+          );
+
+          const nowStr = formatLocalIsoDate().replace('T', ' ').substring(0, 16);
+
+          if (existingIdx >= 0) {
+            const existing = currentContributors[existingIdx];
+            const newTotal = (existing.totalAmount || 0) + amount;
+            currentContributors[existingIdx] = {
+              ...existing,
+              userName: existing.userName || userName,
+              userEmail: existing.userEmail || userEmail,
+              avatarUrl: existing.avatarUrl || avatarUrl,
+              totalAmount: newTotal,
+              depositCount: (existing.depositCount || 1) + 1,
+              lastDepositAt: nowStr,
+            };
+          } else {
+            currentContributors.push({
+              userId,
+              userName,
+              userEmail,
+              avatarUrl,
+              totalAmount: amount,
+              depositCount: 1,
+              percentage: 0,
+              lastDepositAt: nowStr,
+            });
+          }
+
+          // Tính lại phần trăm đóng góp của từng thành viên
+          const contributorsWithPct = currentContributors.map((c) => ({
+            ...c,
+            percentage: updatedCurrent > 0 ? Math.min(100, Math.round((c.totalAmount / updatedCurrent) * 100)) : 0,
+          }));
+
           return {
             ...g,
             currentAmount: updatedCurrent,
             status: isDone ? ('COMPLETED' as const) : g.status,
+            contributors: contributorsWithPct,
           };
         }
         return g;
@@ -3083,6 +3231,7 @@ export const useStore = create<AppState>((set, get) => ({
           currentAmount: Number(g.currentAmount || 0),
           deadline: g.deadline,
           status: g.status || 'IN_PROGRESS',
+          contributors: g.contributors || [],
         }));
         const apiGoalIds = new Set(apiGoals.map((g: any) => g.id));
         const currentGoals = get().savingGoals || [];

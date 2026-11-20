@@ -202,6 +202,49 @@ public class SavingGoalService {
         log.info("Đã xóa mục tiêu tiết kiệm id={} user={}", goalId, userId);
     }
 
+    private List<SavingGoalResponse.GoalContributorDto> findContributorsForGoal(SavingGoal g) {
+        try {
+            String title = "Nạp tiền tích lũy: " + g.getGoalName();
+            List<Object[]> rows = transactionRepository.getGoalContributors(title);
+            if (rows == null || rows.isEmpty()) return List.of();
+
+            BigDecimal goalCurrent = g.getCurrentAmount() != null && g.getCurrentAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? g.getCurrentAmount() : BigDecimal.ONE;
+
+            return rows.stream().map(r -> {
+                Long uid = (Long) r[0];
+                String name = (String) r[1];
+                String email = (String) r[2];
+                String avatar = (String) r[3];
+                BigDecimal amount = (BigDecimal) r[4];
+                long count = ((Number) r[5]).longValue();
+                LocalDateTime lastAt = (LocalDateTime) r[6];
+
+                int pct = 0;
+                if (amount != null && goalCurrent.compareTo(BigDecimal.ZERO) > 0) {
+                    pct = amount.divide(goalCurrent, 2, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            .intValue();
+                    pct = Math.min(100, Math.max(0, pct));
+                }
+
+                return SavingGoalResponse.GoalContributorDto.builder()
+                        .userId(uid)
+                        .userName(name != null ? name : "Thành viên gia đình")
+                        .userEmail(email)
+                        .avatarUrl(avatar)
+                        .totalAmount(amount != null ? amount : BigDecimal.ZERO)
+                        .depositCount((int) count)
+                        .percentage(pct)
+                        .lastDepositAt(lastAt)
+                        .build();
+            }).toList();
+        } catch (Exception ex) {
+            log.warn("Không thể tải danh sách đóng góp cho mục tiêu id={}: {}", g.getId(), ex.getMessage());
+            return List.of();
+        }
+    }
+
     private SavingGoalResponse toResponse(SavingGoal g) {
         double percentage = 0.0;
         if (g.getTargetAmount() != null && g.getTargetAmount().compareTo(BigDecimal.ZERO) > 0) {
@@ -212,6 +255,8 @@ public class SavingGoalService {
             percentage = Math.min(percentage, 100.0);
         }
 
+        List<SavingGoalResponse.GoalContributorDto> contributors = findContributorsForGoal(g);
+
         return SavingGoalResponse.builder()
                 .id(g.getId())
                 .goalName(g.getGoalName())
@@ -220,6 +265,7 @@ public class SavingGoalService {
                 .deadline(g.getDeadline())
                 .status(g.getStatus())
                 .progressPercentage(percentage)
+                .contributors(contributors)
                 .createdAt(g.getCreatedAt())
                 .updatedAt(g.getUpdatedAt())
                 .build();
