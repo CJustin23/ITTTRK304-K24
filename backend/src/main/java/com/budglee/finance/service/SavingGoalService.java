@@ -29,16 +29,33 @@ import java.util.List;
 @Slf4j
 public class SavingGoalService {
 
+    private static final String FAMILY_PREFIX = "[FAMILY] ";
+
     private final SavingGoalRepository savingGoalRepository;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
 
+    private boolean isFamilyGoal(SavingGoal goal) {
+        return goal != null && goal.getGoalName() != null && goal.getGoalName().startsWith(FAMILY_PREFIX);
+    }
+
+    private String cleanGoalName(SavingGoal goal) {
+        if (goal == null || goal.getGoalName() == null) return "";
+        String raw = goal.getGoalName();
+        return raw.startsWith(FAMILY_PREFIX) ? raw.substring(FAMILY_PREFIX.length()).trim() : raw;
+    }
+
     @Transactional
     public SavingGoalResponse createGoal(Long userId, SavingGoalRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại"));
+
+        boolean isFam = Boolean.TRUE.equals(request.getFamilyGoal());
+        if (isFam && (user.getFamilyGroupId() == null || user.getFamilyGroupId().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tài khoản chưa tham gia nhóm hộ gia đình");
+        }
 
         LocalDate deadline = request.getDeadline() != null ? request.getDeadline() : request.getTargetDate();
         BigDecimal current = request.getCurrentAmount() != null ? request.getCurrentAmount() : BigDecimal.ZERO;
@@ -48,9 +65,40 @@ public class SavingGoalService {
             status = GoalStatus.COMPLETED;
         }
 
+        String cleanName = request.getGoalName().trim();
+        if (cleanName.startsWith(FAMILY_PREFIX)) {
+            cleanName = cleanName.substring(FAMILY_PREFIX.length()).trim();
+        }
+        String storedName = isFam ? (FAMILY_PREFIX + cleanName) : cleanName;
+
+        if (current.compareTo(BigDecimal.ZERO) > 0 && request.getFromWalletId() != null) {
+            Wallet wallet = walletRepository.findById(request.getFromWalletId())
+                    .filter(w -> w.getUser() != null && (w.getUser().getId().equals(userId)
+                            || (user.getFamilyGroupId() != null && user.getFamilyGroupId().equals(w.getFamilyGroupId()))))
+                    .orElse(null);
+            if (wallet != null) {
+                wallet.setBalance(wallet.getBalance().subtract(current));
+                walletRepository.save(wallet);
+                Category cat = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
+                        .stream().findFirst().orElse(null);
+                Transaction tx = Transaction.builder()
+                        .user(user)
+                        .wallet(wallet)
+                        .category(cat)
+                        .actionTitle("Nạp tiền tích lũy: " + cleanName)
+                        .amount(current)
+                        .transactionType(TransactionType.EXPENSE)
+                        .balanceAfter(wallet.getBalance())
+                        .transactionDate(LocalDateTime.now())
+                        .note("Trích tiền từ " + wallet.getWalletName() + " vào mục tiêu: " + cleanName)
+                        .build();
+                transactionRepository.save(tx);
+            }
+        }
+
         SavingGoal goal = SavingGoal.builder()
                 .user(user)
-                .goalName(request.getGoalName().trim())
+                .goalName(storedName)
                 .targetAmount(request.getTargetAmount())
                 .currentAmount(current)
                 .deadline(deadline)
@@ -58,24 +106,45 @@ public class SavingGoalService {
                 .build();
 
         SavingGoal saved = savingGoalRepository.save(goal);
-        log.info("Tạo mục tiêu tiết kiệm mới id={} user={} target={}", saved.getId(), userId, saved.getTargetAmount());
+        log.info("Tạo mục tiêu tiết kiệm mới id={} user={} family={} target={}", saved.getId(), userId, isFam, saved.getTargetAmount());
         return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
     public List<SavingGoalResponse> getUserGoals(Long userId) {
         return savingGoalRepository.findByUserId(userId).stream()
+                .filter(g -> !isFamilyGoal(g))
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SavingGoalResponse> getFamilyGoals(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại"));
+        String famId = user.getFamilyGroupId();
+        if (famId == null || famId.isBlank()) {
+            return List.of();
+        }
+        List<Long> memberIds = userRepository.findByFamilyGroupIdOrderByIdAsc(famId).stream()
+                .map(User::getId)
+                .toList();
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return savingGoalRepository.findByUserIdIn(memberIds).stream()
+                .filter(this::isFamilyGoal)
                 .map(this::toResponse)
                 .toList();
     }
 
     private boolean canAccessGoal(SavingGoal goal, User user) {
-        if (goal.getUser().getId().equals(user.getId())) return true;
-        if (user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()
-                && goal.getUser().getFamilyGroupId() != null) {
-            return user.getFamilyGroupId().equals(goal.getUser().getFamilyGroupId());
+        if (isFamilyGoal(goal)) {
+            return user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()
+                    && goal.getUser() != null
+                    && user.getFamilyGroupId().equals(goal.getUser().getFamilyGroupId());
         }
-        return false;
+        return goal.getUser() != null && goal.getUser().getId().equals(user.getId());
     }
 
     @Transactional(readOnly = true)
@@ -155,16 +224,17 @@ public class SavingGoalService {
         Category cat = categoryRepository.findByUserIdAndType(userId, CategoryType.EXPENSE)
                 .stream().findFirst().orElse(null);
 
+        String cleanName = cleanGoalName(goal);
         Transaction tx = Transaction.builder()
                 .user(user)
                 .wallet(wallet)
                 .category(cat)
-                .actionTitle("Nạp tiền tích lũy: " + goal.getGoalName())
+                .actionTitle("Nạp tiền tích lũy: " + cleanName)
                 .amount(depositAmount)
                 .transactionType(TransactionType.EXPENSE)
                 .balanceAfter(wallet.getBalance())
                 .transactionDate(LocalDateTime.now())
-                .note("Trích tiền từ " + wallet.getWalletName() + " vào mục tiêu: " + goal.getGoalName())
+                .note("Trích tiền từ " + wallet.getWalletName() + " vào mục tiêu: " + cleanName)
                 .build();
         transactionRepository.save(tx);
 
@@ -192,8 +262,12 @@ public class SavingGoalService {
 
     private List<SavingGoalResponse.GoalContributorDto> findContributorsForGoal(SavingGoal g) {
         try {
-            String title = "Nạp tiền tích lũy: " + g.getGoalName();
-            List<Object[]> rows = transactionRepository.getGoalContributors(title);
+            String cleanName = cleanGoalName(g);
+            String title = "Nạp tiền tích lũy: " + cleanName;
+            String famId = g.getUser() != null ? g.getUser().getFamilyGroupId() : null;
+            List<Object[]> rows = (isFamilyGoal(g) && famId != null && !famId.isBlank())
+                    ? transactionRepository.getGoalContributorsByFamily(title, famId)
+                    : transactionRepository.getGoalContributors(title);
             if (rows == null || rows.isEmpty()) return List.of();
 
             BigDecimal goalCurrent = g.getCurrentAmount() != null && g.getCurrentAmount().compareTo(BigDecimal.ZERO) > 0
@@ -244,15 +318,18 @@ public class SavingGoalService {
         }
 
         List<SavingGoalResponse.GoalContributorDto> contributors = findContributorsForGoal(g);
+        boolean isFam = isFamilyGoal(g);
 
         return SavingGoalResponse.builder()
                 .id(g.getId())
-                .goalName(g.getGoalName())
+                .goalName(cleanGoalName(g))
                 .targetAmount(g.getTargetAmount())
                 .currentAmount(g.getCurrentAmount())
                 .deadline(g.getDeadline())
                 .status(g.getStatus())
                 .progressPercentage(percentage)
+                .familyGoal(isFam)
+                .familyGroupId(isFam && g.getUser() != null ? g.getUser().getFamilyGroupId() : null)
                 .contributors(contributors)
                 .createdAt(g.getCreatedAt())
                 .updatedAt(g.getUpdatedAt())

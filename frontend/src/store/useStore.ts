@@ -3030,23 +3030,54 @@ export const useStore = create<AppState>((set, get) => ({
       ];
     }
 
+    const localId = Date.now();
     const newGoal: SavingGoal = {
       ...goalData,
-      id: Date.now(),
+      id: localId,
       currentAmount: deposit,
       contributors: initialContributors,
     };
 
-    if (walletId && deposit > 0 && get().token) {
-      TransactionService.create({
-        walletId,
-        actionTitle: `Khởi tạo mục tiêu chung: ${goalData.goalName}`,
-        amount: deposit,
-        transactionType: 'EXPENSE',
-        note: 'Trích tiền khởi tạo mục tiêu chung gia đình',
-      }).catch((txErr) => {
-        console.warn('API transaction error on addFamilySavingGoal:', txErr);
-      });
+    if (get().token) {
+      SavingGoalApiService.createFamilyGoal({
+        ...goalData,
+        currentAmount: deposit,
+        fromWalletId: walletId,
+      })
+        .then((created) => {
+          if (created && created.id) {
+            set((s) => {
+              const synced = s.familySavingGoals.map((g) =>
+                g.id === localId
+                  ? {
+                      ...g,
+                      id: created.id,
+                      currentAmount: Number(created.currentAmount ?? g.currentAmount),
+                      contributors:
+                        created.contributors && created.contributors.length > 0
+                          ? created.contributors
+                          : g.contributors,
+                    }
+                  : g
+              );
+              const fId = s.currentUser?.familyGroupId;
+              if (fId) {
+                try {
+                  const fk = 'budglee_family_data_' + fId;
+                  const fStr = localStorage.getItem(fk);
+                  const fData = fStr ? JSON.parse(fStr) : {};
+                  fData.familySavingGoals = synced;
+                  fData.savingGoals = synced;
+                  localStorage.setItem(fk, JSON.stringify(fData));
+                } catch {}
+              }
+              return { familySavingGoals: synced };
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn('API createFamilyGoal fallback:', err);
+        });
     }
 
     set((state) => {
@@ -3142,23 +3173,39 @@ export const useStore = create<AppState>((set, get) => ({
       } catch (e) {
         console.warn('API deposit error:', e);
         if (get().token) {
-          // Có đăng nhập backend nhưng API trả lỗi -> không cập nhật optimistic để tránh sinh giao dịch ảo
           return;
         }
       }
     } else {
-      // Đối với mục tiêu chung của gia đình: ghi nhận chi tiêu trên ví thật ở backend nếu đã đăng nhập
+      // Đối với mục tiêu chung của gia đình: nếu mục tiêu đã có trên DB (id < 1e12), gọi thẳng deposit API
       if (get().token) {
-        try {
-          await TransactionService.create({
-            walletId,
-            actionTitle: `Nạp tiền tích lũy: ${targetGoal.goalName || 'Mục tiêu chung'}`,
-            amount,
-            transactionType: 'EXPENSE',
-            note: `Trích tiền vào mục tiêu chung gia đình: ${targetGoal.goalName || ''}`,
-          });
-        } catch (txErr) {
-          console.warn('Family goal deposit transaction API error:', txErr);
+        if (Number(goalId) < 1000000000000) {
+          try {
+            await SavingGoalApiService.deposit(goalId, amount, walletId);
+          } catch (depErr) {
+            console.warn('Family goal deposit API error, falling back to transaction API:', depErr);
+            try {
+              await TransactionService.create({
+                walletId,
+                actionTitle: `Nạp tiền tích lũy: ${targetGoal.goalName || 'Mục tiêu chung'}`,
+                amount,
+                transactionType: 'EXPENSE',
+                note: `Trích tiền vào mục tiêu chung gia đình: ${targetGoal.goalName || ''}`,
+              });
+            } catch {}
+          }
+        } else {
+          try {
+            await TransactionService.create({
+              walletId,
+              actionTitle: `Nạp tiền tích lũy: ${targetGoal.goalName || 'Mục tiêu chung'}`,
+              amount,
+              transactionType: 'EXPENSE',
+              note: `Trích tiền vào mục tiêu chung gia đình: ${targetGoal.goalName || ''}`,
+            });
+          } catch (txErr) {
+            console.warn('Family goal deposit transaction API error:', txErr);
+          }
         }
       }
     }
@@ -3503,13 +3550,14 @@ export const useStore = create<AppState>((set, get) => ({
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
 
-      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes, goalsRes] = await Promise.allSettled([
+      const [walletsRes, txsRes, budgetsRes, summaryRes, botRes, goalsRes, familyGoalsRes] = await Promise.allSettled([
         WalletService.getAll(),
         TransactionService.getAll(0, 100),
         BudgetService.getAll(month, year),
         DashboardService.getSummary(year, month),
         DashboardService.getRecommendations(year, month),
         SavingGoalApiService.getAll(),
+        SavingGoalApiService.getFamilyGoals(),
       ]);
 
       const updates: any = {};
@@ -3649,12 +3697,39 @@ export const useStore = create<AppState>((set, get) => ({
         updates.savingGoals = [...apiGoals, ...pendingLocalGoals];
       }
 
+      if (familyGoalsRes.status === 'fulfilled' && Array.isArray(familyGoalsRes.value)) {
+        const user = get().currentUser;
+        const famId = user?.familyGroupId;
+        const apiFamGoals = familyGoalsRes.value.map((g: any) => ({
+          id: g.id,
+          goalName: g.goalName,
+          targetAmount: Number(g.targetAmount || 0),
+          currentAmount: Number(g.currentAmount || 0),
+          deadline: g.deadline,
+          status: g.status || 'IN_PROGRESS',
+          contributors: g.contributors || [],
+        }));
+        if (apiFamGoals.length > 0 || (famId && famId !== 'FAM-HANHPHUC')) {
+          const apiFamGoalIds = new Set(apiFamGoals.map((g: any) => g.id));
+          const currentFamGoals = famId ? (get().familySavingGoals || []) : [];
+          // Không giữ lại 3 mục tiêu mẫu id 201, 202, 203 của FAM-HANHPHUC cho các gia đình khác
+          const pendingLocalFamGoals = currentFamGoals.filter(
+            (lg) =>
+              !apiFamGoalIds.has(lg.id) &&
+              (lg.id > 1000000000000 || typeof lg.id === 'string') &&
+              !apiFamGoals.some((ag: any) => (ag.goalName || '').trim().toLowerCase() === (lg.goalName || '').trim().toLowerCase())
+          );
+          updates.familySavingGoals = [...apiFamGoals, ...pendingLocalFamGoals];
+        }
+      }
+
       if (Object.keys(updates).length > 0) {
         set((state) => {
           const finalWallets = consolidateWallets(updates.wallets || state.wallets);
           const finalTxs = updates.recentTransactions || state.recentTransactions;
           const finalBudgets = updates.budgets || state.budgets;
           const finalGoals = updates.savingGoals || state.savingGoals;
+          const finalFamGoals = updates.familySavingGoals !== undefined ? updates.familySavingGoals : state.familySavingGoals;
           const finalSummary = updates.dashboardSummary || calculateDashboardSummary(finalWallets, finalTxs, finalBudgets);
           const finalBot = updates.botRecommendation || state.botRecommendation;
           const newState = {
@@ -3662,6 +3737,7 @@ export const useStore = create<AppState>((set, get) => ({
             recentTransactions: finalTxs,
             budgets: finalBudgets,
             savingGoals: finalGoals,
+            familySavingGoals: finalFamGoals,
             dashboardSummary: finalSummary,
             botRecommendation: finalBot,
           };

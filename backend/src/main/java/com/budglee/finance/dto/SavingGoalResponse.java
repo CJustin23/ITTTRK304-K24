@@ -23,6 +23,8 @@ public class SavingGoalResponse {
     private LocalDate deadline;
     private GoalStatus status;
     private double progressPercentage;
+    private Boolean familyGoal;
+    private String familyGroupId;
     private List<GoalContributorDto> contributors;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

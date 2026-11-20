@@ -35,11 +35,29 @@ public class SavingGoalController {
     }
 
     @GetMapping
-    @Operation(summary = "Lấy danh sách tất cả mục tiêu tiết kiệm của người dùng")
+    @Operation(summary = "Lấy danh sách tất cả mục tiêu tiết kiệm cá nhân của người dùng")
     public ResponseEntity<ApiResponse<List<SavingGoalResponse>>> getGoals(
             @AuthenticationPrincipal UserPrincipal currentUser) {
         List<SavingGoalResponse> list = savingGoalService.getUserGoals(currentUser.getId());
         return ResponseEntity.ok(ApiResponse.ok(list, "Lấy danh sách mục tiêu tiết kiệm thành công"));
+    }
+
+    @GetMapping("/family")
+    @Operation(summary = "Lấy danh sách tất cả mục tiêu tiết kiệm chung của hộ gia đình hiện tại")
+    public ResponseEntity<ApiResponse<List<SavingGoalResponse>>> getFamilyGoals(
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        List<SavingGoalResponse> list = savingGoalService.getFamilyGoals(currentUser.getId());
+        return ResponseEntity.ok(ApiResponse.ok(list, "Lấy danh sách mục tiêu chung gia đình thành công"));
+    }
+
+    @PostMapping("/family")
+    @Operation(summary = "Tạo mục tiêu tiết kiệm chung cho hộ gia đình hiện tại")
+    public ResponseEntity<ApiResponse<SavingGoalResponse>> createFamilyGoal(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @Valid @RequestBody SavingGoalRequest request) {
+        request.setFamilyGoal(true);
+        SavingGoalResponse response = savingGoalService.createGoal(currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Tạo mục tiêu chung gia đình thành công"));
     }
 
     @GetMapping("/{id}")

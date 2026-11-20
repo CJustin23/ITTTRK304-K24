@@ -92,4 +92,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
            "WHERE t.actionTitle = :actionTitle " +
            "GROUP BY t.user.id, t.user.fullName, t.user.email, t.user.avatarUrl")
     List<Object[]> getGoalContributors(@Param("actionTitle") String actionTitle);
+
+    @Query("SELECT t.user.id, t.user.fullName, t.user.email, t.user.avatarUrl, SUM(t.amount), COUNT(t.id), MAX(t.transactionDate) " +
+           "FROM Transaction t " +
+           "WHERE t.actionTitle = :actionTitle AND t.user.familyGroupId = :familyGroupId " +
+           "GROUP BY t.user.id, t.user.fullName, t.user.email, t.user.avatarUrl")
+    List<Object[]> getGoalContributorsByFamily(@Param("actionTitle") String actionTitle, @Param("familyGroupId") String familyGroupId);
 }

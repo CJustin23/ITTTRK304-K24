@@ -31,5 +31,8 @@ public class SavingGoalRequest {
     private LocalDate targetDate;
 
     private GoalStatus status;
+
+    private Boolean familyGoal;
+    private Long fromWalletId;
 }
 

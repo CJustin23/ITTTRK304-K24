@@ -159,8 +159,16 @@ export const SavingGoalApiService = {
     const response = await api.get('/saving-goals');
     return response.data.data || [];
   },
+  getFamilyGoals: async (): Promise<SavingGoal[]> => {
+    const response = await api.get('/saving-goals/family');
+    return response.data.data || [];
+  },
   create: async (data: Omit<SavingGoal, 'id'>): Promise<SavingGoal> => {
     const response = await api.post('/saving-goals', data);
+    return response.data.data;
+  },
+  createFamilyGoal: async (data: Omit<SavingGoal, 'id'> & { fromWalletId?: number }): Promise<SavingGoal> => {
+    const response = await api.post('/saving-goals/family', { ...data, familyGoal: true });
     return response.data.data;
   },
   update: async (id: number, data: Partial<SavingGoal>): Promise<SavingGoal> => {
