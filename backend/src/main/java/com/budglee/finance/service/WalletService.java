@@ -142,19 +142,7 @@ public class WalletService {
 
     @Transactional(readOnly = true)
     public List<Wallet> list(Long userId) {
-        String familyGroupId = userRepository.findById(userId)
-                .map(User::getFamilyGroupId)
-                .orElse(null);
-        List<Wallet> raw;
-        if (familyGroupId == null || familyGroupId.isBlank()) {
-            raw = walletRepository.findByUserId(userId);
-        } else {
-            Map<Long, Wallet> visible = new LinkedHashMap<>();
-            walletRepository.findByUserId(userId).forEach(wallet -> visible.put(wallet.getId(), wallet));
-            walletRepository.findByFamilyGroupId(familyGroupId)
-                    .forEach(wallet -> visible.putIfAbsent(wallet.getId(), wallet));
-            raw = new ArrayList<>(visible.values());
-        }
+        List<Wallet> raw = walletRepository.findByUserId(userId);
         return consolidate(raw);
     }
 
