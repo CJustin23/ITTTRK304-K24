@@ -2,6 +2,7 @@ package com.budglee.finance;
 
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
+import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,6 +49,9 @@ class FamilyWorkspaceAccessTest {
     private UserRepository userRepository;
 
     @Autowired
+    private FamilyGroupRepository familyGroupRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private static String textOf(MvcResult result) {
@@ -71,7 +75,7 @@ class FamilyWorkspaceAccessTest {
      * Đăng ký qua API rồi đăng nhập. API chỉ cho nhận INDIVIDUAL_USER hoặc FAMILY_MEMBER.
      */
     private String registerAndLogin(Role role, String familyGroupId) throws Exception {
-        String email = "fam." + UUID.randomUUID() + "@budglee.dev";
+        String email = "fam." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Thành viên " + role);
         body.put("email", email);
@@ -91,7 +95,7 @@ class FamilyWorkspaceAccessTest {
      * Chủ hộ và quản trị không thể tạo qua API, nên dựng trực tiếp trong CSDL.
      */
     private String createAdminAndLogin(Role role, String familyGroupId) throws Exception {
-        String email = "admin." + UUID.randomUUID() + "@budglee.dev";
+        String email = "admin." + UUID.randomUUID() + "@gmail.com";
         userRepository.save(User.builder()
                 .fullName("Quản trị " + role)
                 .email(email)
@@ -137,7 +141,7 @@ class FamilyWorkspaceAccessTest {
 
     @Test
     void membersOfSameFamilySeeEachOthersWallets() throws Exception {
-        String group = GROUP_A + UUID.randomUUID();
+        String group = newGroup(GROUP_A + UUID.randomUUID());
         String memberA = registerAndLogin(Role.FAMILY_MEMBER, group);
         String memberB = registerAndLogin(Role.FAMILY_MEMBER, group);
 
@@ -149,7 +153,7 @@ class FamilyWorkspaceAccessTest {
 
     @Test
     void userOutsideTheFamilySeesNothingOfIt() throws Exception {
-        String group = GROUP_A + UUID.randomUUID();
+        String group = newGroup(GROUP_A + UUID.randomUUID());
         String memberA = registerAndLogin(Role.FAMILY_MEMBER, group);
         createWallet(memberA, "Ví kín của A", "500000");
 
@@ -160,7 +164,7 @@ class FamilyWorkspaceAccessTest {
 
     @Test
     void familyAdminCanRecordTransactionOnMemberWallet() throws Exception {
-        String group = GROUP_A + UUID.randomUUID();
+        String group = newGroup(GROUP_A + UUID.randomUUID());
         String member = registerAndLogin(Role.FAMILY_MEMBER, group);
         long walletId = createWallet(member, "Ví thành viên", "300000");
 
@@ -173,7 +177,7 @@ class FamilyWorkspaceAccessTest {
 
     @Test
     void plainMemberCannotWriteOnAnotherMemberWallet() throws Exception {
-        String group = GROUP_A + UUID.randomUUID();
+        String group = newGroup(GROUP_A + UUID.randomUUID());
         String memberA = registerAndLogin(Role.FAMILY_MEMBER, group);
         long walletId = createWallet(memberA, "Ví riêng của A", "300000");
 
@@ -185,7 +189,7 @@ class FamilyWorkspaceAccessTest {
 
     @Test
     void familyAdminOfAnotherFamilyCannotWrite() throws Exception {
-        String groupA = GROUP_A + UUID.randomUUID();
+        String groupA = newGroup(GROUP_A + UUID.randomUUID());
         String member = registerAndLogin(Role.FAMILY_MEMBER, groupA);
         long walletId = createWallet(member, "Ví hộ A", "300000");
 
@@ -196,7 +200,7 @@ class FamilyWorkspaceAccessTest {
 
     @Test
     void familyCategoriesAreVisibleButNotEditable() throws Exception {
-        String group = GROUP_A + UUID.randomUUID();
+        String group = newGroup(GROUP_A + UUID.randomUUID());
         String memberA = registerAndLogin(Role.FAMILY_MEMBER, group);
         String memberB = registerAndLogin(Role.FAMILY_MEMBER, group);
 
@@ -218,6 +222,11 @@ class FamilyWorkspaceAccessTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(Map.of("name", "B đổi tên", "type", "EXPENSE"))))
                 .andExpect(status().isNotFound());
+    }
+
+    private String newGroup(String code) {
+        FamilyGroupTestData.newGroup(familyGroupRepository, userRepository, code);
+        return code;
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.budglee.finance.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -26,7 +27,7 @@ public class Wallet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
@@ -51,6 +52,15 @@ public class Wallet {
     @Column(nullable = false, length = 30)
     @Builder.Default
     private WalletType type = WalletType.CASH;
+
+    /**
+     * V12: hai giao dịch cùng ghi trên một ví thì lần ghi sau phải thất bại thay vì ghi đè
+     * số dư của lần trước (lost update).
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Long version = 0L;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

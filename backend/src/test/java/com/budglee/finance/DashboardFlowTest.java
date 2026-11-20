@@ -57,7 +57,7 @@ class DashboardFlowTest {
     }
 
     private String loginNewUser() throws Exception {
-        String email = "dashboard." + UUID.randomUUID() + "@budglee.dev";
+        String email = "dashboard." + UUID.randomUUID() + "@gmail.com";
         mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(Map.of(
@@ -124,6 +124,31 @@ class DashboardFlowTest {
         assertThat(body.at("/success").asBoolean()).isTrue();
         assertThat(body.at("/data").isArray()).isTrue();
         assertThat(body.at("/data").size()).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("Lấy dữ liệu Điểm sức khỏe tài chính /dashboard/financial-health trả 200 OK")
+    void getFinancialHealth_Authenticated_Returns200WithData() throws Exception {
+        String token = loginNewUser();
+
+        MvcResult result = mvc.perform(get("/api/v1/dashboard/financial-health")
+                        .header("Authorization", "Bearer " + token)
+                        .param("year", "2026")
+                        .param("month", "11"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode body = json(result);
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        assertThat(body.at("/success").asBoolean()).isTrue();
+        assertThat(body.at("/message").asText()).isEqualTo("Tính toán điểm sức khỏe tài chính thành công");
+
+        JsonNode data = body.at("/data");
+        assertThat(data.has("score")).isTrue();
+        assertThat(data.has("rating")).isTrue();
+        assertThat(data.has("ratingLabel")).isTrue();
+        assertThat(data.has("breakdown")).isTrue();
+        assertThat(data.has("advice")).isTrue();
     }
 
     @Test

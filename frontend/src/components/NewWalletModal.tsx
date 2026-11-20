@@ -11,24 +11,42 @@ export const NewWalletModal: React.FC = () => {
   const [type, setType] = useState<WalletType>('BANK');
   const [cardNumberMasked, setCardNumberMasked] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isWalletModalOpen) return null;
 
+  const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setBalance('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setBalance(formatted);
+    if (errors.balance) setErrors((prev) => ({ ...prev, balance: '' }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const errs: Record<string, string> = {};
 
-    if (!walletName.trim()) {
-      errs.walletName = 'Vui lòng nhập tên tài khoản hoặc ví';
-    } else if (walletName.trim().length < 2) {
-      errs.walletName = 'Tên tài khoản phải có ít nhất 2 ký tự';
+    const finalWalletName = type === 'CASH' ? 'Tiền mặt' : walletName.trim();
+
+    if (type !== 'CASH') {
+      if (!finalWalletName) {
+        errs.walletName = 'Vui lòng nhập tên tài khoản hoặc ví';
+      } else if (finalWalletName.length < 2) {
+        errs.walletName = 'Tên tài khoản phải có ít nhất 2 ký tự';
+      }
     }
 
-    const numBalance = parseFloat(balance);
-    if (!balance.trim()) {
-      errs.balance = 'Vui lòng nhập số dư ban đầu';
+    const rawDigits = balance.replace(/\./g, '');
+    const numBalance = parseFloat(rawDigits);
+    if (!rawDigits.trim()) {
+      errs.balance = 'Vui lòng nhập số tiền ban đầu';
     } else if (isNaN(numBalance) || numBalance < 0) {
-      errs.balance = 'Số dư ban đầu không được là số âm';
+      errs.balance = 'Số tiền không được là số âm';
     }
 
     if (type !== 'CASH' && cardNumberMasked.trim() && !/^\d{4}$/.test(cardNumberMasked.trim())) {
@@ -40,12 +58,13 @@ export const NewWalletModal: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
     addWallet({
-      walletName: walletName.trim(),
+      walletName: finalWalletName,
       balance: numBalance,
       type,
       currency: 'VND',
-      cardNumberMasked: cardNumberMasked.trim() ? `**** ${cardNumberMasked.trim()}` : undefined,
+      cardNumberMasked: type !== 'CASH' && cardNumberMasked.trim() ? `**** ${cardNumberMasked.trim()}` : undefined,
     });
 
     // Reset & close
@@ -53,6 +72,7 @@ export const NewWalletModal: React.FC = () => {
     setBalance('');
     setCardNumberMasked('');
     setErrors({});
+    setIsSubmitting(false);
     setWalletModalOpen(false);
   };
 
@@ -78,6 +98,7 @@ export const NewWalletModal: React.FC = () => {
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Loại tài khoản</label>
             <div className="grid grid-cols-3 gap-2">
               <button
+                id="btn-wallet-type-bank"
                 type="button"
                 onClick={() => setType('BANK')}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -90,6 +111,7 @@ export const NewWalletModal: React.FC = () => {
                 <span>Ngân hàng</span>
               </button>
               <button
+                id="btn-wallet-type-credit"
                 type="button"
                 onClick={() => setType('CREDIT_CARD')}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -102,9 +124,11 @@ export const NewWalletModal: React.FC = () => {
                 <span>Thẻ tín dụng</span>
               </button>
               <button
+                id="btn-wallet-type-cash"
                 type="button"
                 onClick={() => {
                   setType('CASH');
+                  if (errors.walletName) setErrors((prev) => ({ ...prev, walletName: '' }));
                   if (errors.cardNumberMasked) setErrors((prev) => ({ ...prev, cardNumberMasked: '' }));
                 }}
                 className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
@@ -119,42 +143,46 @@ export const NewWalletModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Wallet Name */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Ví / Thẻ</label>
-            <input
-              type="text"
-              placeholder="VD: MB Bank, MoMo, Thẻ Visa..."
-              value={walletName}
-              onChange={(e) => {
-                setWalletName(e.target.value);
-                if (errors.walletName) setErrors((prev) => ({ ...prev, walletName: '' }));
-              }}
-              className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-medium ${
-                errors.walletName
-                  ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
-                  : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-              }`}
-            />
-            {errors.walletName && (
-              <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{errors.walletName}</span>
-              </p>
-            )}
-          </div>
+          {/* Wallet Name (Chỉ hiển thị khi là Ngân hàng hoặc Thẻ tín dụng, Tiền mặt mặc định không cần nhập tên) */}
+          {type !== 'CASH' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Tên Ví / Thẻ</label>
+              <input
+                id="input-wallet-name"
+                type="text"
+                placeholder="VD: MB Bank, MoMo, Thẻ Visa..."
+                value={walletName}
+                onChange={(e) => {
+                  setWalletName(e.target.value);
+                  if (errors.walletName) setErrors((prev) => ({ ...prev, walletName: '' }));
+                }}
+                className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-medium ${
+                  errors.walletName
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                }`}
+              />
+              {errors.walletName && (
+                <p className="text-xs text-rose-500 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.walletName}</span>
+                </p>
+              )}
+            </div>
+          )}
 
-          {/* Initial Balance */}
+          {/* Initial Balance / Deposit */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Số dư ban đầu (VND)</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              {type === 'CASH' ? 'Số tiền nạp vào Tiền mặt (VND)' : 'Số dư ban đầu (VND)'}
+            </label>
             <input
-              type="number"
-              placeholder="VD: 5000000"
+              id="input-wallet-balance"
+              type="text"
+              inputMode="numeric"
+              placeholder="VD: 5.000.000"
               value={balance}
-              onChange={(e) => {
-                setBalance(e.target.value);
-                if (errors.balance) setErrors((prev) => ({ ...prev, balance: '' }));
-              }}
+              onChange={handleBalanceChange}
               className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-bold ${
                 errors.balance
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
@@ -176,6 +204,7 @@ export const NewWalletModal: React.FC = () => {
                 4 số cuối của thẻ (Tùy chọn)
               </label>
               <input
+                id="input-wallet-card-masked"
                 type="text"
                 maxLength={4}
                 placeholder="VD: 6789"
@@ -212,9 +241,10 @@ export const NewWalletModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95"
             >
-              Lưu tài khoản
+              {isSubmitting ? 'Đang lưu...' : 'Lưu tài khoản'}
             </button>
           </div>
         </form>

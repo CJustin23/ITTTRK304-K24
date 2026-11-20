@@ -15,23 +15,30 @@ import {
   LogOut,
   Save,
   AlertCircle,
+  Send,
+  Clock,
+  XCircle,
+  Loader2,
   Building2,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Role } from '../types';
+import { FamilyApiService } from '../services/api';
 
 export const SettingsView: React.FC = () => {
   const {
     currentUser,
     familyMembers,
+    sentInvitations,
     updateProfile,
-    addFamilyMember,
     removeFamilyMember,
     updateMemberRole,
     upgradeToFamilyAdmin,
     logout,
     setFamilyModalOpen,
+    sendFamilyInvitation,
+    cancelSentInvitation,
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'family' | 'security' | 'preferences'>('profile');
@@ -52,11 +59,12 @@ export const SettingsView: React.FC = () => {
   const [upgradeFamilyName, setUpgradeFamilyName] = useState('');
   const [upgradeFamilyError, setUpgradeFamilyError] = useState('');
 
-  // Quick direct member state
-  const [inviteMemberName, setInviteMemberName] = useState('');
-  const [inviteMemberEmail, setInviteMemberEmail] = useState('');
-  const [inviteMemberRole, setInviteMemberRole] = useState<Role>('FAMILY_MEMBER');
-  const [directMemberErrors, setDirectMemberErrors] = useState<{ name?: string; email?: string }>({});
+  // Send invitation state
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<Role>('FAMILY_MEMBER');
+  const [inviteErrors, setInviteErrors] = useState<{ email?: string; general?: string }>({});
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteSuccessMsg, setInviteSuccessMsg] = useState('');
   const [familySuccessMsg, setFamilySuccessMsg] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -102,6 +110,19 @@ export const SettingsView: React.FC = () => {
     }
 
     setPasswordErrors({});
+    if (currentUser?.email) {
+      const userKey = 'budglee_user_' + currentUser.email.toLowerCase();
+      const existingUserStr = localStorage.getItem(userKey);
+      if (existingUserStr) {
+        try {
+          const userObj = JSON.parse(existingUserStr);
+          userObj.password = newPassword;
+          localStorage.setItem(userKey, JSON.stringify(userObj));
+        } catch {}
+      } else {
+        localStorage.setItem(userKey, JSON.stringify({ ...currentUser, password: newPassword }));
+      }
+    }
     setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
     setCurrentPassword('');
     setNewPassword('');
@@ -126,40 +147,80 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setFamilySuccessMsg(''), 4000);
   };
 
-  const handleAddDirectMember = (e: React.FormEvent) => {
+  const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs: { name?: string; email?: string } = {};
-
-    if (!inviteMemberName.trim()) {
-      errs.name = 'Vui lòng nhập họ tên thành viên';
-    } else if (inviteMemberName.trim().length < 2) {
-      errs.name = 'Họ tên phải có ít nhất 2 ký tự';
-    }
-
+    const errs: { email?: string; general?: string } = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!inviteMemberEmail.trim()) {
-      errs.email = 'Vui lòng nhập địa chỉ email';
-    } else if (!emailRegex.test(inviteMemberEmail.trim())) {
+    const trimmedEmail = inviteEmail.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      errs.email = 'Vui lòng nhập địa chỉ email của người muốn mời';
+    } else if (!emailRegex.test(trimmedEmail)) {
       errs.email = 'Email không đúng định dạng (VD: example@domain.com)';
+    } else if (currentUser && currentUser.email.toLowerCase() === trimmedEmail) {
+      errs.email = 'Bạn không thể tự gửi lời mời cho chính mình';
+    } else if (familyMembers.some((m) => m.email.toLowerCase() === trimmedEmail)) {
+      errs.email = 'Tài khoản này đã là thành viên trong sổ quỹ gia đình';
+    } else if (sentInvitations.some((i) => i.inviteeEmail.toLowerCase() === trimmedEmail && i.status === 'PENDING')) {
+      errs.email = 'Đã có một lời mời đang chờ phản hồi gửi tới email này';
     }
 
     if (Object.keys(errs).length > 0) {
-      setDirectMemberErrors(errs);
+      setInviteErrors(errs);
       return;
     }
 
-    setDirectMemberErrors({});
-    addFamilyMember({
-      fullName: inviteMemberName.trim(),
-      email: inviteMemberEmail.trim(),
-      role: inviteMemberRole,
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-    });
+    // Tra cứu tài khoản tồn tại trong hệ thống
+    let accountExists = false;
+    try {
+      const data = await FamilyApiService.checkUser(trimmedEmail);
+      if (data && data.exists) {
+        accountExists = true;
+      }
+    } catch (err: any) {}
 
-    setInviteMemberName('');
-    setInviteMemberEmail('');
-    setFamilySuccessMsg('Đã thêm thành viên vào sổ quỹ gia đình thành công!');
-    setTimeout(() => setFamilySuccessMsg(''), 3000);
+    if (!accountExists) {
+      const localUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
+      if (localUserStr) {
+        accountExists = true;
+      }
+    }
+
+    const SYSTEM_ACCOUNTS = [
+      'thanhcanhan@gmail.com',
+      'thanhba@gmail.com',
+      'thanhme@gmail.com',
+      'thanhcon@gmail.com',
+      'thannhk6@gmail.com',
+      'thenng@gmail.com',
+      'demo@budglee.com',
+      'family@budglee.com',
+      'member@budglee.com',
+      'admin@budglee.com',
+    ];
+    if (SYSTEM_ACCOUNTS.includes(trimmedEmail)) {
+      accountExists = true;
+    }
+
+    if (!accountExists) {
+      setInviteErrors({
+        email: 'Tài khoản này chưa tồn tại trong hệ thống. Vui lòng kiểm tra lại email hoặc yêu cầu người dùng đăng ký trước!',
+      });
+      return;
+    }
+
+    setInviteErrors({});
+    setIsSendingInvite(true);
+    try {
+      await sendFamilyInvitation(trimmedEmail);
+      setInviteEmail('');
+      setInviteSuccessMsg(`Đã gửi lời mời thành công tới ${trimmedEmail}! Người nhận sẽ nhận được chuông thông báo và cần bấm "Xác nhận tham gia" để chính thức vào sổ quỹ.`);
+      setTimeout(() => setInviteSuccessMsg(''), 6000);
+    } catch (err: any) {
+      setInviteErrors({ general: err.message || 'Không thể gửi lời mời. Vui lòng thử lại sau!' });
+    } finally {
+      setIsSendingInvite(false);
+    }
   };
 
   const handleCopyInviteCode = () => {
@@ -342,7 +403,15 @@ export const SettingsView: React.FC = () => {
                 <input
                   type="text"
                   disabled
-                  value={currentUser?.role || ''}
+                  value={
+                    currentUser?.role === 'FAMILY_ADMIN'
+                      ? 'Chủ hộ · Quản trị Sổ quỹ Gia đình'
+                      : currentUser?.role === 'FAMILY_MEMBER'
+                      ? 'Thành viên · Sổ quỹ Gia đình'
+                      : currentUser?.role === 'SYSTEM_ADMIN'
+                      ? 'Quản trị hệ thống'
+                      : 'Người dùng · Quản lý Cá nhân'
+                  }
                   className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 font-medium cursor-not-allowed"
                 />
               </div>
@@ -498,7 +567,7 @@ export const SettingsView: React.FC = () => {
 
                         {!member.isOwner && (
                           <button
-                            onClick={() => removeFamilyMember(member.id)}
+                            onClick={() => removeFamilyMember(member.id, member.email)}
                             title="Xóa thành viên khỏi sổ quỹ"
                             className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
                           >
@@ -511,72 +580,118 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick Add Member Section */}
-              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-                <h4 className="text-base font-bold text-slate-800">Thêm nhanh thành viên mới</h4>
-                <form onSubmit={handleAddDirectMember} noValidate className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Họ và tên thành viên"
-                        value={inviteMemberName}
-                        onChange={(e) => {
-                          setInviteMemberName(e.target.value);
-                          if (directMemberErrors.name) setDirectMemberErrors((prev) => ({ ...prev, name: undefined }));
-                        }}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-800 font-medium focus:outline-none transition-all ${
-                          directMemberErrors.name ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
-                        }`}
-                      />
-                      {directMemberErrors.name && (
-                        <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1 font-medium">
-                          <AlertCircle className="w-3 h-3 shrink-0" />
-                          {directMemberErrors.name}
-                        </p>
-                      )}
-                    </div>
-                    <div>
+              {/* Send Invitation Section */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-800">Gửi lời mời tham gia Sổ quỹ</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Thành viên mới sẽ nhận thông báo tại biểu tượng Chuông và cần bấm &quot;Xác nhận tham gia&quot; để vào sổ quỹ.
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Bảo mật 2 chiều
+                  </span>
+                </div>
+
+                {inviteSuccessMsg && (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-center gap-2 font-medium animate-in fade-in">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{inviteSuccessMsg}</span>
+                  </div>
+                )}
+
+                {inviteErrors.general && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-2xl flex items-center gap-2 font-medium animate-in fade-in">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{inviteErrors.general}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSendInvite} noValidate className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
                       <input
                         type="email"
-                        placeholder="Địa chỉ Email"
-                        value={inviteMemberEmail}
+                        placeholder="Nhập email người muốn mời (VD: thanhcon@gmail.com)"
+                        value={inviteEmail}
                         onChange={(e) => {
-                          setInviteMemberEmail(e.target.value);
-                          if (directMemberErrors.email) setDirectMemberErrors((prev) => ({ ...prev, email: undefined }));
+                          setInviteEmail(e.target.value);
+                          if (inviteErrors.email) setInviteErrors((prev) => ({ ...prev, email: undefined }));
                         }}
                         className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-800 font-medium focus:outline-none transition-all ${
-                          directMemberErrors.email ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
+                          inviteErrors.email ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-500'
                         }`}
                       />
-                      {directMemberErrors.email && (
+                      {inviteErrors.email && (
                         <p className="mt-1 text-[11px] text-rose-500 flex items-center gap-1 font-medium">
                           <AlertCircle className="w-3 h-3 shrink-0" />
-                          {directMemberErrors.email}
+                          {inviteErrors.email}
                         </p>
                       )}
                     </div>
-                    <div>
-                      <select
-                        value={inviteMemberRole}
-                        onChange={(e) => setInviteMemberRole(e.target.value as Role)}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="FAMILY_MEMBER">Thành viên (Thu chi)</option>
-                        <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
-                      </select>
-                    </div>
+
                     <div>
                       <button
                         type="submit"
-                        className="w-full h-full min-h-[38px] py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+                        disabled={isSendingInvite}
+                        className="w-full h-full min-h-[38px] py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
                       >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>Thêm thành viên</span>
+                        {isSendingInvite ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Đang gửi...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Gửi lời mời</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
                 </form>
+
+                {/* Sent Pending Invitations List */}
+                {sentInvitations.filter((i) => i.status === 'PENDING').length > 0 && (
+                  <div className="pt-4 border-t border-slate-100 space-y-3">
+                    <h5 className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Lời mời đang chờ phản hồi ({sentInvitations.filter((i) => i.status === 'PENDING').length})</span>
+                    </h5>
+                    <div className="space-y-2">
+                      {sentInvitations
+                        .filter((i) => i.status === 'PENDING')
+                        .map((inv) => (
+                          <div
+                            key={inv.id}
+                            className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                                {inv.inviteeEmail.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-800">{inv.inviteeEmail}</p>
+                                <p className="text-[10px] text-slate-400">
+                                  Đang chờ người nhận xác nhận tham gia
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => cancelSentInvitation(inv.id)}
+                              className="px-2.5 py-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors font-medium text-[11px] flex items-center gap-1"
+                              title="Thu hồi lời mời"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Thu hồi</span>
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -718,17 +833,6 @@ export const SettingsView: React.FC = () => {
                 <p className="text-xs text-slate-400">Phân tích hành vi chi tiêu và đưa ra khuyến nghị cải thiện</p>
               </div>
               <input type="checkbox" defaultChecked className="w-5 h-5 accent-emerald-600 rounded" />
-            </div>
-
-            <div className="pt-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">Đơn vị tiền tệ chính</p>
-                <p className="text-xs text-slate-400">Định dạng hiển thị số dư và các khoản thu chi</p>
-              </div>
-              <select className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700">
-                <option value="VND">VND (Việt Nam Đồng - ₫)</option>
-                <option value="USD">USD (Đô la Mỹ - $)</option>
-              </select>
             </div>
           </div>
         </div>

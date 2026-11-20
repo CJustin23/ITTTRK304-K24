@@ -63,7 +63,7 @@ class CategoryCrudFlowTest {
     }
 
     private String loginNewUser() throws Exception {
-        String email = "cat." + UUID.randomUUID() + "@budglee.dev";
+        String email = "cat." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> register = new HashMap<>();
         register.put("fullName", "Người quản lý danh mục");
         register.put("email", email);
@@ -86,7 +86,7 @@ class CategoryCrudFlowTest {
      * nên dựng trực tiếp trong CSDL đúng như cách vận hành thật sẽ làm.
      */
     private String loginAsSystemAdmin() throws Exception {
-        String email = "admin." + UUID.randomUUID() + "@budglee.dev";
+        String email = "admin." + UUID.randomUUID() + "@gmail.com";
         userRepository.save(User.builder()
                 .fullName("Quản trị hệ thống")
                 .email(email)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { StatCard } from './components/StatCard';
@@ -12,28 +12,39 @@ import { TransactionsView } from './pages/TransactionsView';
 import { BudgetsView } from './pages/BudgetsView';
 import { SavingGoalsView } from './pages/SavingGoalsView';
 import { FamilyWorkspaceView } from './pages/FamilyWorkspaceView';
-import { InsightsView } from './pages/InsightsView';
 import { SettingsView } from './pages/SettingsView';
 import { AuthPage } from './pages/AuthPage';
+import { AdminView } from './pages/AdminView';
 
-import { BotInsightModal } from './components/BotInsightModal';
 import { NewTransactionModal } from './components/NewTransactionModal';
 import { NewWalletModal } from './components/NewWalletModal';
 import { NewBudgetModal } from './components/NewBudgetModal';
 import { NewGoalModal } from './components/NewGoalModal';
 import { DepositGoalModal } from './components/DepositGoalModal';
 import { InviteFamilyModal } from './components/InviteFamilyModal';
+import { ConfirmFamilyInviteModal } from './components/ConfirmFamilyInviteModal';
+import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
 
-import { useStore } from './store/useStore';
+import { useStore, isTokenExpired, consolidateWallets } from './store/useStore';
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, ArrowLeft } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    // SYSTEM_ADMIN always starts in the dedicated admin shell, regardless of the last saved tab.
+    if (useStore.getState().currentUser?.role === 'SYSTEM_ADMIN') {
+      return 'admin';
+    }
+    const savedTab = localStorage.getItem('budglee_active_tab');
+    if (savedTab && savedTab !== 'auth') {
+      return savedTab;
+    }
+    return 'overview';
+  });
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
     currentUser,
-    wallets,
+    wallets: rawWallets,
     recentTransactions,
     dashboardSummary,
     botRecommendation,
@@ -44,27 +55,114 @@ export const App: React.FC = () => {
     setWalletModalOpen,
     addTransaction,
     logout,
+    fetchReceivedInvitations,
+    fetchSentInvitations,
+    fetchCoreData,
   } = useStore();
 
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
+
+  const handleTabChange = (tab: string) => {
+    const role = useStore.getState().currentUser?.role || currentUser?.role;
+    const allowedTab = role === 'SYSTEM_ADMIN' ? 'admin' : tab === 'admin' ? 'overview' : tab;
+    setActiveTab(allowedTab);
+    if (allowedTab !== 'auth') {
+      localStorage.setItem('budglee_active_tab', allowedTab);
+    }
+  };
+
   useEffect(() => {
+    if (currentUser?.role === 'SYSTEM_ADMIN' && activeTab !== 'admin') {
+      handleTabChange('admin');
+      return;
+    }
+    if (activeTab === 'admin' && currentUser?.role !== 'SYSTEM_ADMIN') {
+      handleTabChange('overview');
+    }
+    (window as any).setActiveTab = (tab: string) => handleTabChange(tab);
     (window as any).toggleAuthPage = () => {
-      setActiveTab((prev) => (prev === 'auth' ? 'overview' : 'auth'));
+      handleTabChange(activeTab === 'auth' ? 'overview' : 'auth');
     };
+    let intervalId: any;
     (window as any).handleLogout = () => {
+      if (intervalId) clearInterval(intervalId);
       logout();
-      setActiveTab('overview');
+      handleTabChange('overview');
     };
-  }, [logout]);
+
+    // Lắng nghe sự kiện token hết hạn sau 24h hoặc từ 401 response
+    const handleAuthExpired = () => {
+      logout();
+      handleTabChange('auth');
+    };
+    window.addEventListener('budglee:auth-expired', handleAuthExpired);
+
+    // Kiểm tra định kỳ mỗi 30s xem token 24h đã hết hạn chưa
+    const checkExpiryInterval = setInterval(() => {
+      const currentToken = useStore.getState().token || localStorage.getItem('budglee_token');
+      if (currentToken && isTokenExpired(currentToken)) {
+        handleAuthExpired();
+      }
+    }, 30000);
+
+    const syncFamilyData = () => {
+      const u = useStore.getState().currentUser;
+      if (u && u.role !== 'SYSTEM_ADMIN') {
+        fetchReceivedInvitations();
+        if (u.role === 'FAMILY_ADMIN' && u.familyGroupId) {
+          fetchSentInvitations();
+          useStore.getState().fetchFamilyMembers?.();
+        } else if (u.familyGroupId) {
+          useStore.getState().fetchFamilyMembers?.();
+        }
+      }
+    };
+
+    if (currentUser && currentUser.role !== 'SYSTEM_ADMIN') {
+      fetchReceivedInvitations();
+      fetchCoreData();
+
+      if (currentUser.familyGroupId) {
+        useStore.getState().fetchFamilyMembers?.();
+      }
+      if (currentUser.role === 'FAMILY_ADMIN' && currentUser.familyGroupId) {
+        fetchSentInvitations();
+      }
+
+      // Tự động kiểm tra lời mời gia đình mới định kỳ mỗi 4 giây
+      intervalId = setInterval(syncFamilyData, 4000);
+
+      window.addEventListener('storage', syncFamilyData);
+      window.addEventListener('budglee_invitation_update', syncFamilyData);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      clearInterval(checkExpiryInterval);
+      window.removeEventListener('budglee:auth-expired', handleAuthExpired);
+      window.removeEventListener('storage', syncFamilyData);
+      window.removeEventListener('budglee_invitation_update', syncFamilyData);
+    };
+  }, [currentUser, activeTab, logout, fetchReceivedInvitations, fetchSentInvitations, fetchCoreData]);
 
   const handleCreateTransaction = (data: {
     walletId: number;
     actionTitle: string;
     amount: number;
     transactionType: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+    categoryId?: number;
     categoryName: string;
+    transactionDate?: string;
     note?: string;
   }) => {
-    const selectedWallet = wallets.find((w) => w.id === data.walletId);
+    if (wallets.length === 0) {
+      setWalletModalOpen(true);
+      return;
+    }
+    const selectedWallet = wallets.find((w) => w.id === data.walletId) || wallets[0];
+    const actualWalletId = selectedWallet ? selectedWallet.id : data.walletId;
+    const cardSuffix = selectedWallet?.cardNumberMasked ? ` (${selectedWallet.cardNumberMasked})` : '';
+    const actualWalletName = selectedWallet ? `${selectedWallet.walletName}${cardSuffix}` : 'Ví chính';
     const currentBalance = selectedWallet ? selectedWallet.balance : 0;
     const newBalance =
       data.transactionType === 'INCOME'
@@ -72,14 +170,15 @@ export const App: React.FC = () => {
         : currentBalance - data.amount;
 
     addTransaction({
-      walletId: data.walletId,
-      walletName: selectedWallet?.walletName || 'Techcombank Primary',
+      walletId: actualWalletId,
+      walletName: actualWalletName,
+      categoryId: data.categoryId,
       categoryName: data.categoryName,
       actionTitle: data.actionTitle,
       amount: data.amount,
       transactionType: data.transactionType,
       balanceAfter: newBalance,
-      transactionDate: 'Hôm nay ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      transactionDate: data.transactionDate || new Date().toISOString(),
       note: data.note,
     });
   };
@@ -90,16 +189,21 @@ export const App: React.FC = () => {
       <div className="relative">
         {currentUser && (
           <button
-            onClick={() => setActiveTab('overview')}
+            onClick={() => handleTabChange('overview')}
             className="fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 backdrop-blur-md shadow-xl transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Quay lại Dashboard</span>
           </button>
         )}
-        <AuthPage onSuccess={() => setActiveTab('overview')} />
+        <AuthPage onSuccess={() => handleTabChange('overview')} />
       </div>
     );
+  }
+
+  // System administration uses its own shell so finance navigation/actions are not shown here.
+  if (activeTab === 'admin') {
+    return <AdminView />;
   }
 
   // Render content according to active tab
@@ -113,12 +217,12 @@ export const App: React.FC = () => {
         return <BudgetsView />;
       case 'goals':
         return <SavingGoalsView />;
-      case 'insights':
-        return <InsightsView />;
       case 'family':
         return <FamilyWorkspaceView />;
       case 'settings':
         return <SettingsView />;
+      case 'admin':
+        return <AdminView />;
       case 'overview':
       default:
         return (
@@ -130,7 +234,7 @@ export const App: React.FC = () => {
                   Xin chào, {currentUser?.fullName || 'Người dùng'} 👋
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  Đây là bức tranh tài chính tổng quan của cá nhân và quỹ gia đình tháng 10/2026.
+                  {`Đây là bức tranh tài chính tổng quan của cá nhân và quỹ gia đình tháng ${new Date().getMonth() + 1}/${new Date().getFullYear()}.`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -187,12 +291,12 @@ export const App: React.FC = () => {
                   wallets={wallets}
                   leftToSpend={dashboardSummary?.leftToSpend ?? 0}
                   spendingPercentage={dashboardSummary?.spendingPercentageOfBudget ?? 0}
-                  onNewBudget={() => setActiveTab('budgets')}
+                  onNewBudget={() => handleTabChange('budgets')}
                   onNewWallet={() => setWalletModalOpen(true)}
                 />
                 <CategoryList
                   categories={dashboardSummary?.categoryExpenses || {}}
-                  onEdit={() => setActiveTab('budgets')}
+                  onEdit={() => handleTabChange('budgets')}
                 />
               </div>
             </div>
@@ -202,32 +306,32 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* 1. Sidebar */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenBot={() => setBotModalOpen(true)}
+        setActiveTab={handleTabChange}
+        onOpenBot={() => {
+          if (typeof (window as any).openBudgleeChat === 'function') {
+            (window as any).openBudgleeChat();
+          } else {
+            setBotModalOpen(true);
+          }
+        }}
       />
 
       {/* 2. Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto">
         <Header
-          onNewTransaction={() => setTransactionModalOpen(true)}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
+          onNewTransaction={() => {
+            setTransactionModalOpen(true);
+          }}
         />
 
         <main className="p-8 space-y-8 flex-1">{renderContent()}</main>
       </div>
 
       {/* All Application Modals */}
-      <BotInsightModal
-        isOpen={isBotModalOpen}
-        onClose={() => setBotModalOpen(false)}
-        recommendation={botRecommendation}
-      />
-
       <NewTransactionModal
         isOpen={isTransactionModalOpen}
         onClose={() => setTransactionModalOpen(false)}
@@ -240,6 +344,10 @@ export const App: React.FC = () => {
       <NewGoalModal />
       <DepositGoalModal />
       <InviteFamilyModal />
+      <ConfirmFamilyInviteModal />
+
+      {/* 3. Floating AI Chat Widget */}
+      <FloatingChatWidget />
     </div>
   );
 };

@@ -4,6 +4,7 @@ import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.FamilyInvitationRequest;
 import com.budglee.finance.dto.FamilyInvitationResponse;
 import com.budglee.finance.dto.FamilyMemberResponse;
+import com.budglee.finance.dto.FamilyUserLookupResponse;
 import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.FamilyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -122,12 +123,75 @@ public class FamilyController {
     @Operation(summary = "Chủ nhóm xóa thành viên khỏi gia đình")
     public ResponseEntity<ApiResponse<Void>> removeFamilyMember(
             @AuthenticationPrincipal UserPrincipal currentUser,
-            @PathVariable Long memberId
+            @PathVariable Long memberId,
+            @RequestParam(required = false) String email
     ) {
-        familyService.removeFamilyMember(currentUser.getId(), memberId);
+        familyService.removeFamilyMember(currentUser.getId(), memberId, email);
 
         return ResponseEntity.ok(
                 ApiResponse.ok(null, "Xóa thành viên khỏi gia đình thành công")
+        );
+    }
+
+    @PutMapping("/members/{memberId}/role")
+    @Operation(summary = "Cập nhật vai trò thành viên gia đình")
+    public ResponseEntity<ApiResponse<FamilyMemberResponse>> updateMemberRole(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @PathVariable Long memberId,
+            @RequestBody java.util.Map<String, String> body
+    ) {
+        String roleStr = body.get("role");
+        if (roleStr == null || roleStr.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Vai trò không hợp lệ"
+            );
+        }
+        com.budglee.finance.entity.Role newRole = com.budglee.finance.entity.Role.valueOf(roleStr);
+        FamilyMemberResponse response = familyService.updateMemberRole(currentUser.getId(), memberId, newRole);
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Cập nhật vai trò thành công")
+        );
+    }
+
+    @GetMapping("/check-user")
+    @Operation(summary = "Kiểm tra sự tồn tại và tính hợp lệ của tài khoản trước khi thêm vào gia đình")
+    public ResponseEntity<ApiResponse<FamilyUserLookupResponse>> checkUser(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam String email
+    ) {
+        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        FamilyUserLookupResponse response =
+                familyService.checkUserForFamily(currentUserId, email);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Tài khoản hợp lệ")
+        );
+    }
+
+    @PostMapping("/members")
+    @Operation(summary = "Thêm trực tiếp thành viên vào gia đình bằng email")
+    public ResponseEntity<ApiResponse<FamilyMemberResponse>> addDirectMember(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @Valid @RequestBody FamilyInvitationRequest request
+    ) {
+        FamilyMemberResponse response =
+                familyService.addDirectMember(currentUser.getId(), request);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Thêm thành viên vào sổ quỹ thành công")
+        );
+    }
+
+    @PostMapping("/upgrade")
+    @Operation(summary = "Nâng cấp tài khoản cá nhân lên Chủ hộ (FAMILY_ADMIN) và tạo nhóm gia đình")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> upgradeToFamilyAdmin(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestBody(required = false) java.util.Map<String, String> body
+    ) {
+        String familyName = body != null ? body.get("familyName") : null;
+        java.util.Map<String, Object> result = familyService.upgradeToFamilyAdmin(currentUser.getId(), familyName);
+        return ResponseEntity.ok(
+                ApiResponse.ok(result, "Kích hoạt sổ quỹ gia đình thành công")
         );
     }
 }

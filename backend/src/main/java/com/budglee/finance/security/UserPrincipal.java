@@ -20,6 +20,7 @@ public class UserPrincipal implements UserDetails {
     private String password;
     private Role role;
     private String familyGroupId;
+    private boolean enabled;
     private Collection<? extends GrantedAuthority> authorities;
 
     public static UserPrincipal create(User user) {
@@ -31,6 +32,7 @@ public class UserPrincipal implements UserDetails {
                 user.getPasswordHash(),
                 user.getRole(),
                 user.getFamilyGroupId(),
+                user.getEnabled() == null || user.getEnabled(),
                 Collections.singletonList(authority)
         );
     }
@@ -69,6 +71,6 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }

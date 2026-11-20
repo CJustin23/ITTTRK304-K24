@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Wallet as WalletIcon, CreditCard, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { Wallet } from '../types';
+import { consolidateWallets } from '../store/useStore';
 
 interface CardsSectionProps {
   wallets: Wallet[];
@@ -11,12 +12,13 @@ interface CardsSectionProps {
 }
 
 export const CardsSection: React.FC<CardsSectionProps> = ({
-  wallets,
+  wallets: rawWallets,
   leftToSpend,
   spendingPercentage,
   onNewBudget,
   onNewWallet,
 }) => {
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
   const isWarning = spendingPercentage >= 80 && spendingPercentage < 100;
   const isOverspent = spendingPercentage >= 100;
   const hasWallets = wallets.length > 0;

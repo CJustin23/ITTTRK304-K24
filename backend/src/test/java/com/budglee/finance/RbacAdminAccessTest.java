@@ -3,6 +3,7 @@ package com.budglee.finance;
 import com.budglee.finance.config.SystemAdminBootstrap;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.User;
+import com.budglee.finance.repository.FamilyGroupRepository;
 import com.budglee.finance.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +42,7 @@ class RbacAdminAccessTest {
 
     private static final String PASSWORD = "MatKhau123";
     private static final String ADMIN_API = "/api/v1/admin/users";
+    private static final String ADMIN_GROUPS = "/api/v1/admin/family-groups";
 
     @Autowired
     private MockMvc mvc;
@@ -50,6 +52,9 @@ class RbacAdminAccessTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FamilyGroupRepository familyGroupRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -78,7 +83,7 @@ class RbacAdminAccessTest {
     }
 
     private Account register(Role role, String familyGroupId) throws Exception {
-        String email = "rbac." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac." + UUID.randomUUID() + "@gmail.com";
         Map<String, Object> body = new HashMap<>();
         body.put("fullName", "Thành viên " + role);
         body.put("email", email);
@@ -98,7 +103,7 @@ class RbacAdminAccessTest {
      * Vai trò đặc quyền không đăng ký qua API được (DUAN-39), nên dựng thẳng trong CSDL rồi lấy token.
      */
     private Account createAccount(Role role, String familyGroupId) throws Exception {
-        String email = "rbac." + role.name().toLowerCase() + "." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac." + role.name().toLowerCase() + "." + UUID.randomUUID() + "@gmail.com";
         userRepository.save(User.builder()
                 .fullName("Quản trị " + role)
                 .email(email)
@@ -192,15 +197,18 @@ class RbacAdminAccessTest {
 
     @Test
     void familyAdminCannotManageRoles() throws Exception {
-        Account familyAdmin = createAccount(Role.FAMILY_ADMIN, "HN-RBAC-" + UUID.randomUUID());
+        Account familyAdmin = createAccount(Role.FAMILY_ADMIN, newGroup("HN-RBAC-" + UUID.randomUUID()));
 
         assertThat(call("GET", ADMIN_API, familyAdmin, null).getResponse().getStatus()).isEqualTo(403);
         assertThat(assignRole(familyAdmin, 1L, Role.SYSTEM_ADMIN, null).getResponse().getStatus()).isEqualTo(403);
+        assertThat(call("POST", ADMIN_GROUPS, familyAdmin,
+                Map.of("id", "HN-TRAI-" + UUID.randomUUID(), "name", "Nhóm trái phép", "ownerId", 1L))
+                .getResponse().getStatus()).isEqualTo(403);
     }
 
     @Test
     void grantedFamilyAdminWritesOnMemberWalletWithTheOldToken() throws Exception {
-        String group = "HN-RBAC-" + UUID.randomUUID();
+        String group = newGroup("HN-RBAC-" + UUID.randomUUID());
         Account member = register(Role.FAMILY_MEMBER, group);
         long walletId = createWallet(member, "Ví hộ RBAC", "300000");
         Account newcomer = register(Role.FAMILY_MEMBER, group);
@@ -219,7 +227,7 @@ class RbacAdminAccessTest {
 
     @Test
     void revokedFamilyRoleStopsSeeingTheSharedWallets() throws Exception {
-        String group = "HN-RBAC-" + UUID.randomUUID();
+        String group = newGroup("HN-RBAC-" + UUID.randomUUID());
         Account owner = register(Role.FAMILY_MEMBER, group);
         createWallet(owner, "Ví quỹ chung", "500000");
         Account member = register(Role.FAMILY_MEMBER, group);
@@ -259,7 +267,7 @@ class RbacAdminAccessTest {
 
     @Test
     void bootstrapCreatesTheFirstSystemAdminAndThatAdminCanGrantRoles() throws Exception {
-        String email = "rbac.bootstrap." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac.bootstrap." + UUID.randomUUID() + "@gmail.com";
 
         new SystemAdminBootstrap(userRepository, passwordEncoder, email.toUpperCase(Locale.ROOT), PASSWORD)
                 .run(null);
@@ -268,7 +276,7 @@ class RbacAdminAccessTest {
         Account admin = new Account(email, login(email));
         assertThat(call("GET", ADMIN_API, admin, null).getResponse().getStatus()).isEqualTo(200);
 
-        Account member = register(Role.FAMILY_MEMBER, "HN-RBAC-" + UUID.randomUUID());
+        Account member = register(Role.FAMILY_MEMBER, newGroup("HN-RBAC-" + UUID.randomUUID()));
         assertThat(assignRole(admin, idOf(member), Role.FAMILY_ADMIN, memberGroup(member)).getResponse().getStatus())
                 .isEqualTo(200);
     }
@@ -284,7 +292,7 @@ class RbacAdminAccessTest {
 
     @Test
     void bootstrapRefusesToCreateAdminWithAWeakPassword() throws Exception {
-        String email = "rbac.weak." + UUID.randomUUID() + "@budglee.dev";
+        String email = "rbac.weak." + UUID.randomUUID() + "@gmail.com";
         long before = userRepository.count();
 
         new SystemAdminBootstrap(userRepository, passwordEncoder, email, "123").run(null);
@@ -295,5 +303,221 @@ class RbacAdminAccessTest {
 
     private String memberGroup(Account account) {
         return userRepository.findByEmail(account.email()).orElseThrow().getFamilyGroupId();
+    }
+
+    private String newGroup(String code) {
+        FamilyGroupTestData.newGroup(familyGroupRepository, userRepository, code);
+        return code;
+    }
+
+    private MvcResult registerRaw(Map<String, Object> body) throws Exception {
+        return mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsString(body)))
+                .andReturn();
+    }
+
+    @Test
+    void adminCreatesFamilyGroupAndItsOwnerCanUseTheInvitationApi() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account owner = register(Role.INDIVIDUAL_USER, null);
+        Account outsider = register(Role.INDIVIDUAL_USER, null);
+        String code = "HN-GROUP-" + UUID.randomUUID();
+
+        MvcResult created = call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Hộ demo", "ownerId", idOf(owner)));
+
+        assertThat(created.getResponse().getStatus()).isEqualTo(200);
+        assertThat(data(created).at("/createdBy/role").asText()).isEqualTo("FAMILY_ADMIN");
+        assertThat(data(created).at("/createdBy/familyGroupId").asText()).isEqualTo(code);
+
+        MvcResult members = call("GET", "/api/v1/family/members", owner, null);
+        assertThat(members.getResponse().getStatus())
+                .as("FamilyService bắt chủ hộ đúng là người tạo nhóm; token cũ phải mang vai trò mới").isEqualTo(200);
+
+        assertThat(call("POST", "/api/v1/family/invitations", owner, Map.of("email", outsider.email()))
+                .getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void registrationWithUnknownFamilyGroupCodeIsRejectedBeforeTheDatabase() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("fullName", "Người đăng ký");
+        body.put("email", "rbac.group." + UUID.randomUUID() + "@gmail.com");
+        body.put("password", PASSWORD);
+        body.put("role", Role.FAMILY_MEMBER.name());
+        body.put("familyGroupId", "KHONG-TON-TAI-" + UUID.randomUUID());
+
+        MvcResult result = registerRaw(body);
+
+        assertThat(result.getResponse().getStatus())
+                .as("V4 ràng buộc khoá ngoại nên mã lạ phải thành 400, không phải 500").isEqualTo(400);
+        assertThat(json(result).at("/message").asText()).contains("Mã nhóm hộ không tồn tại");
+    }
+
+    @Test
+    void registrationWithKnownFamilyGroupCodeSucceeds() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account owner = register(Role.INDIVIDUAL_USER, null);
+        String code = "HN-GROUP-" + UUID.randomUUID();
+        assertThat(call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Hộ để đăng ký", "ownerId", idOf(owner))).getResponse().getStatus())
+                .isEqualTo(200);
+
+        Account member = register(Role.FAMILY_MEMBER, code);
+
+        assertThat(member.token()).startsWith("eyJ");
+        assertThat(userRepository.findByEmail(member.email()).orElseThrow().getFamilyGroupId()).isEqualTo(code);
+    }
+
+    @Test
+    void publicFamilyOwnerRegistrationCreatesAnOwnedGroupAndCanLogInWithRealJwt() throws Exception {
+        String email = "family.owner." + UUID.randomUUID() + "@gmail.com";
+        MvcResult registered = mvc.perform(post("/api/v1/auth/register/family-owner")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of("fullName", "Chủ hộ mới", "email", email,
+                        "password", PASSWORD, "familyName", "Nhà mới")))).andReturn();
+
+        assertThat(registered.getResponse().getStatus()).isEqualTo(200);
+        User owner = userRepository.findByEmail(email).orElseThrow();
+        assertThat(owner.getRole()).isEqualTo(Role.FAMILY_ADMIN);
+        assertThat(owner.getFamilyGroupId()).isNotBlank();
+        assertThat(familyGroupRepository.findById(owner.getFamilyGroupId())).isPresent();
+        Account authenticated = new Account(email, login(email));
+        assertThat(authenticated.token()).startsWith("eyJ");
+        assertThat(call("GET", "/api/v1/family/members", authenticated, null).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void familyGroupCodeCannotBeReused() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account firstOwner = register(Role.INDIVIDUAL_USER, null);
+        Account secondOwner = register(Role.INDIVIDUAL_USER, null);
+        String code = "HN-GROUP-" + UUID.randomUUID();
+
+        assertThat(call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Nhóm thứ nhất", "ownerId", idOf(firstOwner))).getResponse().getStatus())
+                .isEqualTo(200);
+
+        assertThat(call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", code, "name", "Nhóm trùng mã", "ownerId", idOf(secondOwner))).getResponse().getStatus())
+                .isEqualTo(409);
+    }
+
+    @Test
+    void adminCannotAssignAFamilyRoleWithAnUnknownGroupCode() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account target = register(Role.INDIVIDUAL_USER, null);
+
+        MvcResult result = assignRole(systemAdmin, idOf(target), Role.FAMILY_ADMIN, "KHONG-CO-" + UUID.randomUUID());
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(userRepository.findById(idOf(target)).orElseThrow().getRole()).isEqualTo(Role.INDIVIDUAL_USER);
+    }
+
+    @Test
+    void someoneAlreadyInAGroupCannotOwnANewOne() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account owner = register(Role.INDIVIDUAL_USER, null);
+        String firstCode = "HN-GROUP-" + UUID.randomUUID();
+        call("POST", ADMIN_GROUPS, systemAdmin, Map.of("id", firstCode, "name", "Nhóm một", "ownerId", idOf(owner)));
+
+        MvcResult result = call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", "HN-GROUP-" + UUID.randomUUID(), "name", "Nhóm hai", "ownerId", idOf(owner)));
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(memberGroup(owner)).isEqualTo(firstCode);
+    }
+
+    @Test
+    void systemAdminCannotOwnAFamilyGroup() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+
+        MvcResult result = call("POST", ADMIN_GROUPS, systemAdmin,
+                Map.of("id", "HN-GROUP-" + UUID.randomUUID(), "name", "Nhóm của admin", "ownerId", idOf(systemAdmin)));
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+    }
+
+    // --- DUAN-40: khoa tai khoan (V13) ---
+
+    private MvcResult setStatus(Account admin, long targetId, boolean enabled) throws Exception {
+        return call("PUT", ADMIN_API + "/" + targetId + "/status", admin, Map.of("enabled", enabled));
+    }
+
+    @Test
+    void disabledAccountLosesAccessWithTheTokenItAlreadyHolds() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account member = register(Role.INDIVIDUAL_USER, null);
+        createWallet(member, "Ví của thành viên", "100000");
+        assertThat(walletList(member)).contains("Ví của thành viên");
+
+        MvcResult disabled = setStatus(systemAdmin, idOf(member), false);
+
+        assertThat(disabled.getResponse().getStatus()).isEqualTo(200);
+        assertThat(data(disabled).at("/enabled").asBoolean()).isFalse();
+        assertThat(walletList(member))
+                .as("token còn hạn nhưng CSDL báo tài khoản đã tắt thì phải từ chối ngay")
+                .doesNotContain("Ví của thành viên");
+        assertThat(call("GET", "/api/v1/wallets", member, null).getResponse().getStatus()).isEqualTo(401);
+
+        MvcResult relogin = mvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsString(Map.of("email", member.email(), "password", PASSWORD)))).andReturn();
+        assertThat(relogin.getResponse().getStatus())
+                .as("tài khoản bị khoá phải nói rõ là bị khoá, không phải sai mật khẩu")
+                .isEqualTo(403);
+        assertThat(json(relogin).at("/message").asText()).contains("khoá");
+    }
+
+    @Test
+    void enabledAccountWorksAgainThroughTheSameApi() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account member = register(Role.INDIVIDUAL_USER, null);
+        long memberId = idOf(member);
+        createWallet(member, "Ví chờ mở", "50000");
+        setStatus(systemAdmin, memberId, false);
+
+        assertThat(setStatus(systemAdmin, memberId, true).getResponse().getStatus()).isEqualTo(200);
+
+        Account reopened = new Account(member.email(), login(member.email()));
+        assertThat(reopened.token()).startsWith("eyJ");
+        assertThat(walletList(reopened)).contains("Ví chờ mở");
+    }
+
+    @Test
+    void adminCannotDisableItsOwnAccount() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+
+        MvcResult result = setStatus(systemAdmin, idOf(systemAdmin), false);
+
+        assertThat(result.getResponse().getStatus())
+                .as("tắt chính mình là cách nhanh nhất để không ai mở lại được nữa").isEqualTo(400);
+        assertThat(userRepository.findById(idOf(systemAdmin)).orElseThrow().getEnabled()).isTrue();
+    }
+
+    @Test
+    void disabledAdminCanBeDemotedBecauseItNoLongerHoldsPower() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account staleAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        long staleId = idOf(staleAdmin);
+        assertThat(setStatus(systemAdmin, staleId, false).getResponse().getStatus()).isEqualTo(200);
+
+        MvcResult result = assignRole(systemAdmin, staleId, Role.INDIVIDUAL_USER, null);
+
+        assertThat(result.getResponse().getStatus())
+                .as("tài khoản đã tắt không gán vai trò lại được nên hạ cấp nó không làm mất người quản trị")
+                .isEqualTo(200);
+    }
+
+    @Test
+    void settingTheStatusItAlreadyHasIsRejected() throws Exception {
+        Account systemAdmin = createAccount(Role.SYSTEM_ADMIN, null);
+        Account member = register(Role.INDIVIDUAL_USER, null);
+
+        MvcResult result = setStatus(systemAdmin, idOf(member), true);
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(400);
+        assertThat(json(result).at("/message").asText()).contains("đang bật");
     }
 }

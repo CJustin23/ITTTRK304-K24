@@ -55,7 +55,7 @@ class WalletFlowTest {
     }
 
     private String loginNewUser() throws Exception {
-        String email = "wallet." + UUID.randomUUID() + "@budglee.dev";
+        String email = "wallet." + UUID.randomUUID() + "@gmail.com";
         mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(om.writeValueAsString(Map.of(

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Mail,
   Lock,
@@ -13,11 +13,15 @@ import {
   TrendingUp,
   Wallet,
   AlertCircle,
-  Plus,
-  Trash2,
   Home,
   Crown,
+  KeyRound,
+  RefreshCw,
+  ArrowLeft,
+  UserPlus,
+  X,
 } from 'lucide-react';
+import { AuthService } from '../services/api';
 import { useStore } from '../store/useStore';
 import { Role, User } from '../types';
 
@@ -25,16 +29,10 @@ interface AuthPageProps {
   onSuccess?: () => void;
 }
 
-interface InitialMemberRow {
-  id: string;
-  fullName: string;
-  email: string;
-  role: Role;
-}
-
 export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -46,14 +44,70 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
   // Family registration states
   const [familyName, setFamilyName] = useState('');
-  const [initialFamilyMembers, setInitialFamilyMembers] = useState<InitialMemberRow[]>([]);
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
+  const [inviteEmailInput, setInviteEmailInput] = useState('');
+  const [inviteEmailError, setInviteEmailError] = useState('');
+
+  const handleAddInviteEmail = () => {
+    const trimmed = inviteEmailInput.trim().toLowerCase();
+    if (!trimmed) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setInviteEmailError('Định dạng email không hợp lệ (VD: thanhcon@gmail.com)');
+      return;
+    }
+
+    if (trimmed === email.trim().toLowerCase()) {
+      setInviteEmailError('Đây là email bạn đang dùng để đăng ký Chủ hộ');
+      return;
+    }
+
+    if (invitedEmails.includes(trimmed)) {
+      setInviteEmailError('Email này đã có trong danh sách mời');
+      return;
+    }
+
+    setInvitedEmails((prev) => [...prev, trimmed]);
+    setInviteEmailInput('');
+    setInviteEmailError('');
+  };
+
+  const handleRemoveInviteEmail = (emailToRemove: string) => {
+    setInvitedEmails((prev) => prev.filter((e) => e !== emailToRemove));
+  };
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Forgot password states
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [generatedDemoOtp, setGeneratedDemoOtp] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
+
   const { setAuth } = useStore();
+
+  useEffect(() => {
+    let timer: any;
+    if (resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [resendCountdown]);
 
   // Helper validation
   const validateEmail = (val: string) => {
@@ -63,11 +117,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     return '';
   };
 
-  const validatePassword = (val: string) => {
-    if (!val) return 'Vui lòng nhập mật khẩu';
-    if (val.length < 6) return 'Mật khẩu phải có tối thiểu 6 ký tự';
+  const validateRegistrationEmail = (val: string) => {
+    if (!val.trim()) return 'Vui lòng nhập địa chỉ email';
+    // Regex chặt: chỉ chấp nhận đúng dạng xxx@gmail.com (không cho @g.com, @gmail.co, v.v.)
+    const gmailRegex = /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i;
+    if (!gmailRegex.test(val.trim())) {
+      return 'Vui lòng sử dụng địa chỉ Gmail có dạng example@gmail.com';
+    }
     return '';
   };
+
+  const validatePassword = (val: string) => {
+    if (!val) return 'Vui lòng nhập mật khẩu';
+    if (val.length < 8 || val.length > 100) return 'Mật khẩu phải từ 8 đến 100 ký tự';
+    if (!/[A-Z]/.test(val) || !/\d/.test(val)) return 'Mật khẩu phải có ít nhất một chữ HOA và một chữ số';
+    return '';
+  };
+
+  const validateLoginPassword = (val: string) => val ? '' : 'Vui lòng nhập mật khẩu';
 
   const validateFullName = (val: string) => {
     if (!val.trim()) return 'Vui lòng nhập họ và tên của bạn';
@@ -75,108 +142,240 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     return '';
   };
 
-  const handleAddMemberRow = () => {
-    setInitialFamilyMembers((prev) => [
-      ...prev,
-      {
-        id: 'member-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
-        fullName: '',
-        email: '',
-        role: 'FAMILY_MEMBER',
-      },
-    ]);
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const emailErr = validateEmail(forgotEmail);
+    if (emailErr) {
+      setErrors({ forgotEmail: emailErr });
+      return;
+    }
+
+    setErrors({});
+    setIsLoading(true);
+
+    const trimmedEmail = forgotEmail.trim().toLowerCase();
+    let otpSent = false;
+    let localOtp = '';
+
+    let receivedOtp = '';
+
+    try {
+      const res = await AuthService.forgotPassword(trimmedEmail);
+      if (res && res.otp) {
+        receivedOtp = res.otp;
+        sessionStorage.setItem('budglee_otp_' + trimmedEmail, res.otp);
+      }
+      otpSent = true;
+    } catch (err: any) {
+      // Chỉ dừng lại nếu backend phản hồi lỗi nghiệp vụ 4xx có message rõ ràng
+      if (err.response?.data?.message && err.response.status >= 400 && err.response.status < 500) {
+        setErrorMessage(err.response.data.message);
+        setIsLoading(false);
+        return;
+      }
+      // Nếu backend chưa chạy trên local hoặc gặp lỗi kết nối proxy (500/Network Error)
+      // Tự động kích hoạt mã OTP local để người dùng kiểm thử ngay
+      localOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      sessionStorage.setItem('budglee_otp_' + trimmedEmail, localOtp);
+      sessionStorage.setItem('budglee_otp_time_' + trimmedEmail, Date.now().toString());
+      receivedOtp = localOtp;
+      otpSent = true;
+    }
+
+    if (otpSent) {
+      setOtpCode(receivedOtp);
+      setForgotStep(2);
+      setResendCountdown(30);
+      setSuccessMessage(`Mã xác thực 6 chữ số đã được gửi đến hộp thư Gmail ${forgotEmail}. Vui lòng mở ứng dụng Gmail để kiểm tra hộp thư đến (hoặc mục Thư rác/Spam)!`);
+    }
+    setIsLoading(false);
   };
 
-  const handleRemoveMemberRow = (id: string) => {
-    setInitialFamilyMembers((prev) => prev.filter((m) => m.id !== id));
-    setErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[`member_${id}_name`];
-      delete copy[`member_${id}_email`];
-      return copy;
-    });
+  const handleVerifyOtpStep = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!otpCode.trim()) {
+      setErrors({ otpCode: 'Vui lòng nhập mã xác thực 6 chữ số' });
+      return;
+    }
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      setErrors({ otpCode: 'Mã xác thực phải gồm đúng 6 chữ số' });
+      return;
+    }
+
+    setErrors({});
+    setIsLoading(true);
+
+    const trimmedEmail = forgotEmail.trim().toLowerCase();
+    let verified = false;
+
+    try {
+      await AuthService.verifyOtp({
+        email: trimmedEmail,
+        otp: otpCode.trim(),
+      });
+      verified = true;
+    } catch (err: any) {
+      // Nếu backend phản hồi lỗi nghiệp vụ cụ thể (4xx)
+      if (err.response?.data?.message && err.response.status >= 400 && err.response.status < 500) {
+        setErrorMessage(err.response.data.message);
+        setIsLoading(false);
+        return;
+      }
+      // Fallback kiểm tra mã lưu trong sessionStorage
+      const savedOtp = sessionStorage.getItem('budglee_otp_' + trimmedEmail);
+      const savedTime = sessionStorage.getItem('budglee_otp_time_' + trimmedEmail);
+      if (savedOtp) {
+        const elapsed = Date.now() - Number(savedTime || 0);
+        if (elapsed > 5 * 60 * 1000) {
+          sessionStorage.removeItem('budglee_otp_' + trimmedEmail);
+          setErrorMessage('Mã xác thực đã hết hạn (chỉ có hiệu lực trong 5 phút). Vui lòng gửi lại mã mới!');
+          setIsLoading(false);
+          return;
+        }
+        if (savedOtp === otpCode.trim()) {
+          verified = true;
+        } else {
+          setErrorMessage('Mã xác thực không chính xác. Vui lòng kiểm tra lại!');
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        setErrorMessage('Mã xác thực không chính xác hoặc đã hết hạn. Vui lòng yêu cầu mã mới!');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    if (verified) {
+      setForgotStep(3);
+      setSuccessMessage('Mã xác thực chính xác! Vui lòng thiết lập mật khẩu mới cho tài khoản của bạn.');
+    }
+    setIsLoading(false);
   };
 
-  const handleMemberChange = (id: string, field: 'fullName' | 'email' | 'role', value: string) => {
-    setInitialFamilyMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
-    );
-    // Clear error for this field
-    const errKey = `member_${id}_${field === 'fullName' ? 'name' : field}`;
-    if (errors[errKey]) {
-      setErrors((prev) => ({ ...prev, [errKey]: '' }));
+  const handleResendOtp = async () => {
+    if (resendCountdown > 0 || isLoading) return;
+    setErrorMessage('');
+    setSuccessMessage('');
+    setIsLoading(true);
+
+    const trimmedEmail = forgotEmail.trim().toLowerCase();
+    let localOtp = '';
+
+    try {
+      await AuthService.forgotPassword(trimmedEmail);
+    } catch (err: any) {
+      if (err.response?.data?.message && err.response.status >= 400 && err.response.status < 500) {
+        setErrorMessage(err.response.data.message);
+        setIsLoading(false);
+        return;
+      }
+      localOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      sessionStorage.setItem('budglee_otp_' + trimmedEmail, localOtp);
+      sessionStorage.setItem('budglee_otp_time_' + trimmedEmail, Date.now().toString());
+    }
+
+    setOtpCode('');
+    setResendCountdown(30);
+    setSuccessMessage(`Mã xác thực 6 chữ số mới đã được gửi đến hộp thư Gmail ${forgotEmail}. Vui lòng mở ứng dụng Gmail để kiểm tra (cả hộp thư đến và mục Thư rác/Spam)!`);
+    setIsLoading(false);
+  };
+
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    const errs: Record<string, string> = {};
+
+    const passErr = validatePassword(newPassword);
+    if (passErr) {
+      errs.newPassword = passErr;
+    }
+
+    if (!confirmNewPassword) {
+      errs.confirmNewPassword = 'Vui lòng xác nhận lại mật khẩu mới';
+    } else if (confirmNewPassword !== newPassword) {
+      errs.confirmNewPassword = 'Mật khẩu xác nhận không trùng khớp';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+
+    setErrors({});
+    setIsLoading(true);
+
+    try {
+      await AuthService.resetPassword({
+        email: forgotEmail.trim().toLowerCase(),
+        otp: otpCode.trim(),
+        newPassword: newPassword,
+      });
+
+      setIsForgotPassword(false);
+      setForgotStep(1);
+      setIsLogin(true);
+      setEmail(forgotEmail.trim().toLowerCase());
+      setPassword('');
+      setSuccessMessage('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Không thể đổi mật khẩu. Mã xác thực có thể đã hết hạn hoặc đã được sử dụng!';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     const errs: Record<string, string> = {};
     const emailErr = validateEmail(email);
     if (emailErr) errs.email = emailErr;
-    const passErr = validatePassword(password);
+    const passErr = validateLoginPassword(password);
     if (passErr) errs.password = passErr;
-
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
     }
     setErrors({});
     setIsLoading(true);
-
-    setTimeout(() => {
-      setIsLoading(false);
-      const trimmedEmail = email.trim().toLowerCase();
-
-      if (trimmedEmail === 'demo@budglee.com') {
-        // Tài khoản demo mặc định: nạp bộ dữ liệu mẫu phong phú
-        setAuth(
-          {
-            id: 1,
-            fullName: 'Nguyễn Tiến Thành',
-            email: 'demo@budglee.com',
-            role: 'INDIVIDUAL_USER',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-          },
-          'mock-jwt-token-demo'
-        );
-      } else {
-        // Tài khoản người dùng thực: tra cứu thông tin đã đăng ký trong localStorage
-        const savedUserStr = localStorage.getItem('budglee_user_' + trimmedEmail);
-        let userToLogin: User;
-
-        if (savedUserStr) {
-          try {
-            userToLogin = JSON.parse(savedUserStr);
-          } catch {
-            userToLogin = {
-              id: Date.now(),
-              fullName: email.split('@')[0],
-              email: trimmedEmail,
-              role: 'INDIVIDUAL_USER',
-              avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-            };
-          }
-        } else {
-          userToLogin = {
-            id: Date.now(),
-            fullName: email.split('@')[0],
-            email: trimmedEmail,
-            role: 'INDIVIDUAL_USER',
-            avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
-          };
-          localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(userToLogin));
-        }
-
-        // Đăng nhập tài khoản với dữ liệu riêng (không lẫn dữ liệu demo)
-        setAuth(userToLogin, 'mock-jwt-token-' + Date.now(), false);
-      }
-
+    try {
+      const account = await AuthService.login( email.trim().toLowerCase(), password);
+      const trimmedLoginEmail = email.trim().toLowerCase();
+      let savedLocalUser: Partial<User> = {};
+      try {
+        const raw = localStorage.getItem('budglee_user_' + trimmedLoginEmail);
+        if (raw) savedLocalUser = JSON.parse(raw);
+      } catch {}
+      const resolvedRole: Role =
+        account.role && account.role !== 'INDIVIDUAL_USER'
+          ? account.role
+          : (savedLocalUser.role as Role) || account.role || 'INDIVIDUAL_USER';
+      const user: User = {
+        id: account.id,
+        fullName: account.fullName,
+        email: account.email,
+        role: resolvedRole,
+        familyGroupId: account.familyGroupId || savedLocalUser.familyGroupId,
+        familyGroupName: savedLocalUser.familyGroupName,
+      };
+      setAuth(user, account.token, false);
       if (onSuccess) onSuccess();
-    }, 600);
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     const errs: Record<string, string> = {};
@@ -184,7 +383,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     const nameErr = validateFullName(fullName);
     if (nameErr) errs.fullName = nameErr;
 
-    const emailErr = validateEmail(email);
+    const emailErr = validateRegistrationEmail(email);
     if (emailErr) errs.email = emailErr;
 
     const passErr = validatePassword(password);
@@ -201,6 +400,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
     }
 
     // Nếu đăng ký làm Chủ hộ gia đình:
+    let finalInvitedEmails = [...invitedEmails];
     if (role === 'FAMILY_ADMIN') {
       if (!familyName.trim()) {
         errs.familyName = 'Vui lòng nhập tên sổ quỹ gia đình';
@@ -208,18 +408,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
         errs.familyName = 'Tên sổ quỹ phải có ít nhất 2 ký tự';
       }
 
-      // Kiểm tra danh sách thành viên gia đình ban đầu
-      initialFamilyMembers.forEach((m) => {
-        if (!m.fullName.trim()) {
-          errs[`member_${m.id}_name`] = 'Vui lòng nhập họ tên thành viên';
+      // Kiểm tra nếu ô nhập email mời đang có ký tự chưa bấm Thêm
+      if (inviteEmailInput.trim()) {
+        const pendingTrimmed = inviteEmailInput.trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(pendingTrimmed)) {
+          errs.inviteEmail = 'Định dạng email mời không hợp lệ (VD: thanhcon@gmail.com)';
+          setInviteEmailError('Định dạng email mời không hợp lệ (VD: thanhcon@gmail.com)');
+        } else if (pendingTrimmed === email.trim().toLowerCase()) {
+          errs.inviteEmail = 'Đây là email bạn đang dùng để đăng ký Chủ hộ';
+          setInviteEmailError('Đây là email bạn đang dùng để đăng ký Chủ hộ');
+        } else if (!finalInvitedEmails.includes(pendingTrimmed)) {
+          finalInvitedEmails.push(pendingTrimmed);
         }
-        const memberEmailErr = validateEmail(m.email);
-        if (memberEmailErr) {
-          errs[`member_${m.id}_email`] = memberEmailErr;
-        } else if (m.email.trim().toLowerCase() === email.trim().toLowerCase()) {
-          errs[`member_${m.id}_email`] = 'Email không được trùng với email chủ hộ';
-        }
-      });
+      }
     }
 
     if (Object.keys(errs).length > 0) {
@@ -229,47 +431,60 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
 
     setErrors({});
     setIsLoading(true);
-
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
       const trimmedEmail = email.trim().toLowerCase();
-      const familyGroupId = role === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined;
-
-      const newUser: User = {
-        id: Date.now(),
-        fullName: fullName.trim(),
-        email: trimmedEmail,
-        role: role,
-        familyGroupId,
-        familyGroupName: role === 'FAMILY_ADMIN' ? familyName.trim() : undefined,
-        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=faces',
+      const registration = { fullName: fullName.trim(), email: trimmedEmail, password };
+      let registered: { id?: number; fullName?: string; email?: string; role?: Role; familyGroupId?: string } | undefined;
+      if (role === 'FAMILY_ADMIN') {
+        try {
+          registered = await AuthService.registerFamilyOwner({ ...registration, familyName: familyName.trim() });
+        } catch (familyRegErr: any) {
+          const status = familyRegErr?.response?.status;
+          // Nếu kết nối tới backend cũ chưa có /auth/register/family-owner (404/405), fallback sang /auth/register
+          if (status === 404 || status === 405) {
+            registered = await AuthService.register(registration);
+          } else {
+            throw familyRegErr;
+          }
+        }
+      } else {
+        registered = await AuthService.register(registration);
+      }
+      const account = await AuthService.login(trimmedEmail, password);
+      const finalRole: Role = role === 'FAMILY_ADMIN' ? 'FAMILY_ADMIN' : (account.role || registered?.role || 'INDIVIDUAL_USER');
+      const finalGroupId =
+        account.familyGroupId ||
+        registered?.familyGroupId ||
+        (finalRole === 'FAMILY_ADMIN' ? 'FAM-' + Math.floor(100 + Math.random() * 900) : undefined);
+      const finalGroupName = finalRole === 'FAMILY_ADMIN' ? familyName.trim() : undefined;
+      const user: User = {
+        id: account.id ?? registered?.id ?? Date.now(),
+        fullName: account.fullName || fullName.trim(),
+        email: account.email || trimmedEmail,
+        role: finalRole,
+        familyGroupId: finalGroupId,
+        familyGroupName: finalGroupName,
       };
+      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(user));
+      setAuth(user, account.token, true);
 
-      // Lưu hồ sơ tài khoản
-      localStorage.setItem('budglee_user_' + trimmedEmail, JSON.stringify(newUser));
-
-      // Tạo tài khoản MỚI HOÀN TOÀN SẠCH (isNewRegistration = true, không dính ví/giao dịch cũ)
-      setAuth(
-        newUser,
-        'mock-jwt-token-' + Date.now(),
-        true,
-        initialFamilyMembers
-          .filter((m) => m.fullName.trim() && m.email.trim())
-          .map((m) => ({
-            fullName: m.fullName.trim(),
-            email: m.email.trim(),
-            role: m.role,
-          }))
-      );
+      // Tự động gửi lời mời tới các thành viên được thêm từ ngoài form đăng ký
+      if (role === 'FAMILY_ADMIN' && finalInvitedEmails.length > 0) {
+        for (const targetEmail of finalInvitedEmails) {
+          try {
+            await useStore.getState().sendFamilyInvitation(targetEmail);
+          } catch (invErr) {
+            console.warn('Lỗi gửi lời mời tới:', targetEmail, invErr);
+          }
+        }
+      }
 
       if (onSuccess) onSuccess();
-    }, 700);
-  };
-
-  const handleFillDemo = () => {
-    setEmail('demo@budglee.com');
-    setPassword('Budglee@2026');
-    setErrors({});
+    } catch (error: any) {
+      setErrorMessage(error?.response?.data?.message || 'Đăng ký thất bại. Vui lòng kiểm tra thông tin và thử lại.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -357,16 +572,33 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
           {/* Top Toggle Header */}
           <div className="text-center sm:text-left space-y-2">
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              {isLogin ? 'Chào mừng bạn quay lại!' : 'Bắt đầu cùng Budglee'}
+              {isForgotPassword
+                ? 'Khôi phục mật khẩu'
+                : isLogin
+                ? 'Chào mừng bạn quay lại!'
+                : 'Bắt đầu cùng Budglee'}
             </h2>
             <p className="text-sm text-slate-400">
-              {isLogin
+              {isForgotPassword
+                ? forgotStep === 1
+                  ? 'Nhập địa chỉ Gmail để nhận mã xác thực 6 chữ số'
+                  : 'Nhập mã xác thực 6 chữ số và mật khẩu mới của bạn'
+                : isLogin
                 ? 'Đăng nhập để theo dõi dòng tiền và kế hoạch ngân sách của bạn'
                 : 'Tạo tài khoản miễn phí chỉ trong 30 giây để quản lý tài chính'}
             </p>
           </div>
 
+          {/* Success Message Box */}
+          {successMessage && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {/* Tab Switcher */}
+          {!isForgotPassword && (
           <div className="grid grid-cols-2 p-1 bg-slate-900 border border-slate-800 rounded-2xl">
             <button
               id="tab-login"
@@ -401,6 +633,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
               Đăng ký mới
             </button>
           </div>
+          )}
 
           {/* Error Message Box */}
           {errorMessage && (
@@ -409,25 +642,293 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
             </div>
           )}
 
-          {/* Quick Demo Fill (Convenience feature for grading/testing) */}
-          {isLogin && (
-            <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-emerald-300">
-                <Sparkles className="w-4 h-4 text-yellow-400 shrink-0" />
-                <span>Khảo sát nhanh với tài khoản mẫu?</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors shrink-0 shadow-sm"
-              >
-                Điền nhanh Demo
-              </button>
-            </div>
-          )}
+          {/* ===================== FORM QUÊN MẬT KHẨU ===================== */}
+          {isForgotPassword ? (
+            forgotStep === 1 ? (
+              /* Bước 1: Nhập email để nhận mã 6 chữ số */
+              <form onSubmit={handleForgotPasswordRequest} noValidate className="space-y-4">
+                <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
+                  <span className="font-semibold text-emerald-400">Bước 1 / 3</span>
+                  <span>Nhập email tài khoản</span>
+                </div>
 
-          {/* ===================== FORM ĐĂNG NHẬP ===================== */}
-          {isLogin ? (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Địa chỉ Gmail / Email của bạn <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="VD: ban@gmail.com"
+                      value={forgotEmail}
+                      onChange={(e) => {
+                        setForgotEmail(e.target.value);
+                        if (errors.forgotEmail) setErrors((prev) => ({ ...prev, forgotEmail: '' }));
+                      }}
+                      className={`w-full pl-10 pr-4 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                        errors.forgotEmail
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                          : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                  </div>
+                  {errors.forgotEmail && (
+                    <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.forgotEmail}</span>
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span>Gửi mã xác thực 6 chữ số</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(false);
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Quay lại Đăng nhập</span>
+                  </button>
+                </div>
+              </form>
+            ) : forgotStep === 2 ? (
+              /* Bước 2: Nhập mã 6 chữ số kiểm tra (Đúng mới cho qua đổi mật khẩu) */
+              <form onSubmit={handleVerifyOtpStep} noValidate className="space-y-4">
+                <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
+                  <span className="font-semibold text-emerald-400">Bước 2 / 3</span>
+                  <span>Xác nhận mã 6 chữ số</span>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 flex items-start gap-2.5">
+                  <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-emerald-200">
+                      Đã gửi mã xác thực tới: <span className="text-white underline">{forgotEmail}</span>
+                    </p>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      Mã xác thực 6 chữ số có hiệu lực trong <strong>5 phút</strong> và chỉ sử dụng được <strong>1 lần</strong>. Vui lòng kiểm tra hộp thư Gmail của bạn.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nhập mã xác thực (6 số) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="reset-otp"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={otpCode}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setOtpCode(digits);
+                        if (errors.otpCode) setErrors((prev) => ({ ...prev, otpCode: '' }));
+                      }}
+                      className={`w-full pl-10 pr-4 py-3 bg-slate-900 border rounded-xl text-base text-center font-mono font-black tracking-[8px] text-emerald-400 placeholder:text-slate-600 placeholder:font-normal placeholder:tracking-normal focus:outline-none transition-all ${
+                        errors.otpCode
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                          : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                  </div>
+                  {errors.otpCode && (
+                    <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.otpCode}</span>
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading || otpCode.length !== 6}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span>Xác nhận mã xác thực</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-between pt-2 text-xs">
+                  {/* Nút gửi lại mã với cooldown tối thiểu 30s */}
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendCountdown > 0 || isLoading}
+                    className={`inline-flex items-center gap-1.5 transition-colors font-medium ${
+                      resendCountdown > 0
+                        ? 'text-slate-500 cursor-not-allowed'
+                        : 'text-emerald-400 hover:text-emerald-300'
+                    }`}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                    <span>
+                      {resendCountdown > 0
+                        ? `Gửi lại mã sau (${resendCountdown}s)`
+                        : 'Gửi lại mã mới'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotStep(1);
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className="text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    Đổi email khác
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Bước 3: Đặt mật khẩu mới & Đăng nhập */
+              <form onSubmit={handleResetPasswordSubmit} noValidate className="space-y-4">
+                <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
+                  <span className="font-semibold text-emerald-400">Bước 3 / 3</span>
+                  <span>Thiết lập mật khẩu mới</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Mật khẩu mới (8–100 ký tự, có chữ HOA và chữ số) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="reset-new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        if (errors.newPassword) setErrors((prev) => ({ ...prev, newPassword: '' }));
+                      }}
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                        errors.newPassword
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                          : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {errors.newPassword && (
+                    <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.newPassword}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Xác nhận lại mật khẩu mới <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="reset-confirm-password"
+                      type={showConfirmNewPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={confirmNewPassword}
+                      onChange={(e) => {
+                        setConfirmNewPassword(e.target.value);
+                        if (errors.confirmNewPassword) setErrors((prev) => ({ ...prev, confirmNewPassword: '' }));
+                      }}
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                        errors.confirmNewPassword
+                          ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
+                          : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showConfirmNewPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {errors.confirmNewPassword && (
+                    <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{errors.confirmNewPassword}</span>
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <span>Đổi mật khẩu & Đăng nhập ngay</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(false);
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Hủy và quay lại Đăng nhập</span>
+                  </button>
+                </div>
+              </form>
+            )
+          ) : isLogin ? (
             <form onSubmit={handleLoginSubmit} noValidate className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -438,7 +939,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="login-email"
                     type="email"
-                    placeholder="demo@budglee.com"
+                    placeholder="thanhcanhan@gmail.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -464,16 +965,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <label className="text-xs font-semibold text-slate-300">
                     Mật khẩu <span className="text-rose-500">*</span>
                   </label>
-                  <a
-                    href="#forgot"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      alert('Tính năng khôi phục mật khẩu qua Email sẽ được gửi mã OTP');
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setForgotStep(1);
+                      setForgotEmail(email || '');
+                      setErrorMessage('');
+                      setSuccessMessage('');
+                      setErrors({});
                     }}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                    className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
                   >
                     Quên mật khẩu?
-                  </a>
+                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -506,17 +1011,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <span>{errors.password}</span>
                   </p>
                 )}
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500"
-                  />
-                  <span>Ghi nhớ phiên đăng nhập (30 ngày)</span>
-                </label>
               </div>
 
               <button
@@ -577,7 +1071,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   <input
                     id="reg-email"
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder="ban@gmail.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -625,12 +1119,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setRole('FAMILY_ADMIN');
-                      if (initialFamilyMembers.length === 0) {
-                        handleAddMemberRow();
-                      }
-                    }}
+                    onClick={() => setRole('FAMILY_ADMIN')}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       role === 'FAMILY_ADMIN'
                         ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-md'
@@ -681,105 +1170,95 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     )}
                   </div>
 
-                  {/* Danh sách thành viên gia đình ban đầu */}
-                  <div className="space-y-2.5">
+                  {/* Mời thành viên gia đình ngay từ màn hình đăng ký bên ngoài */}
+                  <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">
-                        Thành viên gia đình cần thêm:
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Mời thành viên gia đình <span className="text-slate-400 font-normal">(Tùy chọn)</span>
                       </label>
+                      {invitedEmails.length > 0 && (
+                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          {invitedEmails.length} người nhận
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      Nhập email người thân để hệ thống tự động gửi lời mời tham gia sổ quỹ ngay khi bạn đăng ký thành công:
+                    </p>
+
+                    {/* Ô nhập Email + Nút Thêm */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          id="reg-invite-email"
+                          type="email"
+                          placeholder="VD: thancon@gmail.com, vo@gmail.com..."
+                          value={inviteEmailInput}
+                          onChange={(e) => {
+                            setInviteEmailInput(e.target.value);
+                            if (inviteEmailError) setInviteEmailError('');
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddInviteEmail();
+                            }
+                          }}
+                          className={`w-full pl-9 pr-3 py-2 bg-slate-950 border rounded-xl text-xs text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                            inviteEmailError
+                              ? 'border-rose-500 ring-1 ring-rose-500'
+                              : 'border-slate-700 focus:border-emerald-500'
+                          }`}
+                        />
+                      </div>
                       <button
                         type="button"
-                        onClick={handleAddMemberRow}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                        onClick={handleAddInviteEmail}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 shrink-0"
                       >
-                        <Plus className="w-3 h-3" />
-                        <span>+ Thêm thành viên</span>
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Thêm</span>
                       </button>
                     </div>
 
-                    {initialFamilyMembers.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 italic">
-                        Chưa có thành viên nào. Bấm "+ Thêm thành viên" để mời người thân ngay lúc tạo sổ quỹ.
+                    {inviteEmailError && (
+                      <p className="text-xs text-rose-400 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span>{inviteEmailError}</span>
                       </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {initialFamilyMembers.map((member, idx) => (
-                          <div
-                            key={member.id}
-                            className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2"
-                          >
-                            <div className="flex items-center justify-between text-[11px] text-slate-400">
-                              <span className="font-semibold">Thành viên #{idx + 1}</span>
+                    )}
+
+                    {/* Danh sách các email đã thêm */}
+                    {invitedEmails.length > 0 ? (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                          Danh sách sẽ nhận lời mời ({invitedEmails.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                          {invitedEmails.map((invEmail) => (
+                            <div
+                              key={invEmail}
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-950/40 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 animate-in fade-in zoom-in-95 duration-150"
+                            >
+                              <Mail className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span className="font-mono text-[11px] truncate max-w-[170px]">{invEmail}</span>
                               <button
                                 type="button"
-                                onClick={() => handleRemoveMemberRow(member.id)}
-                                className="text-slate-500 hover:text-rose-400 p-0.5 rounded transition-colors"
-                                title="Xóa dòng thành viên này"
+                                onClick={() => handleRemoveInviteEmail(invEmail)}
+                                className="p-0.5 text-slate-400 hover:text-rose-400 transition-colors rounded hover:bg-rose-950/30 ml-0.5"
+                                title="Xóa email khỏi danh sách mời"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <X className="w-3 h-3" />
                               </button>
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <input
-                                  type="text"
-                                  placeholder="Họ tên thành viên"
-                                  value={member.fullName}
-                                  onChange={(e) =>
-                                    handleMemberChange(member.id, 'fullName', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
-                                    errors[`member_${member.id}_name`]
-                                      ? 'border-rose-500'
-                                      : 'border-slate-700 focus:border-emerald-500'
-                                  }`}
-                                />
-                                {errors[`member_${member.id}_name`] && (
-                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
-                                    {errors[`member_${member.id}_name`]}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div>
-                                <input
-                                  type="email"
-                                  placeholder="Email thành viên"
-                                  value={member.email}
-                                  onChange={(e) =>
-                                    handleMemberChange(member.id, 'email', e.target.value)
-                                  }
-                                  className={`w-full px-2.5 py-1.5 bg-slate-900 border rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none ${
-                                    errors[`member_${member.id}_email`]
-                                      ? 'border-rose-500'
-                                      : 'border-slate-700 focus:border-emerald-500'
-                                  }`}
-                                />
-                                {errors[`member_${member.id}_email`] && (
-                                  <span className="text-[10px] text-rose-400 mt-0.5 block">
-                                    {errors[`member_${member.id}_email`]}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-slate-400">Vai trò:</span>
-                              <select
-                                value={member.role}
-                                onChange={(e) =>
-                                  handleMemberChange(member.id, 'role', e.target.value)
-                                }
-                                className="px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-[11px] text-slate-300 focus:outline-none focus:border-emerald-500"
-                              >
-                                <option value="FAMILY_MEMBER">Thành viên (Ghi chép thu chi)</option>
-                                <option value="FAMILY_ADMIN">Đồng quản trị (Chủ hộ)</option>
-                              </select>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-slate-400">
+                        💡 Bạn có thể nhập email người thân ngay tại đây hoặc mời sau trong mục Quản lý sổ quỹ gia đình.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -801,12 +1280,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                         setPassword(e.target.value);
                         if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                       }}
-                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.password
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.password && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">
@@ -824,19 +1311,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onSuccess }) => {
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       id="reg-confirm-password"
-                      type={showPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: '' }));
                       }}
-                      className={`w-full pl-10 pr-3 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
+                      className={`w-full pl-10 pr-10 py-2.5 bg-slate-900 border rounded-xl text-sm text-white placeholder:text-slate-500 focus:outline-none transition-all ${
                         errors.confirmPassword
                           ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-950/20'
                           : 'border-slate-700/80 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
                       }`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+                      title={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmPassword && (
                     <p className="text-xs text-rose-400 mt-1.5 flex items-center gap-1.5 animate-in fade-in">

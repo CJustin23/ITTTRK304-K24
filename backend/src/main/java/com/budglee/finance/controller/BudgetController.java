@@ -2,6 +2,7 @@ package com.budglee.finance.controller;
 
 import com.budglee.finance.dto.ApiResponse;
 import com.budglee.finance.dto.BudgetRequest;
+import com.budglee.finance.dto.BudgetResponse;
 import com.budglee.finance.entity.Budget;
 import com.budglee.finance.security.UserPrincipal;
 import com.budglee.finance.service.BudgetService;
@@ -34,11 +35,11 @@ public class BudgetController {
 
     @GetMapping
     @Operation(summary = "Lấy danh sách ngân sách theo tháng và năm")
-    public ResponseEntity<ApiResponse<List<Budget>>> getBudgets(
+    public ResponseEntity<ApiResponse<List<BudgetResponse>>> getBudgets(
             @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestParam int month,
             @RequestParam int year) {
-        List<Budget> budgets = budgetService.getUserBudgets(currentUser.getId(), month, year);
+        List<BudgetResponse> budgets = budgetService.getUserBudgets(currentUser.getId(), month, year);
         return ResponseEntity.ok(ApiResponse.ok(budgets, "Lấy danh sách ngân sách thành công"));
     }
 }

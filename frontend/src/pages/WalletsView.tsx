@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CreditCard, Wallet as WalletIcon, Plus, ArrowUpRight, ArrowDownRight, ShieldCheck, Sparkles, Building2, Banknote } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, consolidateWallets } from '../store/useStore';
 import { WalletType } from '../types';
 
 export const WalletsView: React.FC = () => {
-  const { wallets, setWalletModalOpen } = useStore();
+  const { wallets: rawWallets, setWalletModalOpen } = useStore();
   const [selectedType, setSelectedType] = useState<'ALL' | WalletType>('ALL');
+
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
 
   const filteredWallets = wallets.filter(
     (w) => selectedType === 'ALL' || w.type === selectedType

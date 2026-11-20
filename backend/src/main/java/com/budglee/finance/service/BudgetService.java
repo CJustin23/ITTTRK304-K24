@@ -1,6 +1,7 @@
 package com.budglee.finance.service;
 
 import com.budglee.finance.dto.BudgetRequest;
+import com.budglee.finance.dto.BudgetResponse;
 import com.budglee.finance.entity.Budget;
 import com.budglee.finance.entity.Category;
 import com.budglee.finance.entity.CategoryType;
@@ -14,12 +15,14 @@ import com.budglee.finance.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +36,10 @@ import java.util.Map;
  * 1. Một ngân sách cho bộ (người dùng, danh mục, tháng, năm); đặt lại kỳ cũ thì cập nhật
  *    hạn mức chứ không tạo bản trùng.
  * 2. categoryId = null nghĩa là hạn mức tổng của cả kỳ; chỉ danh mục loại EXPENSE mới có ngân sách.
- * 3. spent_amount tính trực tiếp từ giao dịch EXPENSE trong kỳ khi đọc, nên tiến độ không bao giờ
- *    lệch với lịch sử chi.
+ * 3. spent_amount tính trực tiếp từ giao dịch EXPENSE trong kỳ khi đọc, không tính hai bản ghi
+ *    của một lần chuyển giữa hai ví, nên tiến độ không bao giờ lệch với lịch sử chi. Kết quả trả
+ *    về ở BudgetResponse: transaction đang chỉ-read mà gán ngược vào entity thì Hibernate không
+ *    flush, cột spent_amount dưới CSDL mãi mãi là số cũ.
  * 4. alertLevel = OK / WARNING (>= alertThreshold, mặc định 80%) / EXCEEDED (>= 100%).
  * =========================================================================
  */
@@ -49,6 +54,7 @@ public class BudgetService {
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
 
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
     @Transactional
     public Budget createOrUpdateBudget(Long userId, BudgetRequest request) {
         User user = userRepository.findById(userId)
@@ -104,37 +110,56 @@ public class BudgetService {
     }
 
     @Transactional(readOnly = true)
-    public List<Budget> getUserBudgets(Long userId, Integer month, Integer year) {
+    public List<BudgetResponse> getUserBudgets(Long userId, Integer month, Integer year) {
         List<Budget> budgets = budgetRepository.findByUserIdAndPeriodMonthAndPeriodYear(userId, month, year);
         if (budgets.isEmpty()) {
-            return budgets;
+            return List.of();
         }
 
         LocalDate firstDay = LocalDate.of(year, month, 1);
-        List<Transaction> expenses = transactionRepository.findByUserIdAndTransactionDateBetween(
-                        userId, firstDay.atStartOfDay(), firstDay.plusMonths(1).atStartOfDay())
-                .stream()
-                .filter(t -> t.getTransactionType() == TransactionType.EXPENSE)
-                .toList();
+        LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
+        java.time.LocalDateTime startDateTime = firstDay.atStartOfDay();
+        java.time.LocalDateTime endDateTime = lastDay.atTime(java.time.LocalTime.MAX);
+
+        // Tối ưu hóa Sprint 4 - Tú: Dùng SQL Aggregate trực tiếp thay vì load toàn bộ Entity Transaction vào RAM
+        BigDecimal spentTotal = transactionRepository.getTotalAmountByTypeAndPeriod(
+                userId, TransactionType.EXPENSE, startDateTime, endDateTime);
+        if (spentTotal == null) spentTotal = BigDecimal.ZERO;
 
         Map<Long, BigDecimal> spentByCategory = new HashMap<>();
-        BigDecimal spentTotal = BigDecimal.ZERO;
-        for (Transaction expense : expenses) {
-            spentTotal = spentTotal.add(expense.getAmount());
-            if (expense.getCategory() != null) {
-                spentByCategory.merge(expense.getCategory().getId(), expense.getAmount(), BigDecimal::add);
+        List<Object[]> categorySums = transactionRepository.getCategoryExpenseSums(
+                userId, startDateTime, endDateTime);
+        if (categorySums != null) {
+            for (Object[] row : categorySums) {
+                if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                    spentByCategory.put((Long) row[0], (BigDecimal) row[1]);
+                }
             }
         }
 
+        List<BudgetResponse> responses = new ArrayList<>(budgets.size());
         for (Budget budget : budgets) {
             BigDecimal spent = budget.getCategory() == null ? spentTotal
                     : spentByCategory.getOrDefault(budget.getCategory().getId(), BigDecimal.ZERO);
-            budget.setSpentAmount(spent);
-            if (!"OK".equals(budget.getAlertLevel())) {
+            String alertLevel = Budget.alertLevelOf(spent, budget.getAmountLimit(), budget.getAlertThreshold());
+            if (!"OK".equals(alertLevel)) {
                 log.warn("Ngân sách id={} đạt ngưỡng {} ({} / {})",
-                        budget.getId(), budget.getAlertLevel(), spent, budget.getAmountLimit());
+                        budget.getId(), alertLevel, spent, budget.getAmountLimit());
             }
+            Category category = budget.getCategory();
+            responses.add(BudgetResponse.builder()
+                    .id(budget.getId())
+                    .categoryId(category == null ? null : category.getId())
+                    .categoryName(category == null ? null : category.getName())
+                    .categoryIcon(category == null ? null : category.getIcon())
+                    .amountLimit(budget.getAmountLimit())
+                    .spentAmount(spent)
+                    .periodMonth(budget.getPeriodMonth())
+                    .periodYear(budget.getPeriodYear())
+                    .alertThreshold(budget.getAlertThreshold())
+                    .alertLevel(alertLevel)
+                    .build());
         }
-        return budgets;
+        return responses;
     }
 }

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Search,
   Filter,
   Download,
   Plus,
@@ -11,31 +10,52 @@ import {
   Tag,
   ArrowLeftRight,
 } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, consolidateWallets } from '../store/useStore';
 import { TransactionType } from '../types';
 
-export const TransactionsView: React.FC = () => {
-  const { recentTransactions, wallets, setTransactionModalOpen } = useStore();
+const formatDisplayDate = (d?: string) => {
+  if (!d) return 'Hôm nay';
+  if (d.startsWith('Hôm nay') || d.startsWith('Hôm qua')) return d;
+  try {
+    const dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      const now = new Date();
+      const isToday = dt.toDateString() === now.toDateString();
+      const timeStr = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `Hôm nay ${timeStr}`;
+      return `${timeStr} - ${dt.toLocaleDateString('vi-VN')}`;
+    }
+  } catch {}
+  return d;
+};
 
-  const [searchQuery, setSearchQuery] = useState('');
+export const TransactionsView: React.FC = () => {
+  const { recentTransactions, wallets: rawWallets, setTransactionModalOpen } = useStore();
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
+
   const [filterType, setFilterType] = useState<'ALL' | TransactionType>('ALL');
   const [filterWalletId, setFilterWalletId] = useState<string>('ALL');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
-  // Filter transactions
-  const filtered = recentTransactions.filter((tx) => {
-    const matchesSearch =
-        tx.actionTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (tx.categoryName && tx.categoryName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (tx.note && tx.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        tx.amount.toString().includes(searchQuery);
+  const isExpenseTx = (tx: { transactionType: string }) =>
+    tx.transactionType === 'EXPENSE' || tx.transactionType === 'TRANSFER';
 
-    const matchesType = filterType === 'ALL' || tx.transactionType === filterType;
+  // Base filter (wallet + category), independent of transactionType tab
+  const baseFiltered = recentTransactions.filter((tx) => {
     const matchesWallet = filterWalletId === 'ALL' || tx.walletId === Number(filterWalletId);
     const matchesCategory = filterCategory === 'ALL' || tx.categoryName === filterCategory;
 
-    return matchesSearch && matchesType && matchesWallet && matchesCategory;
+    return matchesWallet && matchesCategory;
   });
+
+  const allCount = baseFiltered.length;
+  const incomeCount = baseFiltered.filter((tx) => tx.transactionType === 'INCOME').length;
+  const expenseCount = baseFiltered.filter(isExpenseTx).length;
+
+  // Filter transactions by active type tab
+  const filtered = baseFiltered.filter(
+      (tx) => filterType === 'ALL' || (filterType === 'EXPENSE' ? isExpenseTx(tx) : tx.transactionType === filterType)
+  );
 
   // Calculate filtered totals
   const totalFilteredIncome = filtered
@@ -43,7 +63,7 @@ export const TransactionsView: React.FC = () => {
       .reduce((sum, t) => sum + t.amount, 0);
 
   const totalFilteredExpense = filtered
-      .filter((t) => t.transactionType === 'EXPENSE')
+      .filter(isExpenseTx)
       .reduce((sum, t) => sum + t.amount, 0);
 
   const netBalance = totalFilteredIncome - totalFilteredExpense;
@@ -87,7 +107,9 @@ export const TransactionsView: React.FC = () => {
               <span>Xuất CSV</span>
             </button>
             <button
-                onClick={() => setTransactionModalOpen(true)}
+                onClick={() => {
+                  setTransactionModalOpen(true);
+                }}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-md shadow-emerald-600/20 transition-all hover:shadow-lg active:scale-95"
             >
               <Plus className="w-4 h-4" />
@@ -131,19 +153,7 @@ export const TransactionsView: React.FC = () => {
 
         {/* Advanced Filter Toolbar */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Keyword Search */}
-            <div className="relative md:col-span-2">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                  type="text"
-                  placeholder="Tìm theo tên giao dịch, số tiền, ghi chú..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Wallet Filter */}
             <div>
               <select
@@ -154,7 +164,7 @@ export const TransactionsView: React.FC = () => {
                 <option value="ALL">Tất cả các Ví / Thẻ</option>
                 {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.walletName}
+                      {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''}
                     </option>
                 ))}
               </select>
@@ -173,6 +183,7 @@ export const TransactionsView: React.FC = () => {
                 <option value="Di chuyển & Xăng xe">Di chuyển & Xăng xe</option>
                 <option value="Hóa đơn & Tiện ích">Hóa đơn & Tiện ích</option>
                 <option value="Lương & Thưởng">Lương & Thưởng</option>
+                <option value="Tích lũy & Mục tiêu">Tích lũy & Mục tiêu</option>
               </select>
             </div>
           </div>
@@ -190,7 +201,7 @@ export const TransactionsView: React.FC = () => {
                       filterType === 'ALL' ? 'bg-white text-emerald-600 shadow-sm font-bold' : 'hover:text-slate-900'
                   }`}
               >
-                Tất cả ({filtered.length})
+                Tất cả ({allCount})
               </button>
               <button
                   onClick={() => setFilterType('INCOME')}
@@ -200,7 +211,7 @@ export const TransactionsView: React.FC = () => {
                           : 'hover:text-slate-900'
                   }`}
               >
-                Khoản Thu (+)
+                Khoản Thu (+) ({incomeCount})
               </button>
               <button
                   onClick={() => setFilterType('EXPENSE')}
@@ -210,7 +221,7 @@ export const TransactionsView: React.FC = () => {
                           : 'hover:text-slate-900'
                   }`}
               >
-                Khoản Chi (-)
+                Khoản Chi (-) ({expenseCount})
               </button>
             </div>
           </div>
@@ -279,10 +290,15 @@ export const TransactionsView: React.FC = () => {
                         </span>
                           </td>
                           <td className="py-4 px-6 text-slate-600 font-medium">
-                            {t.walletName || 'Techcombank'}
+                            {(() => {
+                              const foundW = wallets.find((w) => w.id === t.walletId);
+                              const base = t.walletName || foundW?.walletName || 'Ví';
+                              const suffix = (foundW?.cardNumberMasked && !base.includes('(')) ? ` (${foundW.cardNumberMasked})` : '';
+                              return `${base}${suffix}`;
+                            })()}
                           </td>
                           <td className="py-4 px-6 text-slate-400 text-xs font-mono">
-                            {t.transactionDate}
+                            {formatDisplayDate(t.transactionDate)}
                           </td>
                           <td className="py-4 px-6 text-right font-black">
                         <span className={isIncome ? 'text-emerald-600' : 'text-slate-800'}>

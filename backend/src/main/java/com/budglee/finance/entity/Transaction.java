@@ -1,5 +1,7 @@
 package com.budglee.finance.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -7,11 +9,18 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "transactions", indexes = {
         @Index(name = "idx_tx_user_date", columnList = "user_id,transaction_date"),
         @Index(name = "idx_tx_wallet", columnList = "wallet_id"),
-        @Index(name = "idx_tx_category", columnList = "category_id")
+        @Index(name = "idx_tx_category", columnList = "category_id"),
+        @Index(name = "idx_tx_linked_transaction", columnList = "linked_transaction_id"),
+        @Index(name = "idx_tx_wallet_date", columnList = "wallet_id,transaction_date"),
+        @Index(name = "idx_tx_user_type_linked_date",
+                columnList = "user_id,transaction_type,linked_transaction_id,transaction_date"),
+        @Index(name = "idx_tx_report_category",
+                columnList = "user_id,transaction_type,linked_transaction_id,category_id,transaction_date")
 })
 @Getter
 @Setter
@@ -34,7 +43,15 @@ public class Transaction {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
+
+    /**
+     * Bản ghi đối ứng của giao dịch chuyển tiền: EXPENSE ở ví nguồn trỏ sang INCOME ở ví đích
+     * và ngược lại. Các loại giao dịch khác để trống.
+     */
+    @Column(name = "linked_transaction_id")
+    private Long linkedTransactionId;
 
     @Column(name = "action_title", nullable = false, length = 200)
     private String actionTitle;

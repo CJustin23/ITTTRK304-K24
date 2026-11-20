@@ -1,5 +1,6 @@
 package com.budglee.finance.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -27,6 +28,7 @@ public class Budget {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -63,14 +65,22 @@ public class Budget {
      * không phải tự tính ngưỡng.
      */
     public String getAlertLevel() {
-        if (amountLimit == null || amountLimit.compareTo(BigDecimal.ZERO) <= 0 || spentAmount == null) {
+        return alertLevelOf(spentAmount, amountLimit, alertThreshold);
+    }
+
+    /**
+     * Công thức ngưỡng đặt ở một chỗ vì cả entity (POST) lẫn DTO đọc (GET) đều phải trả cùng
+     * một giá trị cảnh báo cho cùng một số chi.
+     */
+    public static String alertLevelOf(BigDecimal spent, BigDecimal limit, BigDecimal threshold) {
+        if (limit == null || limit.compareTo(BigDecimal.ZERO) <= 0 || spent == null) {
             return "OK";
         }
-        double ratio = spentAmount.doubleValue() / amountLimit.doubleValue() * 100.0;
-        double threshold = alertThreshold == null ? 80.0 : alertThreshold.doubleValue();
+        double ratio = spent.doubleValue() / limit.doubleValue() * 100.0;
+        double thresholdValue = threshold == null ? 80.0 : threshold.doubleValue();
         if (ratio >= 100.0) {
             return "EXCEEDED";
         }
-        return ratio >= threshold ? "WARNING" : "OK";
+        return ratio >= thresholdValue ? "WARNING" : "OK";
     }
 }

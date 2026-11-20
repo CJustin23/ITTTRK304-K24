@@ -6,6 +6,8 @@ import {
   Wallet,
   Category,
   Budget,
+  FamilyInvitation,
+  SavingGoal,
 } from '../types';
 
 const api = axios.create({
@@ -18,18 +20,78 @@ const api = axios.create({
 // Interceptor gắn JWT token vào mỗi request
 api.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('budglee_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (!config.headers.Authorization) {
+        const token = localStorage.getItem('budglee_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
       }
       return config;
     },
     (error) => Promise.reject(error)
 );
 
+// Interceptor tự động xử lý khi token đăng nhập hết hạn sau 24h hoặc bị thu hồi (401 Unauthorized)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error?.response?.status === 401) {
+        // Xóa sạch trạng thái đăng nhập khi token 24h đã hết hạn
+        localStorage.removeItem('budglee_token');
+        localStorage.removeItem('budglee_token_created_at');
+        localStorage.removeItem('budglee_token_expires_at');
+        localStorage.removeItem('budglee_current_user');
+        window.dispatchEvent(new CustomEvent('budglee:auth-expired'));
+      }
+      return Promise.reject(error);
+    }
+);
+
+export const AuthService = {
+  register: async (data: { fullName: string; email: string; password: string }): Promise<{ id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
+    const response = await api.post('/auth/register', { ...data, role: 'INDIVIDUAL_USER' });
+    return response.data.data;
+  },
+  registerFamilyOwner: async (data: { fullName: string; email: string; password: string; familyName: string }): Promise<{ id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
+    const response = await api.post('/auth/register/family-owner', data);
+    return response.data.data;
+  },
+  login: async (email: string, password: string): Promise<{ token: string; id: number; fullName: string; email: string; role: import('../types').Role; familyGroupId?: string }> => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data.data;
+  },
+  logout: async (token?: string | null): Promise<void> => {
+    try {
+      await api.post(
+        '/auth/logout',
+        {},
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
+    } catch {
+      // Ignore network errors on logout
+    }
+  },
+  forgotPassword: async (email: string): Promise<{ email: string; otp: string; message: string; expiresInSeconds: number }> => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data.data;
+  },
+  verifyOtp: async (data: { email: string; otp: string }): Promise<void> => {
+    const response = await api.post('/auth/verify-otp', data);
+    return response.data.data;
+  },
+  resetPassword: async (data: { email: string; otp: string; newPassword: string }): Promise<void> => {
+    const response = await api.post('/auth/reset-password', data);
+    return response.data.data;
+  },
+};
+
 export const DashboardService = {
   getSummary: async (year?: number, month?: number): Promise<DashboardSummary> => {
     const response = await api.get('/dashboard/summary', { params: { year, month } });
+    return response.data.data;
+  },
+  getTrends: async (timeframe?: string): Promise<{ label: string; amount: number }[]> => {
+    const response = await api.get('/dashboard/trends', { params: { timeframe } });
     return response.data.data;
   },
   getRecommendations: async (year?: number, month?: number): Promise<HabitRecommendation> => {
@@ -39,11 +101,11 @@ export const DashboardService = {
 };
 
 export const TransactionService = {
-  getAll: async (page = 0, size = 10): Promise<{ content: Transaction[]; totalElements: number }> => {
+  getAll: async (page = 0, size = 100): Promise<{ content: Transaction[]; totalElements: number }> => {
     const response = await api.get('/transactions', { params: { page, size } });
     return response.data.data;
   },
-  create: async (data: Partial<Transaction>): Promise<Transaction> => {
+  create: async (data: any): Promise<Transaction> => {
     const response = await api.post('/transactions', data);
     return response.data.data;
   },
@@ -53,6 +115,17 @@ export const WalletService = {
   getAll: async (): Promise<Wallet[]> => {
     const response = await api.get('/wallets');
     return response.data.data;
+  },
+  create: async (data: any): Promise<Wallet> => {
+    const response = await api.post('/wallets', data);
+    return response.data.data;
+  },
+  update: async (id: number, data: any): Promise<Wallet> => {
+    const response = await api.put(`/wallets/${id}`, data);
+    return response.data.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/wallets/${id}`);
   },
 };
 
@@ -68,6 +141,157 @@ export const BudgetService = {
     const response = await api.get('/budgets', { params: { month, year } });
     return response.data.data;
   },
+  create: async (data: any): Promise<Budget> => {
+    const response = await api.post('/budgets', data);
+    return response.data.data;
+  },
+};
+
+export const SavingGoalApiService = {
+  getAll: async (): Promise<SavingGoal[]> => {
+    const response = await api.get('/saving-goals');
+    return response.data.data || [];
+  },
+  create: async (data: Omit<SavingGoal, 'id'>): Promise<SavingGoal> => {
+    const response = await api.post('/saving-goals', data);
+    return response.data.data;
+  },
+  update: async (id: number, data: Partial<SavingGoal>): Promise<SavingGoal> => {
+    const response = await api.put(`/saving-goals/${id}`, data);
+    return response.data.data;
+  },
+  deposit: async (id: number, amount: number, fromWalletId?: number): Promise<SavingGoal> => {
+    const response = await api.post(`/saving-goals/${id}/deposit`, { amount, fromWalletId });
+    return response.data.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/saving-goals/${id}`);
+  },
+};
+
+export interface FamilyUserLookup {
+  id: number;
+  fullName: string;
+  email: string;
+  avatarUrl?: string;
+  role: string;
+  exists: boolean;
+  message?: string;
+}
+
+export const FamilyApiService = {
+  checkUser: async (email: string): Promise<FamilyUserLookup> => {
+    const response = await api.get('/family/check-user', { params: { email } });
+    return response.data.data;
+  },
+  sendInvitation: async (email: string): Promise<FamilyInvitation> => {
+    const response = await api.post('/family/invitations', { email });
+    return response.data.data;
+  },
+  getSentInvitations: async (): Promise<FamilyInvitation[]> => {
+    const response = await api.get('/family/invitations/sent');
+    return response.data.data;
+  },
+  getReceivedInvitations: async (): Promise<FamilyInvitation[]> => {
+    const response = await api.get('/family/invitations/received');
+    return response.data.data;
+  },
+  acceptInvitation: async (invitationId: number): Promise<FamilyInvitation> => {
+    const response = await api.post(`/family/invitations/${invitationId}/accept`);
+    return response.data.data;
+  },
+  rejectInvitation: async (invitationId: number): Promise<FamilyInvitation> => {
+    const response = await api.post(`/family/invitations/${invitationId}/reject`);
+    return response.data.data;
+  },
+  cancelInvitation: async (invitationId: number): Promise<void> => {
+    const response = await api.delete(`/family/invitations/${invitationId}`);
+    return response.data.data;
+  },
+  addDirectMember: async (email: string): Promise<any> => {
+    const response = await api.post('/family/members', { email });
+    return response.data.data;
+  },
+  getMembers: async (): Promise<any[]> => {
+    const response = await api.get('/family/members');
+    return response.data.data;
+  },
+  removeMember: async (memberId: number, email?: string): Promise<void> => {
+    const response = await api.delete(`/family/members/${memberId}`, {
+      params: email ? { email } : undefined,
+    });
+    return response.data.data;
+  },
+  updateMemberRole: async (memberId: number, role: string): Promise<any> => {
+    const response = await api.put(`/family/members/${memberId}/role`, { role });
+    return response.data.data;
+  },
+  upgradeToFamilyAdmin: async (familyName: string): Promise<{ familyGroupId: string; familyGroupName: string; role: string }> => {
+    const response = await api.post('/family/upgrade', { familyName });
+    return response.data.data;
+  },
+};
+
+export interface AdminUser {
+  id: number;
+  fullName: string;
+  email: string;
+  role: 'INDIVIDUAL_USER' | 'FAMILY_ADMIN' | 'FAMILY_MEMBER' | 'SYSTEM_ADMIN';
+  familyGroupId?: string | null;
+  enabled?: boolean;
+  createdAt?: string;
+}
+
+export interface AdminStats {
+  totalAccounts: number;
+  disabledAccounts: number;
+  familyGroups: number;
+  transactionsLast24Hours: number;
+}
+
+export interface ChatbotApiKey {
+  id: number;
+  provider: string;
+  maskedKey: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AdminBackup {
+  name: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export const AdminService = {
+  getStats: async (): Promise<AdminStats> => (await api.get('/admin/stats')).data.data,
+  getUsers: async (): Promise<AdminUser[]> => {
+    const response = await api.get('/admin/users');
+    return response.data.data;
+  },
+  updateRole: async (id: number, role: AdminUser['role'], familyGroupId?: string): Promise<AdminUser> => {
+    const response = await api.put(`/admin/users/${id}/role`, { role, familyGroupId: familyGroupId || null });
+    return response.data.data;
+  },
+  updateStatus: async (id: number, enabled: boolean): Promise<AdminUser> => {
+    const response = await api.put(`/admin/users/${id}/status`, { enabled });
+    return response.data.data;
+  },
+  createFamilyGroup: async (data: { id: string; name: string; ownerId: number }) => {
+    const response = await api.post('/admin/family-groups', data);
+    return response.data.data;
+  },
+  getChatbotKeys: async (): Promise<ChatbotApiKey[]> => (await api.get('/admin/chatbot-keys')).data.data,
+  createChatbotKey: async (provider: string, key: string): Promise<ChatbotApiKey> => (await api.post('/admin/chatbot-keys', { provider, key })).data.data,
+  updateChatbotKey: async (id: number, provider: string, key: string): Promise<ChatbotApiKey> => (await api.put(`/admin/chatbot-keys/${id}`, { provider, key })).data.data,
+  toggleChatbotKey: async (id: number, active: boolean): Promise<ChatbotApiKey> => (await api.put(`/admin/chatbot-keys/${id}/status`, { active })).data.data,
+  revealChatbotKey: async (id: number): Promise<string> => (await api.get(`/admin/chatbot-keys/${id}/reveal`)).data.data,
+  deleteChatbotKey: async (id: number): Promise<void> => { await api.delete(`/admin/chatbot-keys/${id}`); },
+  getBackups: async (): Promise<AdminBackup[]> => (await api.get('/admin/backups')).data.data,
+  createBackup: async (): Promise<AdminBackup> => (await api.post('/admin/backups')).data.data,
+  prepareRestore: async (name: string): Promise<{ token: string; backupName: string; requiredConfirmation: string; expiresInSeconds: number }> => (await api.post(`/admin/backups/${encodeURIComponent(name)}/restore/prepare`)).data.data,
+  restoreBackup: async (name: string, token: string, confirmation: string): Promise<void> => { await api.post(`/admin/backups/${encodeURIComponent(name)}/restore`, { token, confirmation }); },
 };
 
 export default api;

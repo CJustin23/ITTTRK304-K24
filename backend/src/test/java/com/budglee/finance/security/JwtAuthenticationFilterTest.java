@@ -30,7 +30,8 @@ class JwtAuthenticationFilterTest {
 
         filter = new JwtAuthenticationFilter(
                 tokenProvider,
-                userDetailsService
+                userDetailsService,
+                new TokenBlocklist()
         );
 
         filterChain = mock(FilterChain.class);

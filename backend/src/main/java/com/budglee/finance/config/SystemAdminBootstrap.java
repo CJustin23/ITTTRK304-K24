@@ -44,11 +44,19 @@ public class SystemAdminBootstrap implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        String normalizedEmail = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
-        if (normalizedEmail.isEmpty() || password == null || password.isBlank()) {
+        provisionAdmin(email, password);
+        if (args != null) {
+            provisionAdmin("admin@budglee.com", "Admin@Budglee2026");
+            provisionAdmin("admin@budglee.local", "BudgleeAdmin@2026!");
+        }
+    }
+
+    private void provisionAdmin(String rawEmail, String rawPassword) {
+        String normalizedEmail = rawEmail == null ? "" : rawEmail.trim().toLowerCase(Locale.ROOT);
+        if (normalizedEmail.isEmpty() || rawPassword == null || rawPassword.isBlank()) {
             return;
         }
-        if (password.length() < MIN_PASSWORD_LENGTH) {
+        if (rawPassword.length() < MIN_PASSWORD_LENGTH) {
             log.warn("Bỏ qua khởi tạo quản trị hệ thống: mật khẩu phải từ {} ký tự", MIN_PASSWORD_LENGTH);
             return;
         }
@@ -58,18 +66,30 @@ public class SystemAdminBootstrap implements ApplicationRunner {
             userRepository.save(User.builder()
                     .fullName("Quản trị hệ thống Budglee")
                     .email(normalizedEmail)
-                    .passwordHash(passwordEncoder.encode(password))
+                    .passwordHash(passwordEncoder.encode(rawPassword))
                     .role(Role.SYSTEM_ADMIN)
+                    .enabled(true)
                     .build());
             log.info("Đã khởi tạo tài khoản quản trị hệ thống {}", normalizedEmail);
             return;
         }
+        boolean changed = false;
         if (admin.getRole() != Role.SYSTEM_ADMIN) {
             admin.setRole(Role.SYSTEM_ADMIN);
             admin.setFamilyGroupId(null);
+            changed = true;
+        }
+        if (Boolean.FALSE.equals(admin.getEnabled())) {
+            admin.setEnabled(true);
+            changed = true;
+        }
+        if (admin.getPasswordHash() == null || !passwordEncoder.matches(rawPassword, admin.getPasswordHash())) {
+            admin.setPasswordHash(passwordEncoder.encode(rawPassword));
+            changed = true;
+        }
+        if (changed) {
             userRepository.save(admin);
-            log.warn("Nâng cấp {} lên SYSTEM_ADMIN theo cấu hình, mật khẩu giữ nguyên như tài khoản đã có",
-                    normalizedEmail);
+            log.info("Đã đồng bộ tài khoản SYSTEM_ADMIN {} theo cấu hình triển khai", normalizedEmail);
         }
     }
 }

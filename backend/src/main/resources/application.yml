@@ -6,6 +6,20 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    # Khong dat san tai khoan/mat khau SMTP o day: repo public, ai doc cung lay duoc credential.
+    # Moi truong nao can gui email that thi tu dat MAIL_USERNAME/MAIL_PASSWORD (prod/local da co).
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
 
 server:
   port: 8080
@@ -15,8 +29,37 @@ server:
 # JWT Token Configuration
 app:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
+  cors:
+    # Danh sách origin trình duyệt được phép gọi API kèm credential, phân cách bởi dấu phẩy.
+    # Frontend deploy ở domain nào thì thêm đúng origin đó vào biến môi trường CORS_ALLOWED_ORIGINS.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://quanlythuchi.duckdns.org,http://quanlythuchi.duckdns.org,http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000}
+  security:
+    login-lockout:
+      enabled: ${LOGIN_LOCKOUT_ENABLED:true}
+    # Tra OTP quen mat khau trong response: CHI bat cho demo cuc bo (dev/local).
+    # Mac dinh tat vi /auth/forgot-password la endpoint cong khai, lo ma la lo quyen doi mat khau.
+    expose-reset-otp: ${APP_SECURITY_EXPOSE_OTP:false}
+    expose-otp: ${APP_SECURITY_EXPOSE_OTP:false}
+    system-admin:
+      email: ${APP_SECURITY_SYSTEM_ADMIN_EMAIL:admin@budglee.com}
+      password: ${APP_SECURITY_SYSTEM_ADMIN_PASSWORD:Admin@Budglee2026}
+  admin:
+    chatbot-encryption-secret: ${CHATBOT_KEY_ENCRYPTION_SECRET:${JWT_SECRET:Budglee-dev-only-chatbot-encryption-secret}}
+    backup-directory: ${ADMIN_BACKUP_DIRECTORY:/backups}
+    backup-script: ${ADMIN_BACKUP_SCRIPT:./devops/scripts/backup.sh}
+    restore-script: ${ADMIN_RESTORE_SCRIPT:./devops/scripts/restore.sh}
+  ai:
+    postgres:
+      url: ${AI_POSTGRES_URL:}
+      username: ${AI_POSTGRES_USERNAME:}
+      password: ${AI_POSTGRES_PASSWORD:}
+      enabled: ${AI_POSTGRES_ENABLED:false}
+    default-provider: ${AI_DEFAULT_PROVIDER:GEMINI}
+    default-model: ${AI_DEFAULT_MODEL:gemini-3.5-flash-lite}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
 
 # Swagger / OpenAPI
 springdoc:

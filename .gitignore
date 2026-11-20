@@ -16,6 +16,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.env.production
+deploy/.env.production
 *.pem
 *.key
 
@@ -41,6 +43,7 @@ target/
 # Docker
 docker-data/
 *.sql.gz
+budglee_backup.sql
 backup/
 backups/
 

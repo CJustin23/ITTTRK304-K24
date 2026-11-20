@@ -1,23 +1,49 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, Calendar, AlertTriangle, AlertCircle, CheckCircle, Info, Check } from 'lucide-react';
+import { Bell, Plus, Calendar, AlertTriangle, AlertCircle, CheckCircle, Info, Check, Users, ArrowRight } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 interface HeaderProps {
   onNewTransaction: () => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onNewTransaction,
-  searchQuery,
-  setSearchQuery,
 }) => {
-  const { notifications, markNotificationAsRead, markAllNotificationsAsRead } = useStore();
+  const {
+    notifications,
+    receivedInvitations,
+    fetchReceivedInvitations,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    setSelectedInvitationForConfirm,
+    setConfirmInviteModalOpen,
+    logout,
+  } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Tự động gộp các lời mời gia đình đang chờ duyệt (PENDING) lên đầu danh sách thông báo của chuông
+  const pendingReceived = (receivedInvitations || []).filter((i) => i.status === 'PENDING');
+
+  const inviteNotifications = pendingReceived.map((inv) => ({
+    id: `invite-notif-${inv.id}`,
+    title: 'Lời mời tham gia Quỹ Gia đình',
+    message: `${inv.invitedByName || 'Chủ hộ'} (${inv.invitedByEmail || 'chủ nhóm'}) đã gửi lời mời bạn tham gia nhóm gia đình "${inv.familyGroupName}". Nhấn vào đây để xem và xác nhận!`,
+    time: 'Mới nhận',
+    type: 'INFO' as const,
+    read: false,
+    actionType: 'FAMILY_INVITATION',
+    actionData: inv,
+  }));
+
+  const otherNotifications = (notifications || []).filter(
+    (n) => !n.id.startsWith('invite-notif-')
+  );
+
+  const allNotifications = [...inviteNotifications, ...otherNotifications];
+  const unreadCount = allNotifications.filter((n) => !n.read).length;
 
   // Close when clicking outside
   useEffect(() => {
@@ -30,7 +56,10 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getNotifIcon = (type: string) => {
+  const getNotifIcon = (type: string, actionType?: string) => {
+    if (actionType === 'FAMILY_INVITATION') {
+      return <Users className="w-4 h-4 text-indigo-500" />;
+    }
     switch (type) {
       case 'WARNING':
         return <AlertTriangle className="w-4 h-4 text-amber-500" />;
@@ -45,24 +74,14 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20 shadow-sm">
-      {/* Search Bar */}
-      <div className="relative w-96">
-        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Tìm giao dịch, số tiền, danh mục..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-slate-100/80 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
-        />
-      </div>
+      <div className="flex-1" />
 
       {/* Right Controls */}
       <div className="flex items-center gap-4">
         {/* Date Display */}
         <div className="hidden md:flex items-center gap-2 text-sm text-slate-500 font-medium px-3 py-1.5 bg-slate-100 rounded-lg">
           <Calendar className="w-4 h-4 text-emerald-600" />
-          <span>Tháng 10, 2026</span>
+          <span>{`Tháng ${new Date().getMonth() + 1}, ${new Date().getFullYear()}`}</span>
         </div>
 
         {/* Logout Button */}
@@ -70,6 +89,8 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => {
             if ((window as any).handleLogout) {
               (window as any).handleLogout();
+            } else {
+              logout();
             }
           }}
           title="Đăng xuất khỏi hệ thống"
@@ -81,7 +102,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Notification Bell with Dropdown */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            onClick={() => {
+              const next = !showNotifications;
+              setShowNotifications(next);
+              if (next) {
+                fetchReceivedInvitations();
+              }
+            }}
             title="Thông báo ngân sách & Hệ thống"
             className={`relative p-2.5 rounded-xl border transition-colors ${
               showNotifications
@@ -121,20 +148,35 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {notifications.length === 0 ? (
+                {allNotifications.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-400">
                     Không có thông báo mới
                   </div>
                 ) : (
-                  notifications.map((n) => (
+                  allNotifications.map((n) => (
                     <div
                       key={n.id}
-                      onClick={() => markNotificationAsRead(n.id)}
+                      onClick={() => {
+                        markNotificationAsRead(n.id);
+                        if (n.actionType === 'FAMILY_INVITATION') {
+                          let inv = n.actionData;
+                          if (!inv && receivedInvitations) {
+                            inv = receivedInvitations.find(
+                              (i) => `invite-notif-${i.id}` === n.id || n.id.includes(String(i.id))
+                            );
+                          }
+                          if (inv) {
+                            setSelectedInvitationForConfirm(inv);
+                            setConfirmInviteModalOpen(true);
+                            setShowNotifications(false);
+                          }
+                        }
+                      }}
                       className={`p-4 transition-colors cursor-pointer flex gap-3 ${
                         n.read ? 'bg-white hover:bg-slate-50' : 'bg-emerald-50/40 hover:bg-emerald-50/70'
                       }`}
                     >
-                      <div className="mt-0.5 shrink-0">{getNotifIcon(n.type)}</div>
+                      <div className="mt-0.5 shrink-0">{getNotifIcon(n.type, n.actionType)}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <p className={`text-xs font-bold truncate ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>
@@ -143,6 +185,17 @@ export const Header: React.FC<HeaderProps> = ({
                           <span className="text-[10px] text-slate-400 shrink-0">{n.time}</span>
                         </div>
                         <p className="text-xs text-slate-500 mt-1 leading-relaxed">{n.message}</p>
+                        {n.actionType === 'FAMILY_INVITATION' && !n.read && (
+                          <div className="mt-2.5 flex items-center justify-between pt-1 border-t border-slate-100">
+                            <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 hover:underline">
+                              <span>Xem & Xác nhận tham gia</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
+                              Cần xác nhận
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

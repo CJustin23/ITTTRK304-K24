@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, PiggyBank, DollarSign, Wallet as WalletIcon, AlertCircle } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useStore, consolidateWallets } from '../store/useStore';
 import { SavingGoal } from '../types';
 
 export const DepositGoalModal: React.FC = () => {
-  const { wallets, depositToGoal } = useStore();
+  const { wallets: rawWallets, depositToGoal } = useStore();
+  const wallets = useMemo(() => consolidateWallets(rawWallets), [rawWallets]);
   const [goal, setGoal] = useState<SavingGoal | null>(null);
   const [amount, setAmount] = useState('');
   const [selectedWalletId, setSelectedWalletId] = useState<number>(wallets[0]?.id || 1);
@@ -20,19 +21,28 @@ export const DepositGoalModal: React.FC = () => {
 
   if (!goal) return null;
 
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    if (!digits) {
+      setAmount('');
+      return;
+    }
+    const formatted = new Intl.NumberFormat('vi-VN').format(Number(digits));
+    setAmount(formatted);
+    if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    const numAmount = parseFloat(amount);
-    const selectedWallet = wallets.find((w) => w.id === selectedWalletId);
+    const rawDigits = amount.replace(/\./g, '');
+    const numAmount = parseFloat(rawDigits);
     const remainingNeeded = Math.max(goal.targetAmount - goal.currentAmount, 0);
 
-    if (!amount.trim()) {
+    if (!rawDigits.trim()) {
       errs.amount = 'Vui lòng nhập số tiền nạp tích lũy';
     } else if (isNaN(numAmount) || numAmount <= 0) {
       errs.amount = 'Số tiền nạp phải lớn hơn 0 ₫';
-    } else if (selectedWallet && numAmount > selectedWallet.balance) {
-      errs.amount = `Số dư ${selectedWallet.walletName} không đủ (${new Intl.NumberFormat('vi-VN').format(selectedWallet.balance)} ₫)`;
     } else if (numAmount > remainingNeeded) {
       errs.amount = `Số tiền nạp vượt quá số tiền còn thiếu (${new Intl.NumberFormat('vi-VN').format(remainingNeeded)} ₫)`;
     }
@@ -91,13 +101,11 @@ export const DepositGoalModal: React.FC = () => {
             <div className="relative">
               <DollarSign className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                type="number"
-                placeholder="VD: 2000000"
+                type="text"
+                inputMode="numeric"
+                placeholder="VD: 2.000.000"
                 value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value);
-                  if (errors.amount) setErrors((prev) => ({ ...prev, amount: '' }));
-                }}
+                onChange={handleAmountChange}
                 className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-bold ${
                   errors.amount
                     ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/20'
@@ -128,7 +136,7 @@ export const DepositGoalModal: React.FC = () => {
             >
               {wallets.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.walletName} ({new Intl.NumberFormat('vi-VN').format(w.balance)} ₫)
+                  {w.walletName}{w.cardNumberMasked ? ` (${w.cardNumberMasked})` : ''} ({new Intl.NumberFormat('vi-VN').format(w.balance)} ₫)
                 </option>
               ))}
             </select>

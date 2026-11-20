@@ -107,18 +107,16 @@ class TransactionServiceTest {
     }
 
     @Test
-    void createTransaction_insufficientBalance_shouldThrowBadRequest() {
+    void createTransaction_insufficientBalance_shouldAllowNegativeBalance() {
         TransactionRequest request = createRequest(TransactionType.EXPENSE, "1500000");
 
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> transactionService.createTransaction(1L, request)
-        );
+        Transaction result = transactionService.createTransaction(1L, request);
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-        assertEquals(new BigDecimal("1000000"), wallet.getBalance());
+        assertEquals(new BigDecimal("-500000"), wallet.getBalance());
+        assertEquals(new BigDecimal("-500000"), result.getBalanceAfter());
 
-        verify(walletRepository, never()).save(any(Wallet.class));
-        verify(transactionRepository, never()).save(any(Transaction.class));
+        verify(walletRepository).save(wallet);
+        verify(transactionRepository).save(any(Transaction.class));
     }
 
     @Test
@@ -137,17 +135,39 @@ class TransactionServiceTest {
     }
 
     @Test
-    void createTransaction_transfer_shouldThrowNotImplemented() {
+    void createTransaction_transferWithoutDestination_shouldReject() {
         TransactionRequest request = createRequest(TransactionType.TRANSFER, "100000");
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> transactionService.createTransaction(1L, request)
         );
 
-        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
 
         verify(walletRepository, never()).save(any(Wallet.class));
         verify(transactionRepository, never()).save(any(Transaction.class));
+    }
+
+    @Test
+    void createTransaction_transferMovesBalanceBetweenTwoWallets() {
+        Wallet target = Wallet.builder()
+                .id(20L)
+                .user(user)
+                .walletName("Ví tiết kiệm")
+                .type(WalletType.CASH)
+                .balance(new BigDecimal("200000"))
+                .currency("VND")
+                .build();
+        when(walletRepository.findById(20L)).thenReturn(Optional.of(target));
+
+        TransactionRequest request = createRequest(TransactionType.TRANSFER, "300000");
+        request.setToWalletId(20L);
+
+        transactionService.createTransaction(1L, request);
+
+        assertEquals(new BigDecimal("700000"), wallet.getBalance());
+        assertEquals(new BigDecimal("500000"), target.getBalance());
+        verify(transactionRepository, atLeast(2)).save(any(Transaction.class));
     }
 
     @Test

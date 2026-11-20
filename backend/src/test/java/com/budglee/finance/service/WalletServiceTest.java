@@ -140,4 +140,34 @@ class WalletServiceTest {
 
         verify(walletRepository).findByUserId(1L);
     }
+
+    @Test
+    void consolidate_shouldMergeCashWalletsAndSameCardBankWallets() {
+        List<Wallet> raw = List.of(
+                Wallet.builder().id(1L).walletName("vietinbank").type(WalletType.CASH).balance(new BigDecimal("250000")).build(),
+                Wallet.builder().id(2L).walletName("Tiền mặt").type(WalletType.CASH).balance(new BigDecimal("2000000")).build(),
+                Wallet.builder().id(3L).walletName("VietinBank").type(WalletType.BANK).cardNumberMasked("**** 8529").balance(new BigDecimal("2000000")).build(),
+                Wallet.builder().id(4L).walletName("VietinBank").type(WalletType.BANK).cardNumberMasked("**** 8529").balance(new BigDecimal("5000000")).build(),
+                Wallet.builder().id(5L).walletName("VietinBank").type(WalletType.BANK).cardNumberMasked("**** 1234").balance(new BigDecimal("1000000")).build()
+        );
+
+        List<Wallet> consolidated = walletService.consolidate(raw);
+
+        // Expect 3 consolidated wallets: 1 merged CASH, 1 merged VietinBank (8529), 1 separate VietinBank (1234)
+        assertEquals(3, consolidated.size());
+
+        Wallet cash = consolidated.stream().filter(w -> w.getType() == WalletType.CASH).findFirst().orElseThrow();
+        assertEquals("Tiền mặt", cash.getWalletName());
+        assertEquals(new BigDecimal("2250000"), cash.getBalance());
+
+        Wallet bank8529 = consolidated.stream()
+                .filter(w -> w.getType() == WalletType.BANK && "VietinBank".equals(w.getWalletName()) && w.getCardNumberMasked().contains("8529"))
+                .findFirst().orElseThrow();
+        assertEquals(new BigDecimal("7000000"), bank8529.getBalance());
+
+        Wallet bank1234 = consolidated.stream()
+                .filter(w -> w.getType() == WalletType.BANK && "VietinBank".equals(w.getWalletName()) && w.getCardNumberMasked().contains("1234"))
+                .findFirst().orElseThrow();
+        assertEquals(new BigDecimal("1000000"), bank1234.getBalance());
+    }
 }

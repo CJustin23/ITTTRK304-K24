@@ -38,6 +38,7 @@ export interface Transaction {
   id: number;
   walletId: number;
   walletName?: string;
+  cardNumberMasked?: string;
   categoryId?: number;
   categoryName?: string;
   categoryIcon?: string;
@@ -111,4 +112,21 @@ export interface NotificationItem {
   time: string;
   type: 'WARNING' | 'ALERT' | 'INFO' | 'SUCCESS';
   read: boolean;
+  actionType?: 'FAMILY_INVITATION' | 'BUDGET_WARNING' | 'GENERAL';
+  actionData?: any;
+}
+
+export interface FamilyInvitation {
+  id: number;
+  familyGroupId: string;
+  familyGroupName: string;
+  invitedById: number;
+  invitedByName: string;
+  invitedByEmail?: string;
+  inviteeEmail: string;
+  inviteeName?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED';
+  createdAt: string;
+  expiresAt: string;
+  respondedAt?: string;
 }

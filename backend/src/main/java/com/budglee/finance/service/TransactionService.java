@@ -1,6 +1,7 @@
 package com.budglee.finance.service;
 
 import com.budglee.finance.dto.TransactionRequest;
+import com.budglee.finance.dto.TransactionUpdateRequest;
 import com.budglee.finance.entity.Category;
 import com.budglee.finance.entity.Role;
 import com.budglee.finance.entity.Transaction;
@@ -40,9 +41,8 @@ import java.util.Map;
  * 2. INCOME cộng số dư, EXPENSE trừ số dư; cập nhật ví và lưu giao dịch trong cùng @Transactional.
  * 3. Chỉ ví CREDIT_CARD được phép âm số dư, ví khác trả 400 và toàn bộ giao dịch bị rollback.
  * 4. balance_after luôn được lưu; ngày giao dịch lấy hiện tại nếu frontend không gửi.
- *
- * Chưa làm: TRANSFER giữa hai ví — TransactionRequest thiếu ví đích và bảng transactions
- * thiếu cột liên kết hai bản ghi, nên trả 501 có chủ đích thay vì ghi số dư một chiều.
+ * 5. TRANSFER giữa hai ví ghi thành hai bản ghi EXPENSE/INCOME nối nhau qua linked_transaction_id
+ *    (V8), nên lịch sử hai ví đều đầy đủ mà số dư không bao giờ lệch nhau.
  * =========================================================================
  */
 @Service
@@ -62,14 +62,10 @@ public class TransactionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không còn tồn tại"));
 
         if (request.getTransactionType() == TransactionType.TRANSFER) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
-                    "Chuyển khoản giữa hai ví cần thêm cột liên kết bản ghi, thống nhất ở Sprint 3");
+            return transfer(user, request);
         }
 
-        Wallet wallet = walletRepository.findById(request.getWalletId())
-                .filter(w -> canUse(w, user))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Ví không tồn tại hoặc không thuộc về bạn"));
+        Wallet wallet = findUsableWallet(request.getWalletId(), user);
 
         Category category = null;
         if (request.getCategoryId() != null) {
@@ -89,10 +85,7 @@ public class TransactionService {
                 : amount.negate();
         BigDecimal newBalance = wallet.getBalance().add(signed);
 
-        if (newBalance.compareTo(BigDecimal.ZERO) < 0 && wallet.getType() != WalletType.CREDIT_CARD) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Số dư ví không đủ; chỉ thẻ tín dụng (CREDIT_CARD) mới cho phép âm");
-        }
+        // Cho phép ghi chép giao dịch ngay cả khi số dư ví không đủ (vì đây là sổ theo dõi thu chi)
 
         wallet.setBalance(newBalance);
         walletRepository.save(wallet);
@@ -115,6 +108,81 @@ public class TransactionService {
         return saved;
     }
 
+    /**
+     * Chuyển giữa hai ví ghi thành hai bản ghi nối nhau: EXPENSE ở ví nguồn và INCOME ở ví đích,
+     * mỗi bên có balance_after riêng nên lịch sử của cả hai ví đều đúng. Danh mục bị bỏ qua vì
+     * chuyển tiền giữa hai ví của mình không phải thu hay chi.
+     */
+    @Transactional
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
+    public Transaction transfer(User actor, TransactionRequest request) {
+        Long toWalletId = request.getToWalletId();
+        if (toWalletId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Chuyển giữa hai ví phải kèm ví nhận (toWalletId)");
+        }
+        if (toWalletId.equals(request.getWalletId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Ví gửi và ví nhận phải là hai ví khác nhau");
+        }
+
+        Wallet source = findUsableWallet(request.getWalletId(), actor);
+        Wallet target = findUsableWallet(toWalletId, actor);
+
+        BigDecimal amount = request.getAmount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền phải lớn hơn 0");
+        }
+
+        BigDecimal afterSource = source.getBalance().subtract(amount);
+        if (afterSource.compareTo(BigDecimal.ZERO) < 0 && source.getType() != WalletType.CREDIT_CARD) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Số dư ví không đủ; chỉ thẻ tín dụng (CREDIT_CARD) mới cho phép âm");
+        }
+        BigDecimal afterTarget = target.getBalance().add(amount);
+        LocalDateTime when = request.getTransactionDate() == null
+                ? LocalDateTime.now()
+                : request.getTransactionDate();
+        String title = request.getActionTitle().trim();
+
+        // Tru ví nguồn trước, cộng ví đích sau: hai bước nằm trong cùng một transaction nên không
+        // có trường hợp mất tiền mà bên nhận không có.
+        source.setBalance(afterSource);
+        walletRepository.save(source);
+        Transaction outgoing = transactionRepository.save(Transaction.builder()
+                .wallet(source)
+                .user(actor)
+                .actionTitle(title)
+                .amount(amount)
+                .transactionType(TransactionType.EXPENSE)
+                .balanceAfter(afterSource)
+                .transactionDate(when)
+                .note(request.getNote())
+                .build());
+
+        target.setBalance(afterTarget);
+        walletRepository.save(target);
+        Transaction incoming = transactionRepository.save(Transaction.builder()
+                .wallet(target)
+                .user(actor)
+                .actionTitle(title)
+                .amount(amount)
+                .transactionType(TransactionType.INCOME)
+                .balanceAfter(afterTarget)
+                .transactionDate(when)
+                .note(request.getNote())
+                .build());
+
+        outgoing.setLinkedTransactionId(incoming.getId());
+        incoming.setLinkedTransactionId(outgoing.getId());
+        transactionRepository.save(outgoing);
+        transactionRepository.save(incoming);
+
+        log.info("Chuyển {} từ ví={} (con {}) sang ví={} (con {}) bởi user={}",
+                amount, source.getId(), afterSource, target.getId(), afterTarget, actor.getId());
+        return outgoing;
+    }
+
     @Transactional(readOnly = true)
     public Page<Transaction> getUserTransactions(Long userId, Pageable pageable) {
         List<Long> walletIds = visibleWalletIds(userId);
@@ -122,6 +190,149 @@ public class TransactionService {
             return Page.empty(pageable);
         }
         return transactionRepository.findByWalletIdInOrderByTransactionDateDesc(walletIds, pageable);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
+    public Transaction updateTransaction(Long userId, Long transactionId, TransactionUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không còn tồn tại"));
+
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Giao dịch không tồn tại"));
+
+        if (!canUse(transaction.getWallet(), user)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Giao dịch không tồn tại hoặc bạn không có quyền sửa");
+        }
+
+        Wallet wallet = transaction.getWallet();
+
+        // Cập nhật số tiền nếu có thay đổi
+        if (request.getAmount() != null && request.getAmount().compareTo(BigDecimal.ZERO) > 0
+                && request.getAmount().compareTo(transaction.getAmount()) != 0) {
+            BigDecimal oldAmount = transaction.getAmount();
+            BigDecimal newAmount = request.getAmount();
+
+            // Hoàn lại ảnh hưởng của số tiền cũ
+            BigDecimal balanceWithoutOld = transaction.getTransactionType() == TransactionType.INCOME
+                    ? wallet.getBalance().subtract(oldAmount)
+                    : wallet.getBalance().add(oldAmount);
+
+            // Áp dụng số tiền mới
+            BigDecimal updatedBalance = transaction.getTransactionType() == TransactionType.INCOME
+                    ? balanceWithoutOld.add(newAmount)
+                    : balanceWithoutOld.subtract(newAmount);
+
+            wallet.setBalance(updatedBalance);
+            walletRepository.save(wallet);
+
+            transaction.setAmount(newAmount);
+            transaction.setBalanceAfter(updatedBalance);
+        }
+
+        if (request.getActionTitle() != null && !request.getActionTitle().isBlank()) {
+            transaction.setActionTitle(request.getActionTitle().trim());
+        }
+        if (request.getNote() != null) {
+            transaction.setNote(request.getNote());
+        }
+        if (request.getTransactionDate() != null) {
+            transaction.setTransactionDate(request.getTransactionDate());
+        }
+        if (request.getCategoryId() != null) {
+            Category category = categoryRepository.findById(request.getCategoryId())
+                    .filter(c -> c.getUser() == null || userId.equals(c.getUser().getId()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Danh mục không tồn tại hoặc không thuộc về bạn"));
+            transaction.setCategory(category);
+        }
+
+        if (transaction.getLinkedTransactionId() != null) {
+            transactionRepository.findById(transaction.getLinkedTransactionId()).ifPresent(linked -> {
+                if (request.getAmount() != null && request.getAmount().compareTo(BigDecimal.ZERO) > 0
+                        && request.getAmount().compareTo(linked.getAmount()) != 0) {
+                    Wallet linkedWallet = linked.getWallet();
+                    BigDecimal linkedOld = linked.getAmount();
+                    BigDecimal linkedNew = request.getAmount();
+
+                    BigDecimal linkedWithoutOld = linked.getTransactionType() == TransactionType.INCOME
+                            ? linkedWallet.getBalance().subtract(linkedOld)
+                            : linkedWallet.getBalance().add(linkedOld);
+
+                    BigDecimal linkedUpdated = linked.getTransactionType() == TransactionType.INCOME
+                            ? linkedWithoutOld.add(linkedNew)
+                            : linkedWithoutOld.subtract(linkedNew);
+
+                    if (linkedUpdated.compareTo(BigDecimal.ZERO) < 0 && linkedWallet.getType() != WalletType.CREDIT_CARD) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Số dư ví đối ứng không đủ để điều chỉnh giao dịch");
+                    }
+
+                    linkedWallet.setBalance(linkedUpdated);
+                    walletRepository.save(linkedWallet);
+
+                    linked.setAmount(linkedNew);
+                    linked.setBalanceAfter(linkedUpdated);
+                }
+                if (request.getActionTitle() != null && !request.getActionTitle().isBlank()) {
+                    linked.setActionTitle(request.getActionTitle().trim());
+                }
+                if (request.getNote() != null) {
+                    linked.setNote(request.getNote());
+                }
+                if (request.getTransactionDate() != null) {
+                    linked.setTransactionDate(request.getTransactionDate());
+                }
+                transactionRepository.save(linked);
+            });
+        }
+
+        return transactionRepository.save(transaction);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"dashboardSummary", "dashboardTrends"}, allEntries = true)
+    public void deleteTransaction(Long userId, Long transactionId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không còn tồn tại"));
+
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Giao dịch không tồn tại"));
+
+        if (!canUse(transaction.getWallet(), user)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Giao dịch không tồn tại hoặc bạn không có quyền xóa");
+        }
+
+        Wallet wallet = transaction.getWallet();
+
+        // Hoàn lại số dư ví trước khi xóa
+        BigDecimal revertedBalance = transaction.getTransactionType() == TransactionType.INCOME
+                ? wallet.getBalance().subtract(transaction.getAmount())
+                : wallet.getBalance().add(transaction.getAmount());
+
+        if (revertedBalance.compareTo(BigDecimal.ZERO) < 0 && wallet.getType() != WalletType.CREDIT_CARD) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Không thể xóa giao dịch thu này vì sẽ làm số dư ví bị âm");
+        }
+
+        wallet.setBalance(revertedBalance);
+        walletRepository.save(wallet);
+
+        // Nếu là giao dịch chuyển khoản có linked transaction, hoàn và xóa cả hai
+        if (transaction.getLinkedTransactionId() != null) {
+            transactionRepository.findById(transaction.getLinkedTransactionId()).ifPresent(linked -> {
+                Wallet linkedWallet = linked.getWallet();
+                BigDecimal linkedReverted = linked.getTransactionType() == TransactionType.INCOME
+                        ? linkedWallet.getBalance().subtract(linked.getAmount())
+                        : linkedWallet.getBalance().add(linked.getAmount());
+                linkedWallet.setBalance(linkedReverted);
+                walletRepository.save(linkedWallet);
+                transactionRepository.delete(linked);
+            });
+        }
+
+        transactionRepository.delete(transaction);
+        log.info("Đã xóa giao dịch id={} ví={} hoàn lại số dư={}", transactionId, wallet.getId(), revertedBalance);
     }
 
     /**
@@ -141,6 +352,17 @@ public class TransactionService {
                     .forEach(wallet -> ids.putIfAbsent(wallet.getId(), wallet.getId()));
         }
         return new ArrayList<>(ids.keySet());
+    }
+
+    private Wallet findUsableWallet(Long walletId, User actor) {
+        if (walletId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Bạn cần có ít nhất 1 nguồn tiền (Ví / Thẻ) trong tài khoản trước khi ghi lại chi tiêu");
+        }
+        return walletRepository.findById(walletId)
+                .filter(w -> canUse(w, actor))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Ví không tồn tại hoặc không thuộc về bạn"));
     }
 
     /**
