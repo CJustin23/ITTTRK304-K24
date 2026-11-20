@@ -140,15 +140,15 @@ class FamilyWorkspaceAccessTest {
     }
 
     @Test
-    void membersOfSameFamilySeeEachOthersWallets() throws Exception {
+    void membersOfSameFamilyKeepWalletsIsolated() throws Exception {
         String group = newGroup(GROUP_A + UUID.randomUUID());
         String memberA = registerAndLogin(Role.FAMILY_MEMBER, group);
         String memberB = registerAndLogin(Role.FAMILY_MEMBER, group);
 
-        createWallet(memberA, "Quỹ nhà A", "500000");
+        createWallet(memberA, "Quỹ riêng của A", "500000");
 
         JsonNode walletsOfB = walletNames(memberB);
-        assertThat(walletsOfB.toString()).contains("Quỹ nhà A");
+        assertThat(walletsOfB.toString()).doesNotContain("Quỹ riêng của A");
     }
 
     @Test

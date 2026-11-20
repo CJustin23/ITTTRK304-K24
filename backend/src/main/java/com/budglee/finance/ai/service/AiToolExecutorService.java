@@ -267,14 +267,7 @@ public class AiToolExecutorService {
                 ? TransactionType.INCOME : TransactionType.EXPENSE;
 
         User user = userRepository.findById(userId).orElse(null);
-        Map<Long, Wallet> walletMap = new LinkedHashMap<>();
-        walletRepository.findByUserId(userId)
-                .forEach(w -> walletMap.put(w.getId(), w));
-        if (user != null && user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()) {
-            walletRepository.findByFamilyGroupId(user.getFamilyGroupId())
-                    .forEach(w -> walletMap.putIfAbsent(w.getId(), w));
-        }
-        List<Wallet> wallets = new ArrayList<>(walletMap.values());
+        List<Wallet> wallets = walletRepository.findByUserId(userId);
         if (wallets.isEmpty()) {
             throw new IllegalStateException("Bạn chưa có ví nào trong tài khoản. Hãy tạo ít nhất một ví trước khi ghi giao dịch.");
         }

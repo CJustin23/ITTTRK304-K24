@@ -3325,7 +3325,7 @@ export const useStore = create<AppState>((set, get) => ({
       ]);
 
       const updates: any = {};
-      if (walletsRes.status === 'fulfilled' && Array.isArray(walletsRes.value) && walletsRes.value.length > 0) {
+      if (walletsRes.status === 'fulfilled' && Array.isArray(walletsRes.value)) {
         const apiWallets = walletsRes.value.map((w: any) => ({
           id: w.id,
           walletName: w.walletName || w.name,
