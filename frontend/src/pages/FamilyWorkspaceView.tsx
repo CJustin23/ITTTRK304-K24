@@ -25,13 +25,14 @@ export const FamilyWorkspaceView: React.FC = () => {
     familyMembers.find((m) => m.role === 'FAMILY_ADMIN') ||
     (currentUser?.role === 'FAMILY_ADMIN' ? currentUser : null);
 
-  const ownerName = ownerMember?.fullName || 'Nguyễn Trường An';
+  const rawOwnerName = ownerMember?.fullName || currentUser?.fullName || 'Chủ hộ';
+  const ownerName = rawOwnerName.replace(/\s*\(Bạn\)\s*$/i, '').trim();
 
   const familyTitle =
     currentUser?.familyGroupName ||
     (currentUser?.role === 'FAMILY_ADMIN'
-      ? `Sổ quỹ Gia đình của ${currentUser.fullName}`
-      : 'Sổ quỹ Gia đình Nhóm 03 (HN-KS24-CNTT3)');
+      ? `Sổ quỹ Gia đình của ${ownerName}`
+      : `Sổ quỹ Gia đình (${ownerName})`);
 
   const isIndividual = currentUser?.role === 'INDIVIDUAL_USER';
   const isOwnerOrAdmin =

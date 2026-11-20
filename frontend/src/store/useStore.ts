@@ -640,11 +640,11 @@ export const THANHCANHAN_DATA: {
   ],
   budgets: [
     { id: 1, categoryId: 1, categoryName: 'Ăn uống & Cà phê', categoryIcon: 'Utensils', amountLimit: 5000000, spentAmount: 1085000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 2, categoryId: 2, categoryName: 'Mua sắm cá nhân', categoryIcon: 'ShoppingBag', amountLimit: 3500000, spentAmount: 1930000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 3, categoryId: 4, categoryName: 'Hóa đơn & Tiện ích', categoryIcon: 'Receipt', amountLimit: 2000000, spentAmount: 1580000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 2, categoryId: 2, categoryName: 'Mua sắm & Gia đình', categoryIcon: 'ShoppingBag', amountLimit: 3500000, spentAmount: 1930000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 3, categoryId: 5, categoryName: 'Hóa đơn & Tiện ích', categoryIcon: 'Receipt', amountLimit: 2000000, spentAmount: 1580000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
     { id: 4, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 1500000, spentAmount: 390000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 5, categoryId: 5, categoryName: 'Giải trí & Du lịch', categoryIcon: 'Plane', amountLimit: 1500000, spentAmount: 299000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 6, categoryId: 6, categoryName: 'Học tập & Phát triển', categoryIcon: 'BookOpen', amountLimit: 1000000, spentAmount: 350000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 5, categoryId: 10, categoryName: 'Giải trí & Du lịch', categoryIcon: 'Plane', amountLimit: 1500000, spentAmount: 299000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 6, categoryId: 6, categoryName: 'Giáo dục & Học tập', categoryIcon: 'BookOpen', amountLimit: 1000000, spentAmount: 350000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
   ],
   savingGoals: [
     { id: 1, goalName: 'Mua xe Honda SH 160i ABS', targetAmount: 110000000, currentAmount: 75000000, deadline: '2026-12-31', status: 'IN_PROGRESS', color: 'emerald' },
@@ -1324,10 +1324,10 @@ export const FAMILY_SHARED_DATA: {
     },
   ],
   budgets: [
-    { id: 201, categoryId: 1, categoryName: 'Ăn uống & Đi chợ gia đình', categoryIcon: 'Utensils', amountLimit: 15000000, spentAmount: 5380000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 202, categoryId: 6, categoryName: 'Học tập & Giáo dục con cái', categoryIcon: 'GraduationCap', amountLimit: 15000000, spentAmount: 12050000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 203, categoryId: 4, categoryName: 'Hóa đơn & Nhà ở', categoryIcon: 'Home', amountLimit: 6000000, spentAmount: 4380000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
-    { id: 204, categoryId: 7, categoryName: 'Y tế & Bảo hiểm', categoryIcon: 'HeartPulse', amountLimit: 8000000, spentAmount: 6950000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 201, categoryId: 1, categoryName: 'Ăn uống & Cà phê', categoryIcon: 'Utensils', amountLimit: 15000000, spentAmount: 5380000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 202, categoryId: 6, categoryName: 'Giáo dục & Học tập', categoryIcon: 'GraduationCap', amountLimit: 15000000, spentAmount: 12050000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 203, categoryId: 5, categoryName: 'Hóa đơn & Tiện ích', categoryIcon: 'Home', amountLimit: 6000000, spentAmount: 4380000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
+    { id: 204, categoryId: 4, categoryName: 'Sức khỏe & Y tế', categoryIcon: 'HeartPulse', amountLimit: 8000000, spentAmount: 6950000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
     { id: 205, categoryId: 3, categoryName: 'Di chuyển & Xăng xe', categoryIcon: 'Car', amountLimit: 5000000, spentAmount: 3200000, periodMonth: new Date().getMonth() + 1, periodYear: new Date().getFullYear(), alertThreshold: 80 },
   ],
   savingGoals: [
@@ -1794,17 +1794,25 @@ interface AppState {
 // Bảng ánh xạ danh mục hệ thống giữa Backend DB (English) và Frontend UI (Tiếng Việt)
 export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: string; icon: string }> = {
   'Ăn uống & Cà phê': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
+  'Ăn uống & Đi chợ gia đình': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
   'Food & Drinks': { id: 1, viName: 'Ăn uống & Cà phê', enName: 'Food & Drinks', icon: 'Utensils' },
   'Mua sắm & Gia đình': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
+  'Mua sắm cá nhân': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
   'Shopping': { id: 2, viName: 'Mua sắm & Gia đình', enName: 'Shopping', icon: 'ShoppingBag' },
   'Di chuyển & Xăng xe': { id: 3, viName: 'Di chuyển & Xăng xe', enName: 'Travel & Transport', icon: 'Car' },
   'Travel & Transport': { id: 3, viName: 'Di chuyển & Xăng xe', enName: 'Travel & Transport', icon: 'Car' },
   'Sức khỏe & Y tế': { id: 4, viName: 'Sức khỏe & Y tế', enName: 'Health', icon: 'Heart' },
+  'Sức khỏe & Thể thao': { id: 4, viName: 'Sức khỏe & Y tế', enName: 'Health', icon: 'Heart' },
+  'Y tế & Bảo hiểm': { id: 4, viName: 'Sức khỏe & Y tế', enName: 'Health', icon: 'Heart' },
   'Health': { id: 4, viName: 'Sức khỏe & Y tế', enName: 'Health', icon: 'Heart' },
   'Hóa đơn & Tiện ích': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
+  'Hóa đơn & Nhà ở': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
   'Bills & Utilities': { id: 5, viName: 'Hóa đơn & Tiện ích', enName: 'Bills & Utilities', icon: 'Receipt' },
   'Giáo dục & Học tập': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
-  'Giáo dục & Con cái': { id: 6, viName: 'Giáo dục & Con cái', enName: 'Education', icon: 'BookOpen' },
+  'Giáo dục & Khóa học': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
+  'Giáo dục & Con cái': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
+  'Học tập & Phát triển': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
+  'Học tập & Giáo dục con cái': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
   'Education': { id: 6, viName: 'Giáo dục & Học tập', enName: 'Education', icon: 'BookOpen' },
   'Lương & Thưởng': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
   'Salary': { id: 7, viName: 'Lương & Thưởng', enName: 'Salary', icon: 'Wallet' },
@@ -1812,8 +1820,9 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Investment': { id: 8, viName: 'Đầu tư & Sinh lời', enName: 'Investment', icon: 'TrendingUp' },
   'Thu nhập khác': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
   'Other Income': { id: 9, viName: 'Thu nhập khác', enName: 'Other Income', icon: 'CircleDollarSign' },
-  'Du lịch & Giải trí': { id: 10, viName: 'Du lịch & Giải trí', enName: 'Entertainment', icon: 'Plane' },
-  'Entertainment': { id: 10, viName: 'Du lịch & Giải trí', enName: 'Entertainment', icon: 'Plane' },
+  'Du lịch & Giải trí': { id: 10, viName: 'Giải trí & Du lịch', enName: 'Entertainment', icon: 'Plane' },
+  'Giải trí & Du lịch': { id: 10, viName: 'Giải trí & Du lịch', enName: 'Entertainment', icon: 'Plane' },
+  'Entertainment': { id: 10, viName: 'Giải trí & Du lịch', enName: 'Entertainment', icon: 'Plane' },
   'Khác': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
   'Other': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
 };
@@ -1897,7 +1906,8 @@ export const persistCurrentUserData = (
       if (currentFamStr) {
         try { currentFamData = JSON.parse(currentFamStr); } catch {}
       }
-      const finalFamGoals = data.familySavingGoals ?? currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
+      const defaultFamGoals = famId === 'FAM-HANHPHUC' ? FAMILY_SHARED_DATA.savingGoals : [];
+      const finalFamGoals = data.familySavingGoals ?? currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? defaultFamGoals;
       localStorage.setItem(
         famKey,
         JSON.stringify({
@@ -2184,7 +2194,7 @@ export const useStore = create<AppState>((set, get) => ({
   recentTransactions: initialAuthState.recentTransactions,
   budgets: initialAuthState.budgets,
   savingGoals: initialAuthState.savingGoals,
-  familySavingGoals: (initialAuthState as any).familySavingGoals || FAMILY_SHARED_DATA.savingGoals,
+  familySavingGoals: (initialAuthState as any).familySavingGoals || [],
   familyMembers: initialAuthState.familyMembers,
   notifications: initialAuthState.notifications,
   receivedInvitations: initialAuthState.receivedInvitations,
@@ -2427,6 +2437,7 @@ export const useStore = create<AppState>((set, get) => ({
       recentTransactions: [],
       budgets: [],
       savingGoals: [],
+      familySavingGoals: [],
       familyMembers: newMembers,
       notifications: welcomeNotifications,
       dashboardSummary: emptySummary,
@@ -2823,10 +2834,11 @@ export const useStore = create<AppState>((set, get) => ({
 
     set((state) => {
       // Nếu đã có ngân sách cùng danh mục và cùng kỳ thì cập nhật thay vì tạo trùng
+      const normName = (budgetData.categoryName || '').trim().toLowerCase();
       const existingIdx = state.budgets.findIndex(
         (b) =>
-          (b.categoryId && b.categoryId === resolvedCatId && b.periodMonth === periodMonth && b.periodYear === periodYear) ||
-          (b.categoryName && budgetData.categoryName && b.categoryName.trim().toLowerCase() === budgetData.categoryName.trim().toLowerCase() && b.periodMonth === periodMonth && b.periodYear === periodYear)
+          (normName && b.categoryName && b.categoryName.trim().toLowerCase() === normName && b.periodMonth === periodMonth && b.periodYear === periodYear) ||
+          (!normName && b.categoryId && b.categoryId === resolvedCatId && b.periodMonth === periodMonth && b.periodYear === periodYear)
       );
 
       let updatedBudgets: Budget[];
@@ -3331,6 +3343,15 @@ export const useStore = create<AppState>((set, get) => ({
 
     const famId = get().currentUser?.familyGroupId || 'FAM-HANHPHUC';
     try {
+      if (targetEmail) {
+        const remKey = 'budglee_removed_members_' + famId;
+        const remList: string[] = JSON.parse(localStorage.getItem(remKey) || '[]');
+        const normEmail = targetEmail.toLowerCase();
+        if (!remList.includes(normEmail)) {
+          remList.push(normEmail);
+          localStorage.setItem(remKey, JSON.stringify(remList));
+        }
+      }
       const famKey = 'budglee_family_data_' + famId;
       const famSavedStr = localStorage.getItem(famKey);
       if (famSavedStr) {
@@ -3434,6 +3455,7 @@ export const useStore = create<AppState>((set, get) => ({
       const newState = {
         currentUser: updatedUser,
         familyMembers: newMembers,
+        familySavingGoals: [],
       };
 
       persistCurrentUserData(updatedUser, newState);
@@ -3592,7 +3614,6 @@ export const useStore = create<AppState>((set, get) => ({
             !apiBudgets.some(
               (ab: any) =>
                 ab.id === lb.id ||
-                (lb.categoryId && ab.categoryId && ab.categoryId === lb.categoryId) ||
                 (lb.categoryName && ab.categoryName && ab.categoryName.trim().toLowerCase() === lb.categoryName.trim().toLowerCase())
             )
         );
@@ -3661,64 +3682,83 @@ export const useStore = create<AppState>((set, get) => ({
 
     const famId = user.familyGroupId || 'FAM-HANHPHUC';
     const famKey = 'budglee_family_data_' + famId;
-    let members: FamilyMember[] = [];
-    let apiSuccess = false;
+    const remKey = 'budglee_removed_members_' + famId;
+    let removedEmails: string[] = [];
+    try {
+      removedEmails = JSON.parse(localStorage.getItem(remKey) || '[]');
+    } catch (e) {}
 
-    // 1. Thử lấy danh sách thành viên từ API backend (Nguồn dữ liệu chính xác nhất)
+    let members: FamilyMember[] = [];
+
+    // 1. Thử lấy danh sách thành viên từ API backend
     try {
       const apiMembers = await FamilyApiService.getMembers();
       if (apiMembers && Array.isArray(apiMembers) && apiMembers.length > 0) {
-        apiSuccess = true;
-        members = apiMembers.map((m: any) => ({
-          id: m.id || m.userId,
-          fullName: m.fullName || m.name || m.email,
-          email: m.email,
-          role: (m.role as Role) || 'FAMILY_MEMBER',
-          avatarUrl: m.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-          joinedDate: m.joinedDate || 'Hôm nay',
-          isOwner: m.isOwner !== undefined ? m.isOwner : (m.role === 'FAMILY_ADMIN' && m.email === 'thanhba@gmail.com'),
-        }));
-
-        // Đồng bộ cache localStorage theo DB thật để không hồi sinh thành viên đã bị xóa
-        try {
-          const famSavedStr = localStorage.getItem(famKey);
-          const famSaved = famSavedStr ? JSON.parse(famSavedStr) : {};
-          famSaved.familyMembers = members;
-          localStorage.setItem(famKey, JSON.stringify(famSaved));
-        } catch (e) {}
+        members = apiMembers
+          .filter((m: any) => !m.email || !removedEmails.includes(String(m.email).toLowerCase()))
+          .map((m: any) => ({
+            id: m.id || m.userId,
+            fullName: m.fullName || m.name || m.email,
+            email: m.email,
+            role: (m.role as Role) || 'FAMILY_MEMBER',
+            avatarUrl: m.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
+            joinedDate: m.joinedDate || 'Hôm nay',
+            isOwner: m.isOwner !== undefined ? m.isOwner : m.role === 'FAMILY_ADMIN',
+          }));
       }
     } catch (e) {
       console.warn('fetchFamilyMembers API error, falling back to local:', e);
     }
 
-    // 2. Chỉ khi API không lấy được (offline/mạng lỗi), mới fallback sang localStorage
-    if (!apiSuccess && members.length === 0) {
-      const famSavedStr = localStorage.getItem(famKey);
-      if (famSavedStr) {
-        try {
-          const famSaved = JSON.parse(famSavedStr);
-          if (famSaved.familyMembers && Array.isArray(famSaved.familyMembers) && famSaved.familyMembers.length > 0) {
-            members = famSaved.familyMembers;
-          }
-        } catch (e) {}
-      }
+    // 2. Gộp thêm thành viên đã được thêm/xác nhận trong localStorage (nếu chưa bị xóa)
+    const famSavedStr = localStorage.getItem(famKey);
+    if (famSavedStr) {
+      try {
+        const famSaved = JSON.parse(famSavedStr);
+        if (famSaved.familyMembers && Array.isArray(famSaved.familyMembers)) {
+          famSaved.familyMembers.forEach((fm: FamilyMember) => {
+            const fmEmail = (fm.email || '').toLowerCase();
+            if (
+              fmEmail &&
+              !removedEmails.includes(fmEmail) &&
+              !members.some((m) => (m.email || '').toLowerCase() === fmEmail)
+            ) {
+              members.push(fm);
+            }
+          });
+        }
+      } catch (e) {}
     }
 
     if (members.length === 0) {
-      members = get().familyMembers.length > 0 ? get().familyMembers : FAMILY_SHARED_DATA.familyMembers;
+      members =
+        get().familyMembers.length > 0
+          ? get().familyMembers
+          : famId === 'FAM-HANHPHUC'
+          ? FAMILY_SHARED_DATA.familyMembers
+          : [];
     }
 
-    // Đồng bộ familySavingGoals từ famKey nếu có trong cache
+    try {
+      const currentFamSaved = famSavedStr ? JSON.parse(famSavedStr) : {};
+      currentFamSaved.familyMembers = members;
+      localStorage.setItem(famKey, JSON.stringify(currentFamSaved));
+    } catch (e) {}
+
+    // Đồng bộ familySavingGoals theo đúng mã gia đình (không lấy mục tiêu của hộ khác)
     const famSavedStrForGoals = localStorage.getItem(famKey);
-    let famGoalsToSet = get().familySavingGoals;
+    const defaultFamGoals = famId === 'FAM-HANHPHUC' ? FAMILY_SHARED_DATA.savingGoals : [];
+    let famGoalsToSet = famId === 'FAM-HANHPHUC' ? get().familySavingGoals : [];
     if (famSavedStrForGoals) {
       try {
         const famSaved = JSON.parse(famSavedStrForGoals);
         const goals = famSaved.familySavingGoals ?? famSaved.savingGoals;
-        if (goals && Array.isArray(goals) && goals.length > 0) {
+        if (goals && Array.isArray(goals)) {
           famGoalsToSet = goals;
         }
       } catch (e) {}
+    } else {
+      famGoalsToSet = defaultFamGoals;
     }
 
     set({ familyMembers: members, familySavingGoals: famGoalsToSet });
@@ -3961,10 +4001,15 @@ export const useStore = create<AppState>((set, get) => ({
     // Đồng bộ vào shared family data budglee_family_data_<groupId>
     const famKey = 'budglee_family_data_' + groupId;
     try {
+      const remKey = 'budglee_removed_members_' + groupId;
+      const remList: string[] = JSON.parse(localStorage.getItem(remKey) || '[]');
+      const cleanedRem = remList.filter((e) => e !== user.email.toLowerCase());
+      localStorage.setItem(remKey, JSON.stringify(cleanedRem));
+
       const famDataStr = localStorage.getItem(famKey);
       let famData = famDataStr ? JSON.parse(famDataStr) : {};
       if (!Array.isArray(famData.familyMembers)) {
-        famData.familyMembers = [...FAMILY_SHARED_DATA.familyMembers];
+        famData.familyMembers = groupId === 'FAM-HANHPHUC' ? [...FAMILY_SHARED_DATA.familyMembers] : [];
       }
       if (!famData.familyMembers.some((m: FamilyMember) => m.email.toLowerCase() === user.email.toLowerCase())) {
         famData.familyMembers.push(newMember);

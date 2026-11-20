@@ -443,8 +443,9 @@ export const BudgetsView: React.FC = () => {
                   <option value="Di chuyển & Xăng xe">Di chuyển & Xăng xe</option>
                   <option value="Hóa đơn & Tiện ích">Hóa đơn & Tiện ích</option>
                   <option value="Sức khỏe & Y tế">Sức khỏe & Y tế</option>
-                  <option value="Giáo dục & Khóa học">Giáo dục & Khóa học</option>
+                  <option value="Giáo dục & Học tập">Giáo dục & Học tập</option>
                   <option value="Giải trí & Du lịch">Giải trí & Du lịch</option>
+                  <option value="Khác">Khác</option>
                 </select>
               </div>
 
