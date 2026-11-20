@@ -49,6 +49,6 @@ public class BudgetController {
             @AuthenticationPrincipal UserPrincipal currentUser,
             @PathVariable Long id) {
         budgetService.deleteBudget(currentUser.getId(), id);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa ngân sách thành công", null));
+        return ResponseEntity.ok(ApiResponse.ok(null, "Xóa ngân sách thành công"));
     }
 }
