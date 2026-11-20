@@ -1871,6 +1871,15 @@ export const formatLocalIsoDate = (d?: Date | string): string => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 };
 
+// Helper: Kiểm tra xem một mục tiêu tích lũy có phải là dữ liệu demo của gia đình mẫu hay không
+export const isDemoGoal = (g: SavingGoal): boolean => {
+  if (!g) return false;
+  if (g.id === 201 && (g.goalName || '').includes('VF7')) return true;
+  if (g.id === 202 && (g.goalName || '').includes('Đại học')) return true;
+  if (g.contributors?.some((c) => c.userEmail === 'thanhba@gmail.com' || c.userEmail === 'thanhme@gmail.com')) return true;
+  return false;
+};
+
 // Lưu trữ tập trung dữ liệu tài khoản vào localStorage
 export const persistCurrentUserData = (
   user: User | null,
@@ -1920,7 +1929,9 @@ export const persistCurrentUserData = (
       if (currentFamStr) {
         try { currentFamData = JSON.parse(currentFamStr); } catch {}
       }
-      const finalFamGoals = data.familySavingGoals ?? currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? FAMILY_SHARED_DATA.savingGoals;
+      const isDemoFam = famId === 'FAM-HANHPHUC' || isFamilyUser;
+      const rawFamGoals = data.familySavingGoals ?? currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? (isDemoFam ? FAMILY_SHARED_DATA.savingGoals : []);
+      const finalFamGoals = isDemoFam ? rawFamGoals : (rawFamGoals || []).filter((g: any) => !isDemoGoal(g));
       localStorage.setItem(
         famKey,
         JSON.stringify({
@@ -2207,7 +2218,7 @@ export const useStore = create<AppState>((set, get) => ({
   recentTransactions: initialAuthState.recentTransactions,
   budgets: initialAuthState.budgets,
   savingGoals: initialAuthState.savingGoals,
-  familySavingGoals: (initialAuthState as any).familySavingGoals || FAMILY_SHARED_DATA.savingGoals,
+  familySavingGoals: (initialAuthState as any).familySavingGoals || [],
   familyMembers: initialAuthState.familyMembers,
   notifications: initialAuthState.notifications,
   receivedInvitations: initialAuthState.receivedInvitations,
@@ -2450,6 +2461,7 @@ export const useStore = create<AppState>((set, get) => ({
       recentTransactions: [],
       budgets: [],
       savingGoals: [],
+      familySavingGoals: [],
       familyMembers: newMembers,
       notifications: welcomeNotifications,
       dashboardSummary: emptySummary,
@@ -2494,6 +2506,7 @@ export const useStore = create<AppState>((set, get) => ({
       recentTransactions: [],
       budgets: [],
       savingGoals: [],
+      familySavingGoals: [],
       familyMembers: [],
       notifications: [],
       receivedInvitations: [],
@@ -3462,7 +3475,20 @@ export const useStore = create<AppState>((set, get) => ({
       const newState = {
         currentUser: updatedUser,
         familyMembers: newMembers,
+        familySavingGoals: [],
       };
+
+      const famKey = 'budglee_family_data_' + updatedUser.familyGroupId;
+      try {
+        localStorage.setItem(
+          famKey,
+          JSON.stringify({
+            familyMembers: newMembers,
+            familySavingGoals: [],
+            savingGoals: [],
+          })
+        );
+      } catch {}
 
       persistCurrentUserData(updatedUser, newState);
       if (get().token) {
@@ -3481,7 +3507,18 @@ export const useStore = create<AppState>((set, get) => ({
                 if (syncedUser.email) {
                   localStorage.setItem('budglee_user_' + syncedUser.email.toLowerCase(), JSON.stringify(syncedUser));
                 }
-                return { currentUser: syncedUser };
+                const realFamKey = 'budglee_family_data_' + res.familyGroupId;
+                try {
+                  localStorage.setItem(
+                    realFamKey,
+                    JSON.stringify({
+                      familyMembers: newMembers,
+                      familySavingGoals: [],
+                      savingGoals: [],
+                    })
+                  );
+                } catch {}
+                return { currentUser: syncedUser, familySavingGoals: [] };
               });
             }
           })
@@ -3732,21 +3769,24 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
 
+    const isDemoFam = famId === 'FAM-HANHPHUC' || ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(user?.email?.toLowerCase() || '');
     if (members.length === 0) {
-      members = get().familyMembers.length > 0 ? get().familyMembers : FAMILY_SHARED_DATA.familyMembers;
+      members = get().familyMembers.length > 0 ? get().familyMembers : (isDemoFam ? FAMILY_SHARED_DATA.familyMembers : []);
     }
 
     // Đồng bộ familySavingGoals từ famKey nếu có trong cache
     const famSavedStrForGoals = localStorage.getItem(famKey);
-    let famGoalsToSet = get().familySavingGoals;
+    let famGoalsToSet = get().familySavingGoals || [];
     if (famSavedStrForGoals) {
       try {
         const famSaved = JSON.parse(famSavedStrForGoals);
         const goals = famSaved.familySavingGoals ?? famSaved.savingGoals;
-        if (goals && Array.isArray(goals) && goals.length > 0) {
-          famGoalsToSet = goals;
+        if (goals && Array.isArray(goals)) {
+          famGoalsToSet = isDemoFam ? goals : goals.filter((g: SavingGoal) => !isDemoGoal(g));
         }
       } catch (e) {}
+    } else if (!isDemoFam) {
+      famGoalsToSet = famGoalsToSet.filter((g: SavingGoal) => !isDemoGoal(g));
     }
 
     set({ familyMembers: members, familySavingGoals: famGoalsToSet });
@@ -3992,7 +4032,7 @@ export const useStore = create<AppState>((set, get) => ({
       const famDataStr = localStorage.getItem(famKey);
       let famData = famDataStr ? JSON.parse(famDataStr) : {};
       if (!Array.isArray(famData.familyMembers)) {
-        famData.familyMembers = [...FAMILY_SHARED_DATA.familyMembers];
+        famData.familyMembers = groupId === 'FAM-HANHPHUC' ? [...FAMILY_SHARED_DATA.familyMembers] : [];
       }
       if (!famData.familyMembers.some((m: FamilyMember) => m.email.toLowerCase() === user.email.toLowerCase())) {
         famData.familyMembers.push(newMember);
