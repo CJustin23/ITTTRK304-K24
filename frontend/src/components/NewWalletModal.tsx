@@ -124,8 +124,13 @@ export const NewWalletModal: React.FC = () => {
       errs.balance = 'Số tiền không được là số âm';
     }
 
-    if (type !== 'CASH' && cardNumberMasked.trim() && !/^\d{4}$/.test(cardNumberMasked.trim())) {
-      errs.cardNumberMasked = 'Vui lòng nhập đúng 4 chữ số cuối (VD: 6789)';
+    if (type !== 'CASH') {
+      const trimmedCard = cardNumberMasked.trim();
+      if (!trimmedCard) {
+        errs.cardNumberMasked = 'Vui lòng nhập 4 chữ số cuối của thẻ hoặc tài khoản';
+      } else if (!/^\d{4}$/.test(trimmedCard)) {
+        errs.cardNumberMasked = 'Vui lòng nhập đúng 4 chữ số cuối (VD: 6789)';
+      }
     }
 
     if (Object.keys(errs).length > 0) {
@@ -134,12 +139,13 @@ export const NewWalletModal: React.FC = () => {
     }
 
     setIsSubmitting(true);
+    const cardDigits = cardNumberMasked.trim().replace(/\D/g, '').slice(-4);
     addWallet({
       walletName: finalWalletName,
       balance: numBalance,
       type,
       currency: 'VND',
-      cardNumberMasked: type !== 'CASH' && cardNumberMasked.trim() ? `**** ${cardNumberMasked.trim()}` : undefined,
+      cardNumberMasked: type !== 'CASH' && cardDigits ? `**** ${cardDigits}` : '',
     });
 
     // Reset & close
@@ -659,16 +665,18 @@ export const NewWalletModal: React.FC = () => {
           {type !== 'CASH' && (
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
-                4 số cuối của thẻ hoặc tài khoản (Tùy chọn)
+                4 số cuối của thẻ hoặc tài khoản <span className="text-rose-500">*</span>
               </label>
               <input
                 id="input-wallet-card-masked"
                 type="text"
+                inputMode="numeric"
                 maxLength={4}
                 placeholder="VD: 6789"
                 value={cardNumberMasked}
                 onChange={(e) => {
-                  setCardNumberMasked(e.target.value);
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setCardNumberMasked(val);
                   if (errors.cardNumberMasked) setErrors((prev) => ({ ...prev, cardNumberMasked: '' }));
                 }}
                 className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-sm focus:outline-none transition-all font-mono ${

@@ -186,7 +186,14 @@ export const WalletsView: React.FC = () => {
 
               {/* Card Footer */}
               <div className="flex justify-between items-center text-xs text-slate-300 font-mono pt-4 border-t border-white/10">
-                <span className="tracking-widest">{wallet.cardNumberMasked || 'TIỀN MẶT'}</span>
+                <span className="tracking-widest">
+                  {wallet.cardNumberMasked ||
+                    (wallet.type === 'CASH'
+                      ? 'TIỀN MẶT'
+                      : wallet.type === 'BANK'
+                      ? 'TÀI KHOẢN NGÂN HÀNG'
+                      : 'THẺ TÍN DỤNG')}
+                </span>
                 <span>HSD: 12/28</span>
               </div>
 
