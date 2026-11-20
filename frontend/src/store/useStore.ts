@@ -1821,6 +1821,9 @@ export const CATEGORY_MAP: Record<string, { id: number; viName: string; enName: 
   'Khác': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
   'Other': { id: 11, viName: 'Khác', enName: 'Other', icon: 'Ellipsis' },
   'Chi tiêu khác': { id: 11, viName: 'Chi tiêu khác', enName: 'Other', icon: 'Ellipsis' },
+  'Tích lũy & Mục tiêu': { id: 12, viName: 'Tích lũy & Mục tiêu', enName: 'Savings & Goals', icon: 'PiggyBank' },
+  'Tiết kiệm & Mục tiêu': { id: 12, viName: 'Tích lũy & Mục tiêu', enName: 'Savings & Goals', icon: 'PiggyBank' },
+  'Savings & Goals': { id: 12, viName: 'Tích lũy & Mục tiêu', enName: 'Savings & Goals', icon: 'PiggyBank' },
 };
 
 export const getCategoryIdByName = (name?: string): number => {
@@ -1831,6 +1834,7 @@ export const getCategoryIdByName = (name?: string): number => {
   if (match) return match.id;
 
   const lower = trimmed.toLowerCase();
+  if (lower.includes('tích lũy') || lower.includes('tiết kiệm') || lower.includes('savings') || lower.includes('mục tiêu')) return 12;
   if (lower.includes('ăn') || lower.includes('uống') || lower.includes('cà phê') || lower.includes('food')) return 1;
   if (lower.includes('mua') || lower.includes('sắm') || lower.includes('shopping')) return 2;
   if (lower.includes('xe') || lower.includes('di chuyển') || lower.includes('xăng') || lower.includes('transport') || lower.includes('travel')) return 3;
@@ -3072,6 +3076,7 @@ export const useStore = create<AppState>((set, get) => ({
             id: Date.now() + 1,
             walletId,
             walletName: selectedWallet.walletName || 'Tài khoản',
+            categoryId: 12,
             categoryName: 'Tích lũy & Mục tiêu',
             categoryIcon: 'PiggyBank',
             actionTitle: `Khởi tạo mục tiêu chung: ${newGoal.goalName}`,
@@ -3161,6 +3166,7 @@ export const useStore = create<AppState>((set, get) => ({
         try {
           await TransactionService.create({
             walletId,
+            categoryId: 12,
             actionTitle: `Nạp tiền tích lũy: ${targetGoal.goalName || 'Mục tiêu chung'}`,
             amount,
             transactionType: 'EXPENSE',
@@ -3260,6 +3266,7 @@ export const useStore = create<AppState>((set, get) => ({
         id: Date.now(),
         walletId,
         walletName: selectedWallet.walletName || 'Tài khoản',
+        categoryId: 12,
         categoryName: 'Tích lũy & Mục tiêu',
         categoryIcon: 'PiggyBank',
         actionTitle: `Nạp tiền tích lũy: ${selectedGoal.goalName || 'Mục tiêu'}`,
