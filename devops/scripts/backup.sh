@@ -61,6 +61,7 @@ export MYSQL_PWD="$DB_PASSWORD"
     -h "$DB_HOST" \
     -P "$DB_PORT" \
     -u "$DB_USER" \
+    --protocol=TCP \
     --single-transaction \
     --quick \
     --routines \
@@ -82,13 +83,9 @@ FILE_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 
 echo "[$(date)] Backup successful: $BACKUP_FILE ($FILE_SIZE)"
 
-# Keep only the newest 7 backups
+# Keep only the newest 7 backups (compatible with both GNU find and Alpine BusyBox)
 mapfile -t BACKUPS < <(
-    find "$BACKUP_DIR" -maxdepth 1 -type f \
-        -name 'budglee_backup_*.sql.gz' \
-        -printf '%T@ %p\n' |
-    sort -nr |
-    cut -d' ' -f2-
+    ls -1t "$BACKUP_DIR"/budglee_backup_*.sql.gz 2>/dev/null || true
 )
 
 if (( ${#BACKUPS[@]} > RETENTION_COUNT )); then

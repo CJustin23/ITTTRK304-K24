@@ -9,7 +9,7 @@ RUN mvn clean package -DskipTests
 # 2. Runtime Stage
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-RUN apk add --no-cache bash mariadb-client \
+RUN apk add --no-cache bash mariadb-client mariadb-connector-c \
     && addgroup -S budglee && adduser -S budglee -G budglee \
     && mkdir -p /backups && chown budglee:budglee /backups
 USER budglee

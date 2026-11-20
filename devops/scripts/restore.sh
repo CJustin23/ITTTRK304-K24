@@ -1,117 +1,82 @@
-
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
 # ==========================================
-# Budglee - Restore Drill
-# Khôi phục backup vào database kiểm thử riêng
-# Không ghi đè budglee_db
+# Budglee - Restore Script
+# Hỗ trợ cả môi trường Docker/VPS (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
+# lẫn môi trường chạy thủ công với ~/.my.cnf
 # ==========================================
 
-# Cách chạy:
-# ./restore.sh /path/to/budglee_db_backup.sql.gz
-
-BACKUP_FILE="${1:-}"
+RAW_ARG="${1:-}"
+BACKUP_DIR="${BACKUP_DIR:-/backups}"
+DB_HOST="${DB_HOST:-${MYSQL_HOST:-localhost}}"
+DB_PORT="${DB_PORT:-${MYSQL_PORT:-3306}}"
+DB_NAME="${DB_NAME:-budglee_db}"
+DB_USER="${DB_USER:-budglee_user}"
+DB_PASSWORD="${DB_PASSWORD:-}"
 MYSQL_CNF="${MYSQL_CNF:-$HOME/.my.cnf}"
-MYSQL_HOST="${MYSQL_HOST:-localhost}"
-MYSQL_PORT="${MYSQL_PORT:-3306}"
 
-# Tên database kiểm thử tự sinh theo thời gian
-RESTORE_DB="budglee_restore_drill_$(date +%Y%m%d_%H%M%S)"
-
-# Kiểm tra tham số
-if [[ -z "$BACKUP_FILE" ]]; then
-    echo "Usage: $0 /path/to/backup.sql.gz"
+if [[ -z "$RAW_ARG" ]]; then
+    echo "Usage: $0 <backup-file.sql.gz>" >&2
     exit 1
 fi
 
-if [[ ! -f "$BACKUP_FILE" ]]; then
-    echo "ERROR: Không tìm thấy file backup: $BACKUP_FILE"
+if [[ -f "$RAW_ARG" ]]; then
+    BACKUP_FILE="$RAW_ARG"
+elif [[ -f "${BACKUP_DIR}/${RAW_ARG}" ]]; then
+    BACKUP_FILE="${BACKUP_DIR}/${RAW_ARG}"
+else
+    echo "ERROR: Không tìm thấy file backup: $RAW_ARG" >&2
     exit 1
 fi
 
-if [[ ! -f "$MYSQL_CNF" ]]; then
-    echo "ERROR: Không tìm thấy file cấu hình MySQL: $MYSQL_CNF"
-    echo "Hãy tạo ~/.my.cnf với thông tin đăng nhập MySQL."
-    exit 1
-fi
-
-if ! command -v mysql >/dev/null 2>&1; then
-    echo "ERROR: Chưa cài đặt MySQL client."
+if command -v mysql >/dev/null 2>&1; then
+    MYSQL_CMD=mysql
+elif command -v mariadb >/dev/null 2>&1; then
+    MYSQL_CMD=mariadb
+else
+    echo "ERROR: Chưa cài đặt MySQL/MariaDB client." >&2
     exit 1
 fi
 
 if ! command -v gzip >/dev/null 2>&1; then
-    echo "ERROR: Chưa cài đặt gzip."
+    echo "ERROR: Chưa cài đặt gzip." >&2
     exit 1
 fi
 
-# Kiểm tra tính toàn vẹn của file nén
-echo "[1/5] Kiểm tra file backup..."
+echo "[1/3] Kiểm tra tính toàn vẹn file backup..."
 if ! gzip -t "$BACKUP_FILE"; then
-    echo "ERROR: File backup bị lỗi hoặc không phải gzip hợp lệ."
+    echo "ERROR: File backup bị lỗi hoặc không phải định dạng gzip hợp lệ." >&2
     exit 1
 fi
 
 MYSQL_ARGS=(
-    "--defaults-extra-file=$MYSQL_CNF"
-    "--host=$MYSQL_HOST"
-    "--port=$MYSQL_PORT"
+    "--host=$DB_HOST"
+    "--port=$DB_PORT"
+    "--protocol=TCP"
     "--default-character-set=utf8mb4"
 )
 
-echo "[2/5] Kiểm tra kết nối MySQL..."
-mysql "${MYSQL_ARGS[@]}" \
-    --execute="SELECT VERSION();" >/dev/null
+if [[ -n "$DB_PASSWORD" ]]; then
+    export MYSQL_PWD="$DB_PASSWORD"
+    MYSQL_ARGS+=("--user=$DB_USER")
+elif [[ -f "$MYSQL_CNF" ]]; then
+    MYSQL_ARGS=("--defaults-extra-file=$MYSQL_CNF" "${MYSQL_ARGS[@]}")
+else
+    echo "ERROR: Thiếu DB_PASSWORD hoặc file cấu hình $MYSQL_CNF" >&2
+    exit 1
+fi
 
-echo "[3/5] Tạo database kiểm thử: $RESTORE_DB"
-
-mysql "${MYSQL_ARGS[@]}" --execute="
-CREATE DATABASE \`$RESTORE_DB\`
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-"
-
-echo "[4/5] Đang khôi phục dữ liệu..."
-
-# Loại bỏ CREATE DATABASE và USE từ file dump
-# để dữ liệu được nhập vào database kiểm thử.
+echo "[2/3] Đang khôi phục dữ liệu vào database $DB_NAME..."
 if ! gzip -dc "$BACKUP_FILE" |
     sed -E \
         -e '/^[[:space:]]*CREATE DATABASE([[:space:]]|`)/Id' \
         -e '/^[[:space:]]*USE[[:space:]]/Id' |
-    mysql "${MYSQL_ARGS[@]}" "$RESTORE_DB"; then
-
-    echo "ERROR: Khôi phục thất bại."
-    echo "Database kiểm thử có thể đã được tạo một phần: $RESTORE_DB"
-    echo "Không tự động xóa database để giữ lại dữ liệu phục vụ kiểm tra."
+    "$MYSQL_CMD" "${MYSQL_ARGS[@]}" "$DB_NAME"; then
+    unset MYSQL_PWD
+    echo "ERROR: Khôi phục thất bại." >&2
     exit 1
 fi
 
-echo "[5/5] Kiểm tra kết quả khôi phục..."
-
-TABLE_COUNT=$(
-    mysql "${MYSQL_ARGS[@]}" \
-        --batch --skip-column-names \
-        --execute="
-            SELECT COUNT(*)
-            FROM information_schema.tables
-            WHERE table_schema = '$RESTORE_DB'
-              AND table_type = 'BASE TABLE';
-        "
-)
-
-echo
-echo "========== RESTORE RESULT =========="
-echo "Backup file : $BACKUP_FILE"
-echo "Database    : $RESTORE_DB"
-echo "Tables      : $TABLE_COUNT"
-echo "Status      : SUCCESS"
-echo "===================================="
-
-echo
-echo "Danh sách bảng:"
-mysql "${MYSQL_ARGS[@]}" \
-    --execute="SHOW TABLES FROM \`$RESTORE_DB\`;"
-
-echo
+unset MYSQL_PWD
+echo "[3/3] Khôi phục hoàn tất từ file: $BACKUP_FILE"
