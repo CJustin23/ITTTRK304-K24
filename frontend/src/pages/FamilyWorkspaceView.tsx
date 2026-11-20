@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Shield, Copy, Check, Crown, Sparkles, ArrowRight, Clock } from 'lucide-react';
+import { Users, UserPlus, Shield, Copy, Check, Crown, Sparkles, ArrowRight, Clock, Target, PiggyBank, Plus, CheckCircle, Calendar } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export const FamilyWorkspaceView: React.FC = () => {
@@ -8,6 +8,8 @@ export const FamilyWorkspaceView: React.FC = () => {
     familyMembers,
     setFamilyModalOpen,
     wallets,
+    savingGoals,
+    setGoalModalOpen,
     receivedInvitations,
     sentInvitations,
     setConfirmInviteModalOpen,
@@ -224,6 +226,230 @@ export const FamilyWorkspaceView: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Shared Family Saving Goals (Mục tiêu tích lũy chung của gia đình) */}
+      {!isIndividual && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Target className="w-5 h-5 text-emerald-600" />
+                <span>Mục tiêu tích lũy chung của gia đình ({savingGoals.length})</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Các mục tiêu chung để các thành viên cùng đóng góp. Tiền nạp và người đóng góp được minh bạch tự động.
+              </p>
+            </div>
+            <button
+              onClick={() => setGoalModalOpen(true)}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all self-start sm:self-auto cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Tạo mục tiêu chung</span>
+            </button>
+          </div>
+
+          {savingGoals.length === 0 ? (
+            <div className="bg-white rounded-3xl p-8 text-center border border-slate-200/80 shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                <PiggyBank className="w-6 h-6" />
+              </div>
+              <h4 className="text-base font-bold text-slate-800">Chưa có mục tiêu tích lũy chung nào</h4>
+              <p className="text-xs text-slate-500 mt-1 mb-4">
+                Hãy tạo mục tiêu chung như đổi xe, học phí cho con, hoặc du lịch để cả nhà cùng tích lũy!
+              </p>
+              <button
+                onClick={() => setGoalModalOpen(true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm"
+              >
+                + Tạo mục tiêu chung đầu tiên
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savingGoals.map((goal) => {
+                const percentage = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+                const isCompleted = goal.status === 'COMPLETED' || percentage >= 100;
+                const remaining = Math.max(goal.targetAmount - goal.currentAmount, 0);
+
+                return (
+                  <div
+                    key={goal.id}
+                    className={`bg-white rounded-3xl p-6 border transition-all flex flex-col justify-between ${
+                      isCompleted
+                        ? 'border-emerald-300 shadow-md ring-1 ring-emerald-200'
+                        : 'border-slate-200/80 shadow-sm hover:shadow-md'
+                    }`}
+                  >
+                    <div>
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+                          <Target className="w-5 h-5" />
+                        </div>
+                        <span
+                          className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                            isCompleted
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          }`}
+                        >
+                          {isCompleted ? 'Đã hoàn thành' : 'Đang tích lũy'}
+                        </span>
+                      </div>
+
+                      {/* Goal Name & Deadline */}
+                      <h4 className="text-base font-bold text-slate-800 tracking-tight mb-1">
+                        {goal.goalName}
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-4">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>Hạn chót: {goal.deadline || 'Không giới hạn'}</span>
+                      </div>
+
+                      {/* Progress Visual */}
+                      <div className="space-y-1.5 mb-4">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-semibold text-slate-600">Tiến độ chung</span>
+                          <span className="font-bold text-emerald-600">{percentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      {/* Amounts Detail */}
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 mb-4 text-xs">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Đã tích lũy:</span>
+                          <span className="font-bold text-emerald-700">
+                            {new Intl.NumberFormat('vi-VN').format(goal.currentAmount)} ₫
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-500">
+                          <span>Mục tiêu chung:</span>
+                          <span className="font-bold text-slate-800">
+                            {new Intl.NumberFormat('vi-VN').format(goal.targetAmount)} ₫
+                          </span>
+                        </div>
+                        {!isCompleted && remaining > 0 && (
+                          <div className="flex justify-between text-slate-400 pt-1 border-t border-slate-200/60">
+                            <span>Còn thiếu:</span>
+                            <span className="font-semibold text-rose-600">
+                              {new Intl.NumberFormat('vi-VN').format(remaining)} ₫
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contributors Section (Danh sách thành viên gia đình đã nạp tiền) */}
+                      <div className="mb-5 pt-3 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                            <Users className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Thành viên đã nạp ({goal.contributors?.length || 0})</span>
+                          </div>
+                          {goal.contributors && goal.contributors.length > 0 && (
+                            <div className="flex -space-x-1.5 overflow-hidden">
+                              {goal.contributors.slice(0, 3).map((c, idx) => (
+                                <img
+                                  key={idx}
+                                  src={c.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=60&h=60&fit=crop'}
+                                  alt={c.userName}
+                                  title={`${c.userName}: ${new Intl.NumberFormat('vi-VN').format(c.totalAmount)} ₫`}
+                                  className="inline-block w-5 h-5 rounded-full ring-2 ring-white object-cover"
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {goal.contributors && goal.contributors.length > 0 ? (
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                            {goal.contributors.map((c, idx) => (
+                              <div
+                                key={idx}
+                                className="p-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-100 transition-colors text-xs space-y-1"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <img
+                                      src={c.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=60&h=60&fit=crop'}
+                                      alt={c.userName}
+                                      className="w-6 h-6 rounded-full object-cover border border-emerald-400 shrink-0"
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-slate-800 truncate leading-tight">
+                                        {c.userName}
+                                      </p>
+                                      {c.depositCount && (
+                                        <p className="text-[10px] text-slate-400 leading-tight">
+                                          {c.depositCount} lần đóng góp
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="font-bold text-emerald-700">
+                                      {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} ₫
+                                    </span>
+                                    {c.percentage !== undefined && (
+                                      <span className="block text-[10px] font-semibold text-slate-500">
+                                        {c.percentage}% quỹ
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {c.percentage !== undefined && c.percentage > 0 && (
+                                  <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-emerald-500 rounded-full"
+                                      style={{ width: `${Math.min(100, c.percentage)}%` }}
+                                    ></div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="py-2.5 px-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                            <p className="text-[11px] text-slate-400">
+                              Chưa có thành viên nào nạp tiền vào mục tiêu này
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div>
+                      {!isCompleted ? (
+                        <button
+                          onClick={() => {
+                            (window as any).openDepositModal && (window as any).openDepositModal(goal);
+                          }}
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Nạp tiền vào mục tiêu chung</span>
+                        </button>
+                      ) : (
+                        <div className="w-full py-2 bg-emerald-50 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200 text-center flex items-center justify-center gap-1">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Mục tiêu chung đã hoàn thành</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

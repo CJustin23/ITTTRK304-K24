@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, Plus, CheckCircle, Clock, Sparkles, TrendingUp, PiggyBank, Calendar } from 'lucide-react';
+import { Target, Plus, CheckCircle, Clock, Sparkles, TrendingUp, PiggyBank, Calendar, Users } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { SavingGoal } from '../types';
 
@@ -155,7 +155,7 @@ export const SavingGoalsView: React.FC = () => {
                   </div>
 
                   {/* Amounts Detail */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 mb-6 text-xs">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 mb-4 text-xs">
                     <div className="flex justify-between text-slate-500">
                       <span>Đã có:</span>
                       <span className="font-bold text-slate-800">
@@ -168,6 +168,84 @@ export const SavingGoalsView: React.FC = () => {
                         {new Intl.NumberFormat('vi-VN').format(goal.targetAmount)} ₫
                       </span>
                     </div>
+                  </div>
+
+                  {/* Contributors Section (Danh sách người đã nạp tiền) */}
+                  <div className="mb-6 pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                        <Users className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Thành viên đã nạp ({goal.contributors?.length || 0})</span>
+                      </div>
+                      {goal.contributors && goal.contributors.length > 0 && (
+                        <div className="flex -space-x-1.5 overflow-hidden">
+                          {goal.contributors.slice(0, 3).map((c, idx) => (
+                            <img
+                              key={idx}
+                              src={c.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=60&h=60&fit=crop'}
+                              alt={c.userName}
+                              title={`${c.userName}: ${new Intl.NumberFormat('vi-VN').format(c.totalAmount)} ₫`}
+                              className="inline-block w-5 h-5 rounded-full ring-2 ring-white object-cover"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {goal.contributors && goal.contributors.length > 0 ? (
+                      <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                        {goal.contributors.map((c, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-100 transition-colors text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <img
+                                  src={c.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=60&h=60&fit=crop'}
+                                  alt={c.userName}
+                                  className="w-6 h-6 rounded-full object-cover border border-emerald-400 shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-800 truncate leading-tight">
+                                    {c.userName}
+                                  </p>
+                                  {c.depositCount && (
+                                    <p className="text-[10px] text-slate-400 leading-tight">
+                                      {c.depositCount} lần nạp
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="font-bold text-emerald-700">
+                                  {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} ₫
+                                </span>
+                                {c.percentage !== undefined && (
+                                  <span className="block text-[10px] font-semibold text-slate-500">
+                                    {c.percentage}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {c.percentage !== undefined && c.percentage > 0 && (
+                              <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full"
+                                  style={{ width: `${Math.min(100, c.percentage)}%` }}
+                                ></div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-2.5 px-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
+                        <p className="text-[11px] text-slate-400">
+                          Chưa có thành viên nào nạp tiền vào mục tiêu này
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
