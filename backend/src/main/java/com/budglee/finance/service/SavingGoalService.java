@@ -64,18 +64,6 @@ public class SavingGoalService {
 
     @Transactional(readOnly = true)
     public List<SavingGoalResponse> getUserGoals(Long userId) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user != null && user.getFamilyGroupId() != null && !user.getFamilyGroupId().isBlank()) {
-            List<Long> familyMemberIds = userRepository.findByFamilyGroupId(user.getFamilyGroupId())
-                    .stream()
-                    .map(User::getId)
-                    .toList();
-            if (!familyMemberIds.isEmpty()) {
-                return savingGoalRepository.findByUserIdIn(familyMemberIds).stream()
-                        .map(this::toResponse)
-                        .toList();
-            }
-        }
         return savingGoalRepository.findByUserId(userId).stream()
                 .map(this::toResponse)
                 .toList();
@@ -105,7 +93,7 @@ public class SavingGoalService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại"));
         SavingGoal goal = savingGoalRepository.findById(goalId)
-                .filter(g -> canAccessGoal(g, user))
+                .filter(g -> g.getUser().getId().equals(userId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mục tiêu tiết kiệm không tồn tại"));
 
         if (request.getGoalName() != null && !request.getGoalName().isBlank()) {

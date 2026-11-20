@@ -1885,7 +1885,7 @@ export const persistCurrentUserData = (
     localStorage.setItem(storageKey, JSON.stringify(payload));
 
     // Nếu thuộc nhóm gia đình, đồng bộ thêm vào budglee_family_data_<familyGroupId>
-    const isFamilyUser = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || !!user.familyGroupId;
+    const isFamilyUser = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey);
     const famId = user.familyGroupId || (isFamilyUser ? 'FAM-HANHPHUC' : null);
     if (famId) {
       const famKey = 'budglee_family_data_' + famId;
@@ -1898,12 +1898,8 @@ export const persistCurrentUserData = (
         famKey,
         JSON.stringify({
           ...currentFamData,
-          wallets: payload.wallets,
-          recentTransactions: payload.recentTransactions,
-          budgets: payload.budgets,
           familyMembers: payload.familyMembers,
-          familySavingGoals: currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? FAMILY_SHARED_DATA.savingGoals,
-          savingGoals: currentFamData.familySavingGoals ?? currentFamData.savingGoals ?? FAMILY_SHARED_DATA.savingGoals,
+          familySavingGoals: currentFamData.familySavingGoals ?? FAMILY_SHARED_DATA.savingGoals,
         })
       );
     }
@@ -2000,7 +1996,7 @@ const loadInitialAuthState = () => {
     const user: User = JSON.parse(storedUserStr);
     const emailKey = user.email ? user.email.toLowerCase() : 'default';
     const isPersonalThanh = emailKey === 'thanhcanhan@gmail.com' || emailKey === 'demo@budglee.com';
-    const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || user.familyGroupId === 'FAM-HANHPHUC';
+    const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey);
     const famId = user.familyGroupId || (isFamilyThanh ? 'FAM-HANHPHUC' : null);
 
     const storageKey = 'budglee_data_' + emailKey;
@@ -2220,7 +2216,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const emailKey = user.email.toLowerCase();
     const isPersonalThanh = emailKey === 'thanhcanhan@gmail.com' || emailKey === 'demo@budglee.com';
-    const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey) || user.familyGroupId === 'FAM-HANHPHUC';
+    const isFamilyThanh = ['thanhba@gmail.com', 'thanhme@gmail.com', 'thanhcon@gmail.com'].includes(emailKey);
     const famId = user.familyGroupId || (isFamilyThanh ? 'FAM-HANHPHUC' : null);
 
     const storageKey = 'budglee_data_' + emailKey;
@@ -3359,7 +3355,7 @@ export const useStore = create<AppState>((set, get) => ({
         updates.wallets = consolidateWallets([...apiWallets, ...pendingLocalWallets]);
       }
 
-      if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content) && txsRes.value.content.length > 0) {
+      if (txsRes.status === 'fulfilled' && txsRes.value && Array.isArray(txsRes.value.content)) {
         const apiTxs = txsRes.value.content.map((t: any) => {
           const rawCatName = t.category?.name || t.categoryName || '';
           const viCatName = getCategoryViName(rawCatName);
@@ -3463,9 +3459,7 @@ export const useStore = create<AppState>((set, get) => ({
         const pendingLocalGoals = currentGoals.filter(
           (lg) => !apiGoalIds.has(lg.id) && (lg.id > 1000000000000 || typeof lg.id === 'string')
         );
-        if (apiGoals.length > 0 || pendingLocalGoals.length > 0) {
-          updates.savingGoals = [...apiGoals, ...pendingLocalGoals];
-        }
+        updates.savingGoals = [...apiGoals, ...pendingLocalGoals];
       }
 
       if (Object.keys(updates).length > 0) {
@@ -3849,6 +3843,7 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     get().fetchFamilyMembers();
+    get().fetchCoreData();
   },
 
   rejectFamilyInvitation: async (invitationId: number) => {

@@ -214,15 +214,13 @@ class TransactionServiceTest {
         Transaction tx = Transaction.builder().id(100L).wallet(wallet).build();
         Page<Transaction> expected = new PageImpl<>(List.of(tx));
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(walletRepository.findByUserId(1L)).thenReturn(List.of(wallet));
-        when(transactionRepository.findByWalletIdInOrderByTransactionDateDesc(List.of(10L), pageable))
+        when(transactionRepository.findByUserIdOrderByTransactionDateDesc(1L, pageable))
                 .thenReturn(expected);
 
         Page<Transaction> result = transactionService.getUserTransactions(1L, pageable);
 
         assertSame(expected, result);
 
-        verify(transactionRepository).findByWalletIdInOrderByTransactionDateDesc(List.of(10L), pageable);
+        verify(transactionRepository).findByUserIdOrderByTransactionDateDesc(1L, pageable);
     }
 }
